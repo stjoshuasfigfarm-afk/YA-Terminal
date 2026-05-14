@@ -1,66 +1,87 @@
-import React, { useState } from 'react';
-import { Layout as LayoutIcon, Search, Bell, User, Layers, Globe, Activity, TrendingUp, Info, Map as MapIcon } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
-import { Ticker } from './Ticker';
-import { SidebarLeft } from './SidebarLeft';
-import { SidebarRight } from './SidebarRight';
-import { MainContent } from './MainContent';
+import React, { useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
-export default function Layout() {
-  const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
+interface ChartWidgetProps {
+  symbol?: string;
+}
+
+export function ChartWidget({ symbol = "AAPL" }: ChartWidgetProps) {
+  // Generate "dense" mock data
+  const data = useMemo(() => {
+    const points = [];
+    let price = symbol === 'BTC' ? 65000 : 150 + Math.random() * 100;
+    const volatility = symbol === 'BTC' ? 500 : 2;
+    
+    for (let i = 0; i < 24; i++) {
+      const hour = i % 12 || 12;
+      const ampm = i < 12 ? 'AM' : 'PM';
+      price += (Math.random() - 0.5) * volatility;
+      points.push({
+        time: `${hour}${ampm}`,
+        value: parseFloat(price.toFixed(2))
+      });
+    }
+    return points;
+  }, [symbol]);
 
   return (
-    <div className="terminal-grid">
-      {/* Header */}
-      <header className="col-span-3 h-[42px] border-b border-terminal-border bg-terminal-header flex items-center justify-between px-4 z-50 overflow-hidden">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="flex-shrink-0">
-            <div className="text-terminal-accent font-black tracking-tighter text-base uppercase whitespace-nowrap">HY-Terminal <span className="text-white/50 font-normal ml-1">v1.0.4</span></div>
-          </div>
-          <div className="h-4 w-px bg-terminal-border mx-2 hidden sm:block" />
-          <nav className="hidden md:flex items-center gap-4">
-            {['Markets', 'Analytics', 'Strategy'].map((item) => (
-              <button key={item} className="text-[10px] uppercase tracking-widest text-terminal-muted hover:text-terminal-accent transition-colors whitespace-nowrap">
-                {item}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="flex-1 px-8 hidden sm:block overflow-hidden">
-          <Ticker />
-        </div>
-
-        <div className="flex items-center gap-4 text-[10px] text-terminal-muted flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline">LATENCY: 12ms</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-terminal-accent shadow-[0_0_5px_rgba(0,255,65,0.5)]" />
-          </div>
-          <span className="hidden sm:inline">14:22:10 UTC</span>
-          <div className="w-7 h-7 rounded-full bg-[#1A1A1D] border border-zinc-700 flex items-center justify-center text-[10px] text-white flex-shrink-0">JD</div>
-        </div>
-      </header>
-
-      {/* Sidebar Left */}
-      <SidebarLeft onSelect={setSelectedSymbol} selectedSymbol={selectedSymbol} />
-
-      {/* Main Area */}
-      <MainContent selectedSymbol={selectedSymbol} />
-
-      {/* Sidebar Right */}
-      <SidebarRight symbol={selectedSymbol} />
-
-      {/* Footer */}
-      <footer className="col-span-3 h-5 bg-terminal-accent text-black flex items-center px-4 justify-between text-[10px] font-bold">
-        <div className="flex gap-4">
-          <span>TERMINAL STATUS: READY</span>
-          <span>STREAM: LIVE</span>
-        </div>
-        <div className="flex gap-4">
-          <span>S&P 500: 5,475.22 (+0.23%)</span>
-          <span>NASDAQ: 17,862.15 (+0.12%)</span>
-        </div>
-      </footer>
+    <div className="w-full h-full bg-[#0A0A0B] border border-[#2A2A2A] relative overflow-hidden group">
+      <div className="absolute top-2 left-2 z-10 flex gap-2">
+        <span className="text-[8px] font-mono text-zinc-500 bg-black/50 px-1 border border-zinc-500/30">INTRA_60M</span>
+      </div>
+      
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 10, right: 5, left: 0, bottom: 20 }}>
+          <defs>
+            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#00FF41" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#00FF41" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" vertical={false} />
+          <XAxis 
+            dataKey="time" 
+            stroke="#444"
+            fontSize={8}
+            tickLine={false}
+            axisLine={{ stroke: '#222' }}
+            tick={{ fill: '#666' }}
+            minTickGap={20}
+            dy={10}
+          />
+          <YAxis 
+            domain={['auto', 'auto']} 
+            stroke="#444"
+            fontSize={8}
+            tickLine={false}
+            axisLine={{ stroke: '#222' }}
+            tick={{ fill: '#666' }}
+            width={30}
+            tickFormatter={(val) => `$${val}`}
+            mirror={false}
+          />
+          <Tooltip 
+            contentStyle={{ 
+              backgroundColor: '#121214', 
+              border: '1px solid #2A2A2A', 
+              fontSize: '10px', 
+              fontFamily: 'JetBrains Mono' 
+            }}
+            itemStyle={{ color: '#00FF41' }}
+            labelClassName="hidden"
+          />
+          <Area 
+            type="monotone" 
+            dataKey="value" 
+            stroke="#00FF41" 
+            strokeWidth={1.5}
+            fillOpacity={1} 
+            fill="url(#colorValue)" 
+            animationDuration={800}
+            isAnimationActive={true}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
