@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,62 +10,65 @@ const PORT = 3000;
 
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const MARKETAUX_KEY = process.env.MARKETAUX_API_KEY || "";
-const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
-
-const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
-
-// AI Intelligence Agent for News
-async function processIntelligence(newsItems: any[]) {
-  if (!GEMINI_KEY) return newsItems;
-  
-  const prompt = `
-    You are a high-level intelligence analyst. 
-    Analyze the following news headlines and summaries.
-    1. Detect the source language.
-    2. Translate to professional English if needed.
-    3. Summarize into a concise "Neural Link" headline (max 80 chars) and a summary (max 200 chars).
-    
-    Return a JSON array of objects: [{ "translatedTitle": string, "translatedSummary": string, "originalLanguage": string }]
-    
-    News to process:
-    ${newsItems.map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
-  `;
-
-  try {
-    const result = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
-    
-    const processed = JSON.parse(result.text || "[]");
-    return newsItems.map((item, i) => ({
-      ...item,
-      intelligence: processed[i] || { 
-        translatedTitle: item.title, 
-        translatedSummary: item.description, 
-        originalLanguage: "unknown" 
-      }
-    }));
-  } catch (error) {
-    console.error("AI Intelligence Error:", error);
-    return newsItems.map(item => ({
-      ...item,
-      intelligence: { translatedTitle: item.title, translatedSummary: item.description, originalLanguage: "fallback" }
-    }));
-  }
-}
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
+const ITICK_KEY = process.env.ITICK_API_KEY || "";
+const FINANCIAL_DATA_KEY = process.env.FINANCIAL_DATA_API_KEY || "";
 
 // API Routes
 app.get("/api/quote/:symbol", async (req, res) => {
+  const symbol = req.params.symbol;
   try {
-    const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${req.params.symbol}?apikey=${FMP_KEY}`);
-    const data = await response.json();
-    res.json(data[0] || {});
+    // 1. Try Finnhub (Real-time)
+    if (FINNHUB_KEY) {
+      const finnhubUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`;
+      const response = await fetch(finnhubUrl);
+      const data = await response.json();
+      if (data && data.c) {
+        return res.json({
+          price: data.c,
+          change: data.d,
+          changes: data.dp,
+          changesPercentage: data.dp,
+          dayLow: data.l,
+          dayHigh: data.h,
+          open: data.o,
+          previousClose: data.pc,
+          symbol
+        });
+      }
+    }
+
+    // 2. Try ITICK Fallback
+    if (ITICK_KEY) {
+      const itickUrl = `https://itick.org/api/v1/quote?symbol=${symbol}&api_token=${ITICK_KEY}`;
+      const response = await fetch(itickUrl);
+      const data = await response.json();
+      if (data && data.price) {
+        return res.json({
+          price: data.price,
+          change: data.change,
+          changes: data.changes_percentage,
+          symbol
+        });
+      }
+    }
+
+    // 3. Try FMP Fallback
+    const fmpResponse = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`);
+    const fmpData = await fmpResponse.json();
+    if (fmpData && fmpData[0]) {
+      const q = fmpData[0];
+      return res.json({
+        price: q.price,
+        change: q.change,
+        changes: q.changesPercentage,
+        symbol
+      });
+    }
+
+    res.json({});
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch quote" });
+    res.status(500).json({ error: "Telemetry link failure" });
   }
 });
 
@@ -85,8 +87,8 @@ app.get("/api/news/:symbol", async (req, res) => {
     const url = `https://api.marketaux.com/v1/news/all?symbols=${req.params.symbol}&filter_entities=true&limit=3&api_token=${MARKETAUX_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
-    const processedNews = await processIntelligence(data.data || []);
-    res.json(processedNews);
+    // Return raw news, frontend will process with Gemini
+    res.json(data.data || []);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch news" });
   }
@@ -104,10 +106,51 @@ app.get("/api/financials/:symbol", async (req, res) => {
 
 // For Chart Data (Historical Daily)
 app.get("/api/history/:symbol", async (req, res) => {
+  const symbol = req.params.symbol;
   try {
-    const response = await fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${req.params.symbol}?timeseries=30&apikey=${FMP_KEY}`);
-    const data = await response.json();
-    res.json(data);
+    // 1. Attempt FMP first
+    let response = await fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${symbol}?timeseries=30&apikey=${FMP_KEY}`);
+    let data = await response.json();
+    
+    if (data && data.historical && data.historical.length > 0) {
+      return res.json(data);
+    }
+    
+    // 2. Fallback to Finnhub
+    if (FINNHUB_KEY) {
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - (30 * 24 * 60 * 60);
+      const finnhubUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_KEY}`;
+      
+      response = await fetch(finnhubUrl);
+      const fhData = await response.json();
+      
+      if (fhData.s === "ok") {
+        const historical = fhData.t.map((timestamp: number, i: number) => ({
+          date: new Date(timestamp * 1000).toISOString().split('T')[0],
+          close: fhData.c[i]
+        }));
+        return res.json({ symbol, historical });
+      }
+    }
+
+    // 3. Fallback to ITICK
+    if (ITICK_KEY) {
+      const itickUrl = `https://itick.org/api/v1/history?symbol=${symbol}&api_token=${ITICK_KEY}&limit=30`;
+      response = await fetch(itickUrl);
+      const itickData = await response.json();
+      if (itickData && Array.isArray(itickData.history)) {
+        return res.json({ 
+          symbol, 
+          historical: itickData.history.map((h: any) => ({
+            date: h.date,
+            close: h.close
+          }))
+        });
+      }
+    }
+    
+    res.json({ symbol, historical: [] });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch history" });
   }

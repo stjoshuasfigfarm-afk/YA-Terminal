@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { GoogleGenAI } from "@google/genai";
 import { Header } from "./components/Header";
 import { SearchSidebar } from "./components/SearchSidebar";
 import { MapLayer } from "./components/MapLayer";
@@ -16,35 +17,109 @@ export default function App() {
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  const fetchData = useCallback(async (symbol: string) => {
-    setIsLoading(true);
+  const enrichNews = useCallback(async (rawNews: any[]) => {
+    if (!rawNews || rawNews.length === 0) return;
+    
+    setIsAiProcessing(true);
     try {
-      const [q, n, p, f, h] = await Promise.all([
-        fetch(`/api/quote/${symbol}`).then(res => res.json()),
-        fetch(`/api/news/${symbol}`).then(res => res.json()),
-        fetch(`/api/profile/${symbol}`).then(res => res.json()),
-        fetch(`/api/financials/${symbol}`).then(res => res.json()),
-        fetch(`/api/history/${symbol}`).then(res => res.json()),
-      ]);
-      
-      setQuote(q);
-      setNews(n);
-      setProfile(p);
-      setFinancials(f);
-      setHistory(h?.historical || []);
-    } catch (err) {
-      console.error("Data synchronization failed:", err);
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return;
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `
+        Analyze these news headlines/summaries.
+        Translate to professional English if needed.
+        Summarize into a concise "Neural Link" headline (max 80 chars).
+        Return JSON array: [{ "translatedTitle": string }]
+        News:
+        ${rawNews.map((n: any, i: number) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+      `;
+
+      const result = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: { responseMimeType: "application/json" }
+      });
+
+      const processed = JSON.parse(result.text || "[]");
+      const enriched = rawNews.map((item, i) => ({
+        ...item,
+        intelligence: processed[i] || { translatedTitle: item.title }
+      }));
+      setNews(enriched);
+    } catch (error) {
+      console.error("AI Enrichment failed:", error);
     } finally {
-      setIsLoading(false);
+      setIsAiProcessing(false);
     }
   }, []);
 
-  const handleSelectNode = (company: Company) => {
+  const fetchData = useCallback(async (symbol: string) => {
+    if (!symbol) return;
+    setIsLoading(true);
+    
+    try {
+      const [q, n, p, f, h] = await Promise.all([
+        fetch(`/api/quote/${symbol}`).then(res => res.json()).catch(() => ({})),
+        fetch(`/api/news/${symbol}`).then(res => res.json()).catch(() => ([])),
+        fetch(`/api/profile/${symbol}`).then(res => res.json()).catch(() => ({})),
+        fetch(`/api/financials/${symbol}`).then(res => res.json()).catch(() => ([])),
+        fetch(`/api/history/${symbol}`).then(res => res.json()).catch(() => ({ historical: [] })),
+      ]);
+      
+      setQuote(q && !q.error ? q : null);
+      setNews(Array.isArray(n) ? n : []);
+      setProfile(p && !p.error ? p : null);
+      setFinancials(Array.isArray(f) ? f : []);
+      setHistory(h && Array.isArray(h.historical) ? h.historical : []);
+      
+      if (n && n.length > 0) {
+        enrichNews(n);
+      }
+    } catch (err) {
+      console.error("Critical telemetry synchronization failure:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [enrichNews]);
+
+  // Initial Load Guard
+  useEffect(() => {
+    if (!selectedStock && COMPANIES.length > 0) {
+      const defaultCompany = COMPANIES[0];
+      setSelectedStock(defaultCompany);
+      fetchData(defaultCompany.symbol);
+    }
+  }, [fetchData, selectedStock]);
+
+  // Live Telemetry Polling (Every 15s)
+  useEffect(() => {
+    if (!selectedStock) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const [qRes, pRes] = await Promise.all([
+          fetch(`/api/quote/${selectedStock.symbol}`).then(res => res.json()),
+          fetch(`/api/profile/${selectedStock.symbol}`).then(res => res.json())
+        ]);
+        setQuote(qRes);
+        setProfile(pRes);
+      } catch (e) {
+        console.warn("Telemetry polling drift detected.", e);
+      }
+    }, 15000);
+
+    return () => clearInterval(pollInterval);
+  }, [selectedStock]);
+
+  const handleSelectNode = useCallback((company: Company) => {
     setSelectedStock(company);
     fetchData(company.symbol);
-    if (isAutopilot) setIsAutopilot(false); // Disable autopilot on manual selection
-  };
+    if (isAutopilot) setIsAutopilot(false);
+  }, [isAutopilot, fetchData]);
+
 
   // Autopilot Logic
   useEffect(() => {
@@ -77,19 +152,22 @@ export default function App() {
           isAutopilot={isAutopilot}
           toggleAutopilot={() => setIsAutopilot(!isAutopilot)}
         />
-        
+
         <MapLayer 
           selectedStock={selectedStock} 
           onSelectNode={handleSelectNode}
           intelligenceFeed={news}
+          quote={quote}
         />
-        
+
         <IntelligenceSidebar 
           selectedStock={selectedStock}
           news={news}
           financials={financials}
           profile={profile}
+          quote={quote}
           history={history}
+          isAiProcessing={isAiProcessing}
         />
       </main>
 

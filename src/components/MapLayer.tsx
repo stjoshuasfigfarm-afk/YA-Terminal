@@ -50,9 +50,10 @@ interface MapLayerProps {
   selectedStock: Company | null;
   onSelectNode: (c: Company) => void;
   intelligenceFeed?: any[];
+  quote?: any;
 }
 
-export const MapLayer: React.FC<MapLayerProps> = ({ selectedStock, onSelectNode, intelligenceFeed }) => {
+export const MapLayer: React.FC<MapLayerProps> = ({ selectedStock, onSelectNode, intelligenceFeed, quote }) => {
   const activePosition: [number, number] | null = selectedStock ? [selectedStock.lat, selectedStock.lng] : null;
 
   // Derive partner lines
@@ -70,19 +71,19 @@ export const MapLayer: React.FC<MapLayerProps> = ({ selectedStock, onSelectNode,
   }
 
   return (
-    <div className="flex-1 relative bg-[#050505] overflow-hidden border-zinc-800 border-x">
+    <div className="flex-1 relative bg-[#050505] overflow-hidden">
       {/* HUD Overlays */}
-      {selectedStock && intelligenceFeed && intelligenceFeed.length > 0 && (
+      {selectedStock && intelligenceFeed && intelligenceFeed.length > 0 && intelligenceFeed[0] && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 w-64 bg-zinc-900 border border-[#22ab94] p-3 shadow-2xl z-[1000] backdrop-blur-md">
           <div className="flex justify-between items-center mb-2">
             <span className="text-[10px] font-mono text-[#22ab94] font-bold">NEURAL LINK // POPUP</span>
             <span className="text-[10px] font-mono text-zinc-500 uppercase">Vector_{selectedStock.symbol}</span>
           </div>
           <h3 className="text-[11px] font-bold text-white mb-2 leading-tight uppercase tracking-tight">
-            {intelligenceFeed[0].intelligence.translatedTitle}
+            {intelligenceFeed[0].intelligence?.translatedTitle || intelligenceFeed[0].title || "DECRYPTING_SIGNAL"}
           </h3>
           <p className="text-[10px] text-zinc-400 font-mono italic leading-relaxed">
-            GEMINI_SUMMARY: {intelligenceFeed[0].intelligence.translatedSummary}
+            GEMINI_SUMMARY: {intelligenceFeed[0].intelligence?.translatedSummary || intelligenceFeed[0].description || "Analyzing incoming data stream for threat vectors..."}
           </p>
         </div>
       )}
@@ -112,30 +113,41 @@ export const MapLayer: React.FC<MapLayerProps> = ({ selectedStock, onSelectNode,
             position={[company.lat, company.lng]}
             icon={selectedStock?.symbol === company.symbol ? activeIcon : defaultIcon}
             eventHandlers={{
-              click: () => onSelectNode(company),
+              click: (e) => {
+                onSelectNode(company);
+                e.target.openPopup();
+              },
+              mouseover: (e) => {
+                e.target.openPopup();
+              }
             }}
           >
             <Popup className="custom-popup">
-              <div className="bg-zinc-950 text-white p-2 border border-[#22ab94]/50 font-mono">
-                <div className="text-[#22ab94] font-bold text-lg leading-none mb-1">{company.symbol}</div>
-                <div className="text-xs text-zinc-400 mb-2">{company.name}</div>
+              <div className="bg-zinc-950 text-white p-2 border border-[#22ab94]/50 font-mono min-w-[120px]">
+                <div className="flex justify-between items-start mb-1">
+                  <div className="text-[#22ab94] font-bold text-lg leading-none">{company.symbol}</div>
+                  {selectedStock?.symbol === company.symbol && quote?.price && (
+                    <div className="text-xs text-white font-bold animate-pulse">${quote.price.toFixed(2)}</div>
+                  )}
+                </div>
+                <div className="text-[9px] text-zinc-400 mb-2 truncate max-w-[100px]">{company.name}</div>
                 
-                {intelligenceFeed && intelligenceFeed.length > 0 && (
+                {selectedStock?.symbol === company.symbol && intelligenceFeed && intelligenceFeed.length > 0 && (
                    <div className="mt-2 pt-2 border-t border-[#22ab94]/20">
-                      <div className="flex items-center gap-1 text-[#22ab94] text-[10px] font-bold uppercase mb-1">
-                        <MessageSquare className="w-3 h-3" /> Intelligence Feed
+                      <div className="flex items-center gap-1 text-[#22ab94] text-[9px] font-bold uppercase mb-1">
+                        <MessageSquare className="w-2.5 h-2.5" /> Intelligence
                       </div>
-                      <div className="text-[10px] italic line-clamp-2">
-                        "{intelligenceFeed[0].intelligence.translatedTitle}"
+                      <div className="text-[9px] italic line-clamp-1 opacity-70">
+                        {intelligenceFeed[0].intelligence?.translatedTitle || intelligenceFeed[0].title || "Initializing..."}
                       </div>
                    </div>
                 )}
                 
                 <button 
                   onClick={() => onSelectNode(company)}
-                  className="mt-3 w-full bg-[#22ab94] text-black text-[10px] py-1 font-bold uppercase tracking-widest hover:bg-white transition-colors"
+                  className="mt-3 w-full bg-[#22ab94] text-black text-[9px] py-1 font-bold uppercase tracking-widest hover:bg-white transition-colors"
                 >
-                  Intercept Data
+                  Sync Link
                 </button>
               </div>
             </Popup>

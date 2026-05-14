@@ -1,171 +1,208 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createChart, ColorType, IChartApi, ISeriesApi } from "lightweight-charts";
+import React from "react";
 import { Company } from "../data/companies";
-import { TrendingUp, BarChart3, Info, Newspaper, User, Users, Landmark, Coins } from "lucide-react";
+import { TrendingUp, Newspaper, Activity, Zap, Globe } from "lucide-react";
 import { formatCurrency, cn } from "../lib/utils";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  BarChart, 
+  Bar,
+  Cell
+} from 'recharts';
 
 interface IntelligenceSidebarProps {
   selectedStock: Company | null;
   news: any[];
   financials: any[];
   profile: any;
+  quote?: any;
   history: any[];
+  isAiProcessing: boolean;
 }
 
 export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({ 
   selectedStock, 
-  news, 
-  financials, 
+  news = [], 
+  financials = [], 
   profile, 
-  history 
+  quote,
+  history = [],
+  isAiProcessing
 }) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const earningsContainerRef = useRef<HTMLDivElement>(null);
-  
-  const [chart, setChart] = useState<IChartApi | null>(null);
-  const [earningsChart, setEarningsChart] = useState<IChartApi | null>(null);
-
-  useEffect(() => {
-    if (!chartContainerRef.current) return;
-
-    const newChart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#22ab94",
-        fontFamily: "JetBrains Mono, monospace",
-      },
-      grid: {
-        vertLines: { color: "#22ab9422" },
-        horzLines: { color: "#22ab9422" },
-      },
-      width: chartContainerRef.current.clientWidth,
-      height: 250,
-      timeScale: { borderVisible: false },
-      rightPriceScale: { borderVisible: false },
-    }) as any;
-
-    const series = newChart.addAreaSeries({
-      lineColor: "#22ab94",
-      topColor: "#22ab9444",
-      bottomColor: "transparent",
-      lineWidth: 2,
-    });
-
-    if (history && history.length > 0) {
-      const formattedData = history.map(item => ({
-        time: item.date,
-        value: item.close
-      })).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-      series.setData(formattedData);
-      newChart.timeScale().fitContent();
-    }
-
-    setChart(newChart);
-
-    // Earnings Chart
-    if (earningsContainerRef.current) {
-        const hChart = createChart(earningsContainerRef.current, {
-            layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#888" },
-            grid: { vertLines: { visible: false }, horzLines: { color: "#222" } },
-            width: earningsContainerRef.current.clientWidth,
-            height: 120,
-            timeScale: { borderVisible: false, visible: false },
-            rightPriceScale: { borderVisible: false },
-        }) as any;
-
-        const histogram = hChart.addHistogramSeries({
-            color: '#22ab94',
-        });
-
-        if (financials && financials.length > 0) {
-            const histData = financials.map((f: any) => ({
-                time: f.date,
-                value: f.netIncome,
-                color: f.netIncome > 0 ? '#22ab94' : '#ef4444'
-            })).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-            histogram.setData(histData);
-            hChart.timeScale().fitContent();
-        }
-        setEarningsChart(hChart);
-    }
-
-    const handleResize = () => {
-      if (chartContainerRef.current) newChart.applyOptions({ width: chartContainerRef.current.clientWidth });
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      newChart.remove();
-    };
-  }, [selectedStock, history, financials]);
-
   if (!selectedStock) {
     return (
-      <aside className="w-[450px] bg-zinc-950 border-l border-[#22ab94] flex flex-col items-center justify-center p-8 text-center">
-        <Activity className="w-16 h-16 text-zinc-800 mb-4 animate-pulse" />
-        <h3 className="font-mono text-[#22ab94] uppercase tracking-[0.3em] font-bold">Awaiting Target Selection</h3>
-        <p className="text-zinc-600 font-mono text-[10px] mt-2">Initialize node link from Global Grid to decrypt intelligence feed.</p>
+      <aside className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
+        <div className="p-4 border-b border-zinc-800 bg-black">
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">System_Idle</div>
+          <h2 className="font-mono text-xl text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-black/20">
+          <Activity className="w-16 h-16 text-zinc-900 mb-4 animate-pulse" />
+          <h3 className="font-mono text-[#22ab94] uppercase tracking-[0.3em] font-bold text-xs">Uplink Required</h3>
+          <p className="text-zinc-600 font-mono text-[9px] mt-2 leading-relaxed italic">Select a node from the global distribution network to initialize live data telemetry.</p>
+        </div>
       </aside>
     );
   }
 
+  const chartData = Array.isArray(history) 
+    ? history
+        .filter(item => item && item.date && item.close !== undefined)
+        .map(item => ({
+          time: item.date,
+          value: item.close
+        }))
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+    : [];
+
+  const earningsData = Array.isArray(financials)
+    ? financials
+        .filter((f: any) => f && f.date && f.netIncome !== undefined)
+        .map((f: any) => ({
+          time: f.date,
+          value: f.netIncome,
+        }))
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+    : [];
+
+  const livePrice = quote?.price || profile?.price;
+  const liveChanges = quote?.changes !== undefined ? quote.changes : profile?.changes;
+
   return (
     <aside className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
-      {/* PRICE CHART */}
-      <div className="h-56 border-b border-zinc-800 p-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-[10px] font-mono uppercase text-zinc-500 tracking-widest">Price_Analysis_30D</span>
-          <span className="text-[10px] font-mono text-[#22ab94]">VOL: {profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</span>
+      {/* TICKET / PROFILE HEADER */}
+      <div className="p-4 border-b border-zinc-800 bg-black">
+        <div className="flex justify-between items-start mb-1">
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+            <Globe className="w-3 h-3" /> Live_Protocol
+          </div>
+          <div className="flex items-center gap-2">
+            {isAiProcessing && <Zap className="w-2.5 h-2.5 text-[#22ab94] animate-pulse" />}
+            <div className="text-[10px] bg-[#22ab94]/10 text-[#22ab94] px-1.5 py-0.5 border border-[#22ab94]/20 font-mono font-bold">LOCKED</div>
+          </div>
         </div>
-        <div ref={chartContainerRef} className="h-44 w-full" />
-      </div>
-
-      {/* EARNINGS ANALYSIS */}
-      <div className="h-32 border-b border-zinc-800 p-4">
-        <div className="text-[10px] font-mono uppercase text-zinc-500 mb-2 font-bold tracking-widest">Historical_Net_Income</div>
-        <div ref={earningsContainerRef} className="h-20 w-full" />
-      </div>
-
-      {/* DATA GRID */}
-      <div className="p-4 border-b border-zinc-800 h-auto">
-        <table className="w-full text-[10px] font-mono text-zinc-400">
-          <tbody>
-            <tr className="border-b border-zinc-900">
-              <td className="py-1.5 uppercase">Market Cap</td>
-              <td className="py-1.5 text-right text-white font-bold">{formatCurrency(profile?.mktCap || 0)}</td>
-            </tr>
-            <tr className="border-b border-zinc-900">
-              <td className="py-1.5 uppercase">Sector</td>
-              <td className="py-1.5 text-right text-white truncate max-w-[150px]">{profile?.sector || "---"}</td>
-            </tr>
-            <tr className="border-b border-zinc-900">
-              <td className="py-1.5 uppercase">Employees</td>
-              <td className="py-1.5 text-right text-white">{profile?.fullTimeEmployees?.toLocaleString() || "---"}</td>
-            </tr>
-            <tr>
-              <td className="py-1.5 uppercase">Exchange</td>
-              <td className="py-1.5 text-right text-white">{profile?.exchangeShortName || "---"}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* LIVE INTELLIGENCE FEED */}
-      <div className="flex-1 p-4 bg-black overflow-hidden relative flex flex-col">
-        <div className="text-[10px] font-mono text-[#22ab94] mb-3 uppercase font-bold tracking-widest">_Live_Intelligence_Feed</div>
-        <div className="space-y-3 font-mono text-[10px] flex-1 overflow-y-auto custom-scrollbar">
-          {news.map((item, idx) => (
-            <div key={idx} className="border-l border-zinc-800 pl-3 py-1 group">
-              <span className="text-zinc-600 uppercase">[{new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span>
-              <p className="text-zinc-400 underline decoration-[#22ab94]/30 decoration-dotted mt-0.5 group-hover:text-zinc-200 transition-colors">
-                {item.intelligence?.translatedTitle || item.title}
-              </p>
+        <div className="flex items-end justify-between">
+          <div>
+            <h2 className="font-mono text-3xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
+            <div className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-tight truncate max-w-[150px]">{selectedStock.name}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-mono text-white font-bold leading-none tracking-tighter">
+              ${livePrice?.toFixed(2) || "---"}
             </div>
-          ))}
-          {news.length === 0 && (
-            <div className="text-zinc-700 italic py-4">Scanning Neural Link channels for relevant Tier-1 supply chain updates...</div>
+            <div className={cn(
+              "text-[10px] font-mono font-bold mt-1",
+              (liveChanges || 0) >= 0 ? "text-green-500" : "text-red-500"
+            )}>
+              {(liveChanges || 0) >= 0 ? "+" : ""}{(liveChanges || 0).toFixed(2)}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PRICE CHART */}
+      <div className="h-[250px] border-b border-zinc-800 p-4 bg-zinc-900/10 relative overflow-hidden">
+        <div className="flex justify-between items-center mb-2 z-10 relative">
+          <span className="text-[10px] font-mono uppercase text-zinc-500 tracking-widest flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" /> Timeline_30D
+          </span>
+          <span className="text-[10px] font-mono text-[#22ab94] flex items-center gap-1">
+            <div className="w-1.5 h-1.5 bg-[#22ab94] rounded-full animate-pulse" />
+            LIVE_FEED
+          </span>
+        </div>
+        <div className="absolute inset-x-0 bottom-4 top-12">
+          {chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <XAxis dataKey="time" hide />
+                <YAxis domain={['auto', 'auto']} hide />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#000', border: '1px solid #22ab94', borderRadius: '0', fontSize: '10px', fontFamily: 'JetBrains Mono' }}
+                  itemStyle={{ color: '#22ab94' }}
+                  labelStyle={{ color: '#666' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#22ab94" 
+                  strokeWidth={2} 
+                  dot={false}
+                  animationDuration={500}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="font-mono text-[9px] text-zinc-800 animate-pulse uppercase tracking-[0.5em]">Waiting_For_Telemetry...</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* QUICK STATS & MINI CHART */}
+      <div className="grid grid-cols-2 border-b border-zinc-800 bg-black/40">
+        <div className="p-3 border-r border-zinc-800 bg-black/20">
+          <div className="text-[9px] font-mono text-zinc-600 uppercase mb-1">Market Cap</div>
+          <div className="font-mono text-xs text-[#22ab94] font-bold">{profile?.mktCap ? formatCurrency(profile.mktCap) : "---"}</div>
+          <div className="mt-4 text-[9px] font-mono text-zinc-600 uppercase mb-1">Volume (Avg)</div>
+          <div className="font-mono text-xs text-zinc-400">{profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</div>
+        </div>
+        <div className="p-3">
+          <div className="text-[9px] font-mono text-zinc-600 uppercase mb-2">Income_History</div>
+          <div className="w-full h-16">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={earningsData}>
+                <Bar dataKey="value">
+                  {earningsData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.value > 0 ? '#22ab94' : '#ef4444'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* INTELLIGENCE FEED */}
+      <div className="flex-1 flex flex-col overflow-hidden bg-black">
+        <div className="p-3 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
+          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+            <Newspaper className="w-3 h-3" /> Intelligence_Sync
+          </span>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+          {news && news.length > 0 ? (
+            news.map((item, idx) => (
+              <div key={idx} className="group border-b border-zinc-900 pb-3 last:border-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[9px] font-mono text-zinc-700">
+                    {new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <div className="h-[1px] flex-1 bg-zinc-900 group-hover:bg-[#22ab94]/20" />
+                </div>
+                <h4 className="text-[11px] font-bold text-zinc-400 leading-snug group-hover:text-[#22ab94] transition-colors line-clamp-2">
+                  {item.intelligence?.translatedTitle || item.title}
+                </h4>
+              </div>
+            ))
+          ) : (
+            <div className="py-8 text-center opacity-20">
+              <Activity className="w-8 h-8 text-white mx-auto mb-2 animate-pulse" />
+              <div className="text-[10px] font-mono uppercase">Scanning_Neural_Feed...</div>
+            </div>
+          )}
+          
+          {isAiProcessing && (
+            <div className="py-2 flex items-center gap-2 border-t border-[#22ab94]/10">
+              <div className="w-1 h-1 bg-[#22ab94] rounded-full animate-ping" />
+              <span className="text-[8px] font-mono text-[#22ab94] uppercase tracking-tighter">Gemini_Enrichment_Active</span>
+            </div>
           )}
         </div>
       </div>
@@ -173,18 +210,3 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   );
 };
 
-const DataBlock = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) => (
-  <div className="border border-zinc-900 p-2 bg-black/40">
-    <div className="flex items-center gap-2 mb-1">
-      <span className="text-zinc-600">{icon}</span>
-      <span className="text-[9px] text-zinc-600 uppercase font-bold tracking-tighter">{label}</span>
-    </div>
-    <div className="font-mono text-sm text-[#22ab94] font-bold">{value}</div>
-  </div>
-);
-
-const Activity = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-  </svg>
-);

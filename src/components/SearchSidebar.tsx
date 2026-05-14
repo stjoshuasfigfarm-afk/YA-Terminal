@@ -77,7 +77,7 @@ export const SearchSidebar: React.FC<SearchSidebarProps> = ({
         </div>
         <div className="mt-2 h-1 bg-zinc-800 overflow-hidden">
           <div 
-            className={cn("h-full bg-[#22ab94] transition-all duration-1000", isAutopilot ? "w-65%" : "w-0")}
+            className={cn("h-full bg-[#22ab94] transition-all duration-1000", isAutopilot ? "w-[65%]" : "w-0")}
           ></div>
         </div>
       </div>

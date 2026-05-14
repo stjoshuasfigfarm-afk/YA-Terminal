@@ -3,10 +3,10 @@ import { Shield, Activity, Globe } from "lucide-react";
 import { cn } from "../lib/utils";
 
 interface HeaderProps {
-  selectedStock?: any;
+  quote?: any;
 }
 
-export const Header: React.FC<HeaderProps> = ({ selectedStock }) => {
+export const Header: React.FC<HeaderProps> = ({ quote }) => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -17,20 +17,22 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock }) => {
   return (
     <header className="h-12 border-b border-zinc-800 flex items-center bg-black shrink-0 relative overflow-hidden z-20">
       <div className="flex items-center px-4 h-full border-r border-zinc-800 bg-zinc-900 z-10">
-        <span className="text-[#22ab94] font-black tracking-tighter text-xl">GIAT // 0.1</span>
+        <span className="text-[#22ab94] font-black tracking-tighter text-xl uppercase">YA TERMINAL // 0.1</span>
       </div>
       
       <div className="flex-1 flex items-center px-4 space-x-6 overflow-hidden">
-        {selectedStock && (
+        {quote && (
           <div className="flex items-center space-x-2 shrink-0">
             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Active Tracking:</span>
-            <span className="text-sm font-mono text-[#22ab94]">{selectedStock.symbol || "---"}</span>
-            <span className="text-sm font-mono text-white">${selectedStock.price?.toFixed(2) || "---"}</span>
+            <span className="text-sm font-mono text-[#22ab94]">{quote.symbol || "---"}</span>
+            <span className="text-sm font-mono text-white tracking-tighter">
+              ${(quote.price || 0).toFixed(2)}
+            </span>
             <span className={cn(
               "text-[10px] font-mono underline underline-offset-4",
-              (selectedStock.changes || 0) >= 0 ? "text-green-500" : "text-red-500"
+              (quote.changes || 0) >= 0 ? "text-green-500" : "text-red-500"
             )}>
-              {(selectedStock.changes || 0) >= 0 ? "+" : ""}{(selectedStock.changes || 0).toFixed(2)}%
+              {(quote.changes || 0) >= 0 ? "+" : ""}{(quote.changes || 0).toFixed(2)}%
             </span>
           </div>
         )}
