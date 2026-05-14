@@ -21,6 +21,7 @@ interface IntelligenceSidebarProps {
   profile: any;
   quote?: any;
   history: any[];
+  mktCapHistory: any[];
   isAiProcessing: boolean;
 }
 
@@ -31,6 +32,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   profile, 
   quote,
   history = [],
+  mktCapHistory = [],
   isAiProcessing
 }) => {
   if (!selectedStock) {
@@ -52,10 +54,17 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   const chartData = Array.isArray(history) 
     ? history
         .filter(item => item && item.date && item.close !== undefined)
-        .map(item => ({
-          time: item.date,
-          value: item.close
-        }))
+        .map(item => {
+          const mktCapItem = Array.isArray(mktCapHistory) 
+            ? mktCapHistory.find(m => m.date === item.date)
+            : null;
+          return {
+            time: item.date,
+            price: item.close,
+            mktCap: mktCapItem ? mktCapItem.marketCap : null
+          };
+        })
+        .filter(d => d.price !== null && d.mktCap !== null)
         .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
     : [];
 
@@ -108,11 +117,13 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
       <div className="h-[250px] border-b border-zinc-800 p-4 bg-zinc-900/10 relative overflow-hidden">
         <div className="flex justify-between items-center mb-2 z-10 relative">
           <span className="text-[10px] font-mono uppercase text-zinc-500 tracking-widest flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> Timeline_30D
+            <TrendingUp className="w-3 h-3" /> Price vs Mkt_Cap
           </span>
           <span className="text-[10px] font-mono text-[#22ab94] flex items-center gap-1">
-            <div className="w-1.5 h-1.5 bg-[#22ab94] rounded-full animate-pulse" />
-            LIVE_FEED
+            <div className="w-1 h-1 bg-[#22ab94] rounded-full" />
+            Price
+            <div className="w-1 h-1 bg-white rounded-full ml-1" />
+            Cap
           </span>
         </div>
         <div className="absolute inset-x-0 bottom-4 top-12">
@@ -120,17 +131,33 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <XAxis dataKey="time" hide />
-                <YAxis domain={['auto', 'auto']} hide />
+                <YAxis yAxisId="left" domain={['auto', 'auto']} hide />
+                <YAxis yAxisId="right" orientation="right" domain={['auto', 'auto']} hide />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#000', border: '1px solid #22ab94', borderRadius: '0', fontSize: '10px', fontFamily: 'JetBrains Mono' }}
-                  itemStyle={{ color: '#22ab94' }}
-                  labelStyle={{ color: '#666' }}
+                  itemStyle={{ fontSize: '9px', padding: '2px 0' }}
+                  labelStyle={{ color: '#666', marginBottom: '4px' }}
+                  formatter={(value: any, name: string) => {
+                    if (name === "mktCap") return [formatCurrency(value), "Market Cap"];
+                    return [`$${value.toFixed(2)}`, "Price"];
+                  }}
                 />
                 <Line 
+                  yAxisId="left"
                   type="monotone" 
-                  dataKey="value" 
+                  dataKey="price" 
                   stroke="#22ab94" 
                   strokeWidth={2} 
+                  dot={false}
+                  animationDuration={500}
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="mktCap" 
+                  stroke="#ffffff" 
+                  strokeWidth={1} 
+                  strokeDasharray="3 3"
                   dot={false}
                   animationDuration={500}
                 />

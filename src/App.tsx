@@ -16,6 +16,7 @@ export default function App() {
   const [financials, setFinancials] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [mktCapHistory, setMktCapHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
@@ -61,12 +62,13 @@ export default function App() {
     setIsLoading(true);
     
     try {
-      const [q, n, p, f, h] = await Promise.all([
+      const [q, n, p, f, h, m] = await Promise.all([
         fetch(`/api/quote/${symbol}`).then(res => res.json()).catch(() => ({})),
         fetch(`/api/news/${symbol}`).then(res => res.json()).catch(() => ([])),
         fetch(`/api/profile/${symbol}`).then(res => res.json()).catch(() => ({})),
         fetch(`/api/financials/${symbol}`).then(res => res.json()).catch(() => ([])),
         fetch(`/api/history/${symbol}`).then(res => res.json()).catch(() => ({ historical: [] })),
+        fetch(`/api/market-cap/${symbol}`).then(res => res.json()).catch(() => ([])),
       ]);
       
       setQuote(q && !q.error ? q : null);
@@ -74,6 +76,7 @@ export default function App() {
       setProfile(p && !p.error ? p : null);
       setFinancials(Array.isArray(f) ? f : []);
       setHistory(h && Array.isArray(h.historical) ? h.historical : []);
+      setMktCapHistory(Array.isArray(m) ? m : []);
       
       if (n && n.length > 0) {
         enrichNews(n);
@@ -167,6 +170,7 @@ export default function App() {
           profile={profile}
           quote={quote}
           history={history}
+          mktCapHistory={mktCapHistory}
           isAiProcessing={isAiProcessing}
         />
       </main>

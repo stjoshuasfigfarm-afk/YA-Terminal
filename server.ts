@@ -156,6 +156,17 @@ app.get("/api/history/:symbol", async (req, res) => {
   }
 });
 
+app.get("/api/market-cap/:symbol", async (req, res) => {
+  const symbol = req.params.symbol;
+  try {
+    const response = await fetch(`https://financialmodelingprep.com/api/v3/historical-market-capitalization/${symbol}?limit=30&apikey=${FMP_KEY}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch market cap history" });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
