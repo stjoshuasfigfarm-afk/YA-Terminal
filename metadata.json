@@ -1,6 +1,6 @@
 {
-  "name": "YA Terminal",
-  "description": "High-fidelity financial intelligence dashboard with global map integration, 150+ company nodes, and AI-powered news translation.",
+  "name": "Y Analysis Terminal",
+  "description": "Y Analysis global financial dashboard with real-time Finnhub telemetry, neural-link AI analysis, and advanced geospatial market visualization.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
