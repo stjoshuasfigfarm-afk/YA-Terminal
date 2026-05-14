@@ -3,7 +3,8 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { COMPANIES, Company } from "../data/companies";
-import { TrendingUp, MessageSquare, Cpu } from "lucide-react";
+import { TrendingUp, MessageSquare, Cpu, Newspaper } from "lucide-react";
+import { cn } from "../lib/utils";
 
 // Fix leaflet icon issue
 // @ts-ignore
@@ -30,16 +31,62 @@ const createPulseIcon = (color: string) => L.divIcon({
 const defaultIcon = createPulseIcon("#22ab94");
 const activeIcon = createPulseIcon("#ffffff");
 
+// Utility to validate coordinates
+const isValidCoord = (val: any): val is number => 
+  typeof val === 'number' && !isNaN(val) && Number.isFinite(val);
+
+const isSafeLatLng = (lat: any, lng: any): boolean => {
+  try {
+    if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+    
+    // Check if it's already a number or can be converted
+    const nLat = typeof lat === 'number' ? lat : parseFloat(String(lat));
+    const nLng = typeof lng === 'number' ? lng : parseFloat(String(lng));
+    
+    // Explicit checks for NaN and Infinity using the most robust methods
+    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) {
+      return false;
+    }
+    
+    // Valid coordinate ranges for Earth
+    return nLat >= -90 && nLat <= 90 && nLng >= -180 && nLng <= 180;
+  } catch {
+    return false;
+  }
+};
+
+// Safety wrapper for L.latLng to prevent crashes
+const safeLatLng = (lat: any, lng: any): L.LatLng | null => {
+  if (isSafeLatLng(lat, lng)) {
+    try {
+      return L.latLng(Number(lat), Number(lng));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 // Controller component to handle fly-to
 const MapController = ({ selectedPosition }: { selectedPosition: [number, number] | null }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (selectedPosition) {
-      map.flyTo(selectedPosition, 6, {
-        duration: 1.5,
-        easeLinearity: 0.25
-      });
+    if (selectedPosition && Array.isArray(selectedPosition)) {
+      const lat = selectedPosition[0];
+      const lng = selectedPosition[1];
+      
+      const pos = safeLatLng(lat, lng);
+      if (pos) {
+        try {
+          map.flyTo(pos, 6, {
+            duration: 1.5,
+            easeLinearity: 0.25
+          });
+        } catch (err) {
+          console.error("Map flyTo critically failed:", err, pos);
+        }
+      }
     }
   }, [selectedPosition, map]);
 
@@ -48,48 +95,112 @@ const MapController = ({ selectedPosition }: { selectedPosition: [number, number
 
 interface MapLayerProps {
   selectedStock: Company | null;
+  focusStock?: Company | null;
   onSelectNode: (c: Company) => void;
   intelligenceFeed?: any[];
+  isIntelligenceStream?: boolean;
+  toggleIntelligenceStream?: () => void;
 }
 
-export const MapLayer: React.FC<MapLayerProps> = ({ selectedStock, onSelectNode, intelligenceFeed }) => {
-  const activePosition: [number, number] | null = selectedStock ? [selectedStock.lat, selectedStock.lng] : null;
+export const MapLayer: React.FC<MapLayerProps> = ({ 
+  selectedStock, 
+  focusStock,
+  onSelectNode, 
+  intelligenceFeed,
+  isIntelligenceStream,
+  toggleIntelligenceStream
+}) => {
+  const activePosition = React.useMemo((): [number, number] | null => {
+    try {
+      const target = focusStock || selectedStock;
+      if (target && isSafeLatLng(target.lat, target.lng)) {
+        const lat = Number(target.lat);
+        const lng = Number(target.lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          return [lat, lng];
+        }
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }, [focusStock, selectedStock]);
 
   // Derive partner lines
-  const partnerLines: any[] = [];
-  if (selectedStock && selectedStock.partners) {
-    selectedStock.partners.forEach(pSymbol => {
-      const partner = COMPANIES.find(c => c.symbol === pSymbol);
-      if (partner) {
-        partnerLines.push([
-          [selectedStock.lat, selectedStock.lng],
-          [partner.lat, partner.lng]
-        ]);
+  const partnerLines = React.useMemo((): [number, number][][] => {
+    const lines: [number, number][][] = [];
+    if (selectedStock && selectedStock.partners && isSafeLatLng(selectedStock.lat, selectedStock.lng)) {
+      const sLat = Number(selectedStock.lat);
+      const sLng = Number(selectedStock.lng);
+      
+      selectedStock.partners.forEach(pSymbol => {
+        const partner = COMPANIES.find(c => c.symbol === pSymbol);
+        if (partner && isSafeLatLng(partner.lat, partner.lng)) {
+          const pLat = Number(partner.lat);
+          const pLng = Number(partner.lng);
+          if (Number.isFinite(pLat) && Number.isFinite(pLng)) {
+            lines.push([
+              [sLat, sLng],
+              [pLat, pLng]
+            ]);
+          }
+        }
+      });
+    }
+    return lines;
+  }, [selectedStock]);
+
+  // Ref to store markers for programmatic popup opening
+  const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
+
+  useEffect(() => {
+    try {
+      const target = focusStock || selectedStock;
+      if (target && markerRefs.current[target.symbol]) {
+        const marker = markerRefs.current[target.symbol];
+        if (marker) {
+          // Delay to allow flyTo to progress
+          const timer = setTimeout(() => {
+            try {
+              if (marker && typeof marker.openPopup === 'function') {
+                marker.openPopup();
+              }
+            } catch (err) {
+              console.warn("Could not open popup for marker", target.symbol, err);
+            }
+          }, 1200);
+          return () => clearTimeout(timer);
+        }
       }
-    });
-  }
+    } catch (err) {
+      console.warn("Popup effect failed gracefully", err);
+    }
+  }, [focusStock, selectedStock]);
 
   return (
     <div className="flex-1 relative bg-[#050505] overflow-hidden">
-      {/* HUD Overlays */}
-      {selectedStock && intelligenceFeed && intelligenceFeed.length > 0 && intelligenceFeed[0] && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-64 bg-zinc-900 border border-[#22ab94] p-3 shadow-2xl z-[1000] backdrop-blur-md">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[10px] font-mono text-[#22ab94] font-bold">NEURAL LINK // POPUP</span>
-            <span className="text-[10px] font-mono text-zinc-500 uppercase">Vector_{selectedStock.symbol}</span>
+      {/* Map HUD Control - Top Left */}
+      <div className="absolute top-4 left-4 z-[1002] flex flex-col gap-2 pointer-events-auto">
+        <button 
+          onClick={toggleIntelligenceStream}
+          className={cn(
+            "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative",
+            isIntelligenceStream ? "bg-[#22ab94] text-black border-[#22ab94] shadow-[0_0_15px_#22ab94]" : "bg-zinc-900/90 border-zinc-800 text-[#22ab94] hover:bg-[#22ab94] hover:text-black"
+          )}
+        >
+          <Newspaper className={cn("w-5 h-5 transition-transform", isIntelligenceStream ? "scale-110" : "group-hover:rotate-12")} />
+          <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-[#22ab94] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-[#22ab94] shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
+            {isIntelligenceStream ? "Neural_Stream_Enabled" : "Enable_Neural_Stream"}
           </div>
-          <h3 className="text-[11px] font-bold text-white mb-2 leading-tight uppercase tracking-tight">
-            {intelligenceFeed[0].intelligence?.translatedTitle || intelligenceFeed[0].title || "DECRYPTING_SIGNAL"}
-          </h3>
-          <p className="text-[10px] text-zinc-400 font-mono italic leading-relaxed">
-            GEMINI_SUMMARY: {intelligenceFeed[0].intelligence?.translatedSummary || intelligenceFeed[0].description || "Analyzing incoming data stream for threat vectors..."}
-          </p>
-        </div>
-      )}
+          {isIntelligenceStream && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full border-2 border-black animate-pulse" />
+          )}
+        </button>
+      </div>
       
       <div className="absolute bottom-4 left-4 z-[1000] pointer-events-none">
         <div className="bg-zinc-900/80 p-2 border border-zinc-800 font-mono text-[9px] uppercase tracking-widest text-[#22ab94] backdrop-blur-sm shadow-xl">
-          LAT: {activePosition?.[0].toFixed(4) || "0.0000"} | LONG: {activePosition?.[1].toFixed(4) || "0.0000"} | ALT: 149M
+          LAT: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[0]).toFixed(4) : "0.0000"} | LONG: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[1]).toFixed(4) : "0.0000"} | ALT: 149M
         </div>
       </div>
 
@@ -106,52 +217,107 @@ export const MapLayer: React.FC<MapLayerProps> = ({ selectedStock, onSelectNode,
         
         <MapController selectedPosition={activePosition} />
 
-        {COMPANIES.map((company) => (
-          <Marker
-            key={company.symbol}
-            position={[company.lat, company.lng]}
-            icon={selectedStock?.symbol === company.symbol ? activeIcon : defaultIcon}
-            eventHandlers={{
-              click: (e) => {
-                onSelectNode(company);
-                // Center the map on click if not already handled by flyTo
-                e.target.openPopup();
-              },
-              mouseover: (e) => {
-                e.target.openPopup();
-              },
-              mouseout: (e) => {
-                // Optional: keep popup open or close it
-                // e.target.closePopup();
-              }
-            }}
-          >
-            <Popup className="custom-popup">
-              <div className="bg-zinc-950 text-white p-2 border border-[#22ab94]/50 font-mono">
-                <div className="text-[#22ab94] font-bold text-lg leading-none mb-1">{company.symbol}</div>
-                <div className="text-xs text-zinc-400 mb-2">{company.name}</div>
-                
-                {intelligenceFeed && intelligenceFeed.length > 0 && intelligenceFeed[0] && (
-                   <div className="mt-2 pt-2 border-t border-[#22ab94]/20">
-                      <div className="flex items-center gap-1 text-[#22ab94] text-[10px] font-bold uppercase mb-1">
-                        <MessageSquare className="w-3 h-3" /> Intelligence Feed
+        {COMPANIES.map((company) => {
+          if (!isSafeLatLng(company.lat, company.lng)) return null;
+          
+          const isSelected = selectedStock?.symbol === company.symbol;
+          const isFocus = focusStock?.symbol === company.symbol;
+          const hasNews = isFocus && intelligenceFeed && intelligenceFeed.length > 0;
+          
+          const pos = safeLatLng(company.lat, company.lng);
+          if (!pos) return null;
+          
+          return (
+            <React.Fragment key={company.symbol}>
+              <Marker
+                ref={(el) => (markerRefs.current[company.symbol] = el)}
+                position={pos}
+                icon={isSelected ? activeIcon : defaultIcon}
+                eventHandlers={{
+                  click: (e) => {
+                    onSelectNode(company);
+                    e.target.openPopup();
+                  },
+                  mouseover: (e) => {
+                    e.target.openPopup();
+                  },
+                }}
+              >
+                <Popup className="custom-popup" offset={[0, -10]}>
+                  <div className="bg-zinc-950 text-white p-2 border border-[#22ab94]/50 font-mono w-[180px]">
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="text-[#22ab94] font-bold text-lg leading-none">{company.symbol}</div>
+                      <div className="text-[8px] bg-[#22ab94]/20 text-[#22ab94] px-1 font-black">NODE_ACTIVE</div>
+                    </div>
+                    <div className="text-[10px] text-zinc-500 mb-1 truncate uppercase tracking-tighter">{company.name}</div>
+                    
+                    <div className="mt-2 space-y-1 border-t border-[#22ab94]/20 pt-2">
+                      <div className="flex justify-between text-[9px]">
+                        <span className="text-zinc-600">SECTOR</span>
+                        <span className="text-zinc-300 truncate ml-2">{company.sector}</span>
                       </div>
-                      <div className="text-[10px] italic line-clamp-2">
-                        "{intelligenceFeed[0].intelligence?.translatedTitle || intelligenceFeed[0].title || "Initializing link..."}"
-                      </div>
-                   </div>
-                )}
+                      {company.workforce && (
+                        <div className="flex justify-between text-[9px]">
+                          <span className="text-zinc-600">WORKFORCE</span>
+                          <span className="text-[#22ab94] font-bold">{company.workforce}</span>
+                        </div>
+                      )}
+                      {company.headquarters && (
+                        <div className="flex justify-between text-[9px]">
+                          <span className="text-zinc-600">HQ</span>
+                          <span className="text-zinc-400 truncate ml-2">{company.headquarters}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+
+              {/* Smaller pinned news stories */}
+              {hasNews && intelligenceFeed!.slice(0, 2).map((item, nIdx) => {
+                const baseLat = typeof company.lat === 'number' ? company.lat : Number(company.lat);
+                const baseLng = typeof company.lng === 'number' ? company.lng : Number(company.lng);
                 
-                <button 
-                  onClick={() => onSelectNode(company)}
-                  className="mt-3 w-full bg-[#22ab94] text-black text-[10px] py-1 font-bold uppercase tracking-widest hover:bg-white transition-colors"
-                >
-                  Intercept Data
-                </button>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+                const pinLat = baseLat + (0.8 + nIdx * 1.5);
+                const pinLng = baseLng + (1.2 + nIdx * 0.5);
+                
+                const pinPos = safeLatLng(pinLat, pinLng);
+                if (!pinPos) return null;
+                
+                const publishedAt = item.published_at ? new Date(item.published_at) : null;
+                const timeStr = publishedAt && !isNaN(publishedAt.getTime()) 
+                  ? publishedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : "--:--";
+                
+                return (
+                  <Marker
+                    key={`${company.symbol}-news-${nIdx}`}
+                    position={pinPos}
+                    icon={L.divIcon({
+                    className: "news-pin-icon",
+                    html: `
+                      <div class="relative group">
+                        <div class="absolute -left-2 -top-2 w-1.5 h-1.5 bg-[#22ab94] rounded-full animate-pulse"></div>
+                        <div class="bg-black/90 border border-[#22ab94]/40 p-1.5 w-32 backdrop-blur-sm shadow-2xl opacity-80 group-hover:opacity-100 transition-opacity">
+                          <div class="text-[7px] text-[#22ab94] font-mono leading-none mb-1 flex justify-between">
+                            <span>INTEL_B64</span>
+                            <span>${timeStr}</span>
+                          </div>
+                          <div class="text-[9px] text-white font-bold leading-tight line-clamp-2 uppercase">
+                            ${item.intelligence?.translatedTitle || item.title || "TELEMETRY_DATA_INCOMPLETE"}
+                          </div>
+                        </div>
+                      </div>
+                    `,
+                    iconSize: [128, 40],
+                    iconAnchor: [0, 40]
+                  })}
+                  />
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
 
         {partnerLines.map((line, idx) => (
           <Polyline

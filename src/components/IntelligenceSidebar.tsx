@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createChart, ColorType, IChartApi, LineSeries, HistogramSeries } from "lightweight-charts";
+import React, { useMemo } from "react";
 import { Company } from "../data/companies";
-import { TrendingUp, Newspaper, Activity, Zap, Globe } from "lucide-react";
+import { TrendingUp, Newspaper, Activity, Zap, Globe, RefreshCcw } from "lucide-react";
 import { formatCurrency, cn } from "../lib/utils";
 
 interface IntelligenceSidebarProps {
@@ -14,6 +13,92 @@ interface IntelligenceSidebarProps {
   isAiProcessing: boolean;
 }
 
+const CustomTelemetryChart = ({ data }: { data: any[] }) => {
+  const chartData = useMemo(() => {
+    if (!data || data.length < 2) return [];
+    // Sort and take last 50 points for the narrow sidebar
+    return [...data].sort((a, b) => a.time - b.time).slice(-50);
+  }, [data]);
+
+  if (chartData.length < 2) return (
+    <div className="flex-1 flex items-center justify-center font-mono text-[10px] text-zinc-800 uppercase tracking-widest">
+      Establishing_Link...
+    </div>
+  );
+
+  const minPrice = Math.min(...chartData.map(d => d.low));
+  const maxPrice = Math.max(...chartData.map(d => d.high));
+  const priceRange = maxPrice - minPrice;
+  const padding = priceRange * 0.1;
+
+  const getY = (price: number) => {
+    return 100 - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * 100;
+  };
+
+  const getX = (index: number) => {
+    return (index / (chartData.length - 1)) * 100;
+  };
+
+  return (
+    <div className="flex-1 w-full h-full relative overflow-hidden px-1">
+      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {/* Horizontal Grids */}
+        {[0, 25, 50, 75, 100].map(level => (
+          <line 
+            key={level} 
+            x1="0" y1={level} x2="100" y2={level} 
+            stroke="#ffffff08" 
+            strokeWidth="0.5" 
+          />
+        ))}
+        
+        {/* Price Action Path (Area) */}
+        <path
+          d={`M 0 100 ${chartData.map((d, i) => `L ${getX(i)} ${getY(d.close)}`).join(' ')} L 100 100 Z`}
+          fill="url(#chartGradient)"
+          className="opacity-20"
+        />
+        
+        {/* Main Price Line */}
+        <path
+          d={`M ${chartData.map((d, i) => `${getX(i)} ${getY(d.close)}`).join(' L ')}`}
+          fill="none"
+          stroke="#22ab94"
+          strokeWidth="1.5"
+          vectorEffect="non-scaling-stroke"
+          className="drop-shadow-[0_0_8px_rgba(34,171,148,0.5)]"
+        />
+
+        {/* Highlight Last Point */}
+        <circle 
+          cx={100} 
+          cy={getY(chartData[chartData.length - 1].close)} 
+          r="1" 
+          fill="#22ab94"
+          className="animate-pulse"
+        />
+
+        <defs>
+          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#22ab94" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#22ab94" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+      </svg>
+      
+      {/* Absolute Overlays for Data Precision */}
+      <div className="absolute top-2 right-2 font-mono text-[8px] text-zinc-700 flex flex-col items-end uppercase pointer-events-none">
+        <span>MAX: {maxPrice.toFixed(2)}</span>
+        <span>MIN: {minPrice.toFixed(2)}</span>
+      </div>
+      
+      <div className="absolute bottom-2 left-2 font-mono text-[8px] text-zinc-700 uppercase pointer-events-none">
+        SMPL_SIZE: {chartData.length}_TICKS
+      </div>
+    </div>
+  );
+};
+
 export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({ 
   selectedStock, 
   quote,
@@ -23,132 +108,47 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   history = [],
   isAiProcessing
 }) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const earningsContainerRef = useRef<HTMLDivElement>(null);
-  
-  const [chart, setChart] = useState<IChartApi | null>(null);
-
-  useEffect(() => {
-    if (!chartContainerRef.current || !selectedStock) return;
-
-    const widgetId = "tradingview_widget_" + Math.random().toString(36).substring(7);
-    chartContainerRef.current.id = widgetId;
-
-    const initWidget = () => {
-      if ((window as any).TradingView) {
-        new (window as any).TradingView.widget({
-          "autosize": true,
-          "symbol": selectedStock.symbol,
-          "interval": "D",
-          "timezone": "Etc/UTC",
-          "theme": "dark",
-          "style": "2",
-          "locale": "en",
-          "toolbar_bg": "#000000",
-          "enable_publishing": false,
-          "hide_top_toolbar": true,
-          "hide_side_toolbar": true,
-          "allow_symbol_change": true,
-          "container_id": widgetId,
-          "backgroundColor": "rgba(0, 0, 0, 1)",
-          "gridColor": "rgba(34, 171, 148, 0.05)"
-        });
-      }
-    };
-
-    const tvTimeout = setTimeout(initWidget, 200);
-
-    // Mini Earnings Histogram remains lightweight-charts for performance/look
-    let hChart: IChartApi | null = null;
-    if (earningsContainerRef.current) {
-        hChart = createChart(earningsContainerRef.current, {
-            layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#888" },
-            grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-            width: earningsContainerRef.current.clientWidth || 150,
-            height: 80,
-            timeScale: { visible: false },
-            rightPriceScale: { visible: false },
-        });
-
-        const histogram = hChart.addSeries(HistogramSeries, {
-            color: '#22ab94',
-        });
-
-        if (financials && financials.length > 0) {
-            try {
-                const histData = financials
-                    .map((f: any) => ({
-                        time: f.date || new Date().toISOString().split('T')[0],
-                        value: f.netIncome || 0,
-                        color: (f.netIncome || 0) >= 0 ? '#22ab94' : '#ef4444'
-                    }))
-                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-                
-                if (histData.length > 0) {
-                    histogram.setData(histData);
-                    hChart.timeScale().fitContent();
-                }
-            } catch (e) {
-                console.error("Error setting earnings data:", e);
-            }
-        }
-    }
-
-    const handleResize = () => {
-      if (earningsContainerRef.current && hChart) {
-        hChart.applyOptions({ width: earningsContainerRef.current.clientWidth });
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      clearTimeout(tvTimeout);
-      window.removeEventListener("resize", handleResize);
-      if (hChart) hChart.remove();
-    };
-  }, [selectedStock, financials]);
 
   if (!selectedStock) {
     return (
-      <aside className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
-        <div className="p-4 border-b border-zinc-800 bg-black">
-          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">System_Idle</div>
-          <h2 className="font-mono text-xl text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
+      <aside className="w-56 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
+        <div className="p-3 border-b border-zinc-800 bg-black">
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest mb-1">System_Idle</div>
+          <h2 className="font-mono text-lg text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-black/20">
-          <Activity className="w-16 h-16 text-zinc-900 mb-4 animate-pulse" />
-          <h3 className="font-mono text-[#22ab94] uppercase tracking-[0.3em] font-bold text-xs">Uplink Required</h3>
-          <p className="text-zinc-600 font-mono text-[9px] mt-2 leading-relaxed italic">Select a node from the global distribution network to initialize live data telemetry.</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-black/20">
+          <Activity className="w-12 h-12 text-zinc-900 mb-3 animate-pulse" />
+          <h3 className="font-mono text-[#22ab94] uppercase tracking-[0.2em] font-bold text-[10px]">Uplink Required</h3>
+          <p className="text-zinc-600 font-mono text-[8px] mt-2 leading-relaxed italic">Select a node from the global distribution network to initialize live data telemetry.</p>
         </div>
       </aside>
     );
   }
 
   return (
-    <aside className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
+    <aside className="w-56 h-full border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-y-auto custom-scrollbar scroll-smooth">
       {/* TICKET / PROFILE HEADER */}
-      <div className="p-4 border-b border-zinc-800 bg-black">
+      <div className="p-3 border-b border-zinc-800 bg-black sticky top-0 z-40">
         <div className="flex justify-between items-start mb-1">
-          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-            <Globe className="w-3 h-3" /> Live_Protocol
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+            <Globe className="w-2.5 h-2.5" /> Live_Protocol
           </div>
-          <div className="flex items-center gap-2">
-            {isAiProcessing && <Zap className="w-2.5 h-2.5 text-[#22ab94] animate-pulse" />}
-            <div className="text-[10px] bg-[#22ab94]/10 text-[#22ab94] px-1.5 py-0.5 border border-[#22ab94]/20 font-mono font-bold">LOCKED</div>
+          <div className="flex items-center gap-1.5">
+            {isAiProcessing && <Zap className="w-2 h-2 text-[#22ab94] animate-pulse" />}
+            <div className="text-[9px] bg-[#22ab94]/10 text-[#22ab94] px-1 py-0.5 border border-[#22ab94]/20 font-mono font-bold uppercase">LOCKED</div>
           </div>
         </div>
         <div className="flex items-end justify-between">
           <div>
-            <h2 className="font-mono text-3xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
-            <div className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-tight truncate max-w-[150px]">{profile?.companyName || selectedStock.name}</div>
+            <h2 className="font-mono text-2xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
+            <div className="text-[8px] text-zinc-600 font-mono mt-1 uppercase tracking-tight truncate max-w-[120px]">{profile?.companyName || selectedStock.name}</div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-mono text-white font-bold leading-none tracking-tighter">
+            <div className="text-lg font-mono text-white font-bold leading-none tracking-tighter">
               ${quote?.price?.toFixed(2) || "---"}
             </div>
             <div className={cn(
-              "text-[10px] font-mono font-bold mt-1",
+              "text-[9px] font-mono font-bold mt-0.5",
               (quote?.changes || 0) >= 0 ? "text-green-500" : "text-red-500"
             )}>
               {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)} ({(quote?.changesPercentage || 0).toFixed(2)}%)
@@ -157,12 +157,28 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
         </div>
       </div>
 
-      {/* PRICE CHART */}
-      <div className="h-[250px] border-b border-zinc-800 bg-black relative flex flex-col pt-4">
-        <div ref={chartContainerRef} className="w-full h-full" />
+      {/* PRICE CHART - SQUARE CONTAINER */}
+      <div className="h-56 border-b border-zinc-800 bg-black relative flex flex-col group shrink-0">
+        <div className="absolute top-4 left-3 z-10 flex items-center gap-2 pointer-events-none">
+          <div className="w-1 h-1 bg-[#22ab94] rounded-full animate-pulse shadow-[0_0_8px_#22ab94]" />
+          <span className="text-[9px] font-mono text-[#22ab94] font-bold tracking-widest uppercase opacity-40">Telemetry</span>
+        </div>
+        
+        <div className="absolute top-4 right-3 z-10 flex gap-2">
+          <button 
+            className="bg-zinc-900/50 border border-zinc-800 p-1 hover:bg-[#22ab94] hover:text-black transition-all group/btn"
+            title="Sychronize Neural Link"
+          >
+            <RefreshCcw className="w-3 h-3 text-[#22ab94] group-hover/btn:text-black" />
+          </button>
+        </div>
+
+        <div className="flex-1 w-full mt-2 flex flex-col">
+          <CustomTelemetryChart data={history} />
+        </div>
       </div>
 
-      {/* QUICK STATS & MINI CHART */}
+      {/* QUICK STATS & CUSTOM EARNINGS */}
       <div className="grid grid-cols-2 border-b border-zinc-800 bg-black/40">
         <div className="p-3 border-r border-zinc-800 bg-black/20">
           <div className="text-[9px] font-mono text-zinc-600 uppercase mb-1">Market Cap</div>
@@ -170,14 +186,40 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
           <div className="mt-4 text-[9px] font-mono text-zinc-600 uppercase mb-1">Volume (Avg)</div>
           <div className="font-mono text-xs text-zinc-400">{profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</div>
         </div>
-        <div className="p-3">
-          <div className="text-[9px] font-mono text-zinc-600 uppercase mb-2">Earnings_History</div>
-          <div ref={earningsContainerRef} className="w-full h-16" />
+        <div className="p-3 flex flex-col">
+          <div className="text-[9px] font-mono text-zinc-600 uppercase mb-3">Profit_Velocity</div>
+          <div className="flex-1 flex items-end gap-1 px-1 h-12">
+            {financials && financials.length > 0 ? (
+              (() => {
+                const maxVal = Math.max(...financials.map(f => Math.abs(f.netIncome || 0)), 1);
+                return financials.slice(-6).map((f: any, i: number) => {
+                  const height = Math.min(Math.max((Math.abs(f.netIncome || 0) / maxVal) * 100, 15), 100);
+                  return (
+                    <div 
+                      key={i}
+                      className={cn(
+                        "flex-1 transition-all duration-500",
+                        (f.netIncome || 0) >= 0 ? "bg-[#22ab94]/60 hover:bg-[#22ab94]" : "bg-red-900/60 hover:bg-red-600"
+                      )}
+                      style={{ height: `${height}%` }}
+                      title={`Period: ${f.date}, Var: ${f.netIncome}`}
+                    />
+                  );
+                });
+              })()
+            ) : (
+              [1,2,3,4,5,6].map(i => <div key={i} className="flex-1 bg-zinc-900 h-2 animate-pulse" />)
+            )}
+          </div>
+          <div className="mt-2 text-[8px] font-mono text-zinc-700 flex justify-between uppercase">
+            <span>Past_6Q</span>
+            <span>Delta_Net</span>
+          </div>
         </div>
       </div>
 
       {/* INTELLIGENCE FEED */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-black">
+      <div className="flex flex-col bg-black border-t border-zinc-800">
         <div className="p-3 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
             <Newspaper className="w-3 h-3" /> Intelligence_Sync

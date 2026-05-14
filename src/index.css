@@ -16,13 +16,13 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-.marquee {
+.ticker-scroll {
   display: flex;
   width: max-content;
-  animation: marquee 40s linear infinite;
+  animation: ticker 60s linear infinite;
 }
 
-@keyframes marquee {
+@keyframes ticker {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }

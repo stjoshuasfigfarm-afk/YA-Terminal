@@ -8,6 +8,7 @@ import { COMPANIES, Company } from "./data/companies";
 
 export default function App() {
   const [selectedStock, setSelectedStock] = useState<Company | null>(null);
+  const [mapFocusStock, setMapFocusStock] = useState<Company | null>(null);
   const [isAutopilot, setIsAutopilot] = useState(false);
   
   // Data State
@@ -16,6 +17,7 @@ export default function App() {
   const [financials, setFinancials] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [focusNews, setFocusNews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
@@ -38,19 +40,24 @@ export default function App() {
       `;
 
       const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash", // Use 1.5 flash for better reliability
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: { responseMimeType: "application/json" }
+        generationConfig: { responseMimeType: "application/json" }
       });
 
-      const processed = JSON.parse(result.text || "[]");
+      const text = result.response.text();
+      const processed = JSON.parse(text || "[]");
       const enriched = rawNews.map((item, i) => ({
         ...item,
         intelligence: processed[i] || { translatedTitle: item.title }
       }));
       setNews(enriched);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Enrichment failed:", error);
+      // Check for quota error
+      if (error?.message?.includes("429") || error?.message?.includes("quota") || error?.status === 429) {
+        console.warn("AI Quota exhausted. Falling back to raw telemetry.");
+      }
     } finally {
       setIsAiProcessing(false);
     }
@@ -114,32 +121,52 @@ export default function App() {
     return () => clearInterval(pollInterval);
   }, [selectedStock]);
 
+  // Focus News Sync
+  useEffect(() => {
+    if (!mapFocusStock) {
+      setFocusNews([]);
+      return;
+    }
+    
+    // Only fetch if different from selectedStock or if news is empty
+    const fetchFocusNews = async () => {
+      try {
+        const res = await fetch(`/api/news/${mapFocusStock.symbol}`);
+        const n = await res.json();
+        setFocusNews(n);
+      } catch (e) {
+        console.error("Map focus news sync failure", e);
+      }
+    };
+    fetchFocusNews();
+  }, [mapFocusStock]);
+
   const handleSelectNode = useCallback((company: Company) => {
     setSelectedStock(company);
+    setMapFocusStock(company);
     fetchData(company.symbol);
     if (isAutopilot) setIsAutopilot(false);
   }, [isAutopilot, fetchData]);
 
 
-  // Autopilot Logic
+  // Intelligence Stream Cycle (Neural Stream)
   useEffect(() => {
     let timer: any;
     if (isAutopilot) {
       const cycle = () => {
         const randomIndex = Math.floor(Math.random() * COMPANIES.length);
         const nextCompany = COMPANIES[randomIndex];
-        setSelectedStock(nextCompany);
-        fetchData(nextCompany.symbol);
+        setMapFocusStock(nextCompany);
       };
 
       // Run once immediately
       cycle();
       
-      timer = setInterval(cycle, 45000); // 45 seconds per cycle
+      timer = setInterval(cycle, 30000); // 30 seconds per cycle
     }
 
     return () => clearInterval(timer);
-  }, [isAutopilot, fetchData]);
+  }, [isAutopilot]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-black text-zinc-300 font-sans border-4 border-zinc-900 selection:bg-[#22ab94] selection:text-black">
@@ -155,8 +182,11 @@ export default function App() {
 
         <MapLayer 
           selectedStock={selectedStock} 
+          focusStock={mapFocusStock}
           onSelectNode={handleSelectNode}
-          intelligenceFeed={news}
+          intelligenceFeed={focusNews.length > 0 ? focusNews : news}
+          isIntelligenceStream={isAutopilot}
+          toggleIntelligenceStream={() => setIsAutopilot(!isAutopilot)}
         />
 
         <IntelligenceSidebar 

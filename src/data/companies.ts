@@ -5,17 +5,19 @@ export interface Company {
   lat: number;
   lng: number;
   partners?: string[]; // symbols for supply chain links
+  workforce?: string;
+  headquarters?: string;
 }
 
 // Registry of 150+ global company nodes
 export const COMPANIES: Company[] = [
   // TECH / SEMI (US/ASIA)
-  { symbol: "AAPL", name: "Apple Inc.", sector: "Technology", lat: 37.3349, lng: -122.0091, partners: ["TSM", "FOXCONN", "MSFT"] },
-  { symbol: "MSFT", name: "Microsoft", sector: "Technology", lat: 47.6396, lng: -122.1283, partners: ["NVDA", "ORCL", "AMD"] },
-  { symbol: "NVDA", name: "Nvidia", sector: "Semiconductors", lat: 37.3712, lng: -121.9663, partners: ["TSM", "ARM", "SMC"] },
-  { symbol: "TSM", name: "TSMC", sector: "Semiconductors", lat: 24.7816, lng: 121.0153, partners: ["AAPL", "NVDA", "ASML"] },
-  { symbol: "ASML", name: "ASML Holding", sector: "Semiconductors", lat: 51.4035, lng: 5.4081, partners: ["TSM", "INTC", "AMAT"] },
-  { symbol: "SMC", name: "Super Micro", sector: "Technology", lat: 37.3794, lng: -121.9407, partners: ["NVDA", "INTC"] },
+  { symbol: "AAPL", name: "Apple Inc.", sector: "Technology", lat: 37.3349, lng: -122.0091, partners: ["TSM", "FOXCONN", "MSFT"], workforce: "164,000", headquarters: "Cupertino, CA" },
+  { symbol: "MSFT", name: "Microsoft", sector: "Technology", lat: 47.6396, lng: -122.1283, partners: ["NVDA", "ORCL", "AMD"], workforce: "221,000", headquarters: "Redmond, WA" },
+  { symbol: "NVDA", name: "Nvidia", sector: "Semiconductors", lat: 37.3712, lng: -121.9663, partners: ["TSM", "ARM", "SMC"], workforce: "26,000", headquarters: "Santa Clara, CA" },
+  { symbol: "TSM", name: "TSMC", sector: "Semiconductors", lat: 24.7816, lng: 121.0153, partners: ["AAPL", "NVDA", "ASML"], workforce: "73,000", headquarters: "Hsinchu, Taiwan" },
+  { symbol: "ASML", name: "ASML Holding", sector: "Semiconductors", lat: 51.4035, lng: 5.4081, partners: ["TSM", "INTC", "AMAT"], workforce: "39,000", headquarters: "Veldhoven, Netherlands" },
+  { symbol: "SMC", name: "Super Micro", sector: "Technology", lat: 37.3794, lng: -121.9407, partners: ["NVDA", "INTC"], workforce: "5,000", headquarters: "San Jose, CA" },
   
   // FINANCE (US/EU)
   { symbol: "JPM", name: "JPMorgan Chase", sector: "Financial Services", lat: 40.7559, lng: -73.9749, partners: ["GS", "MS"] },
