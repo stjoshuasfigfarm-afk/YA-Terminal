@@ -1,31 +1,26 @@
-# HY Analysts Terminal
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import {defineConfig, loadEnv} from 'vite';
 
-A production-ready financial intelligence terminal built with Vanilla JS, Tailwind CSS, and Leaflet.js.
-
-## Features
-- **Global Asset Map**: Visualizing major corporate nodes with supply chain logic (Upstream/Downstream).
-- **Deep Packet Inspection**: Real-time financial profiles, balance sheet snapshots, and income history.
-- **Dynamic Charting**: High-performance price visualization via Lightweight Charts.
-- **News Ticker**: Rolling news intelligence feed.
-
-## Prerequisites
-- Node.js (v18+)
-- Financial Data API Key (Recommended: [Financial Modeling Prep](https://site.financialmodelingprep.com/))
-
-## Local Development
-1. Clone the repository.
-2. Run `npm install`.
-3. Create a `.env` file based on `.env.example`.
-4. Run `npm run dev`.
-5. Open `http://localhost:3000`.
-
-## Deployment to Vercel
-1. Set up a new project on [Vercel](https://vercel.com).
-2. Connect your GitHub repository.
-3. Add the environment variable `FINANCIAL_API_KEY`.
-4. Deploy.
-
-## Technology Stack
-- **Frontend**: Vanilla JS, Leaflet, Lightweight Charts, Tailwind CSS.
-- **Backend**: Node.js (CommonJS for Vercel Serverless Functions).
-- **Styling**: JetBrains Mono (Typography), Dark-Brutalist (Theme).
+export default defineConfig(({mode}) => {
+  const env = loadEnv(mode, '.', '');
+  return {
+    plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      },
+    },
+    server: {
+      // HMR is disabled in AI Studio via DISABLE_HMR env var.
+      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      hmr: process.env.DISABLE_HMR !== 'true',
+      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
+      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+    },
+  };
+});

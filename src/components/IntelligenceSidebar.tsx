@@ -1,17 +1,15 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Company } from "../data/companies";
 import { TrendingUp, Newspaper, Activity, Zap, Globe } from "lucide-react";
 import { formatCurrency, cn } from "../lib/utils";
+import { createChart, ColorType, IChartApi } from 'lightweight-charts';
 import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
   ResponsiveContainer, 
   BarChart, 
   Bar,
-  Cell
+  Cell,
+  XAxis,
+  Tooltip
 } from 'recharts';
 
 interface IntelligenceSidebarProps {
@@ -37,7 +35,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
 }) => {
   if (!selectedStock) {
     return (
-      <aside className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
+      <aside className="w-96 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
         <div className="p-4 border-b border-zinc-800 bg-black">
           <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-1">System_Idle</div>
           <h2 className="font-mono text-xl text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
@@ -51,38 +49,133 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
     );
   }
 
-  const chartData = Array.isArray(history) 
-    ? history
-        .filter(item => item && item.date && item.close !== undefined)
-        .map(item => {
-          const mktCapItem = Array.isArray(mktCapHistory) 
-            ? mktCapHistory.find(m => m.date === item.date)
-            : null;
-          return {
-            time: item.date,
-            price: item.close,
-            mktCap: mktCapItem ? mktCapItem.marketCap : null
-          };
-        })
-        .filter(d => d.price !== null && d.mktCap !== null)
-        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-    : [];
+  const chartData = React.useMemo(() => {
+    if (!Array.isArray(history)) return [];
+    const seenDates = new Set();
+    return history
+      .filter(item => {
+        if (!item || !item.date || item.close === undefined) return false;
+        if (seenDates.has(item.date)) return false;
+        seenDates.add(item.date);
+        return true;
+      })
+      .map(item => ({
+        time: item.date,
+        price: Number(item.close)
+      }))
+      .filter(d => !isNaN(d.price))
+      .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  }, [history]);
 
-  const earningsData = Array.isArray(financials)
-    ? financials
-        .filter((f: any) => f && f.date && f.netIncome !== undefined)
-        .map((f: any) => ({
-          time: f.date,
-          value: f.netIncome,
-        }))
-        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-    : [];
+  const earningsData = React.useMemo(() => {
+    if (!Array.isArray(financials)) return [];
+    return financials
+      .filter((f: any) => f && f.date && f.netIncome !== undefined)
+      .map((f: any) => ({
+        time: f.date.split('-')[0], // Just the year
+        value: Number(f.netIncome),
+      }))
+      .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  }, [financials]);
+
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+
+  useEffect(() => {
+    if (!chartContainerRef.current || chartData.length === 0) {
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+      return;
+    }
+
+    // Clean up previous chart if it exists
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+    }
+
+    const container = chartContainerRef.current;
+    
+    const observer = new ResizeObserver(entries => {
+      if (entries[0] && chartRef.current) {
+        const { width, height } = entries[0].contentRect;
+        chartRef.current.applyOptions({ width, height });
+      }
+    });
+    observer.observe(container);
+
+    try {
+      const chart = createChart(container, {
+        layout: {
+          background: { type: ColorType.Solid, color: '#000000' },
+          textColor: '#666',
+          fontSize: 10,
+          fontFamily: 'JetBrains Mono',
+        },
+        grid: {
+          vertLines: { color: 'rgba(34, 171, 148, 0.05)' },
+          horzLines: { color: 'rgba(34, 171, 148, 0.05)' },
+        },
+        width: container.clientWidth || 300,
+        height: container.clientHeight || 300,
+        timeScale: {
+          visible: true,
+          borderVisible: false,
+        },
+        rightPriceScale: {
+          visible: true,
+          borderVisible: false,
+          borderColor: 'rgba(34, 171, 148, 0.2)',
+        },
+        handleScale: true,
+        handleScroll: true,
+        crosshair: {
+          vertLine: { 
+            color: '#22ab94',
+            labelBackgroundColor: '#22ab94',
+          },
+          horzLine: {
+            color: '#22ab94',
+            labelBackgroundColor: '#22ab94',
+          }
+        }
+      });
+
+      const series = (chart as any).addLineSeries({
+        color: '#22ab94',
+        lineWidth: 2,
+        crosshairMarkerVisible: true,
+        lastValueVisible: true,
+        priceLineVisible: true,
+      });
+
+      series.setData(chartData.map(d => ({ 
+        time: d.time, 
+        value: d.price 
+      })));
+      
+      chart.timeScale().fitContent();
+      chartRef.current = chart;
+
+      return () => {
+        observer.disconnect();
+        if (chartRef.current) {
+          chartRef.current.remove();
+          chartRef.current = null;
+        }
+      };
+    } catch (err) {
+      console.error("Chart initialization failed", err);
+    }
+  }, [chartData]);
 
   const livePrice = quote?.price || profile?.price;
   const liveChanges = quote?.changes !== undefined ? quote.changes : profile?.changes;
 
   return (
-    <aside className="w-80 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
+    <aside className="w-96 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
       {/* TICKET / PROFILE HEADER */}
       <div className="p-4 border-b border-zinc-800 bg-black">
         <div className="flex justify-between items-start mb-1">
@@ -97,9 +190,12 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
         <div className="flex items-end justify-between">
           <div>
             <h2 className="font-mono text-3xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
-            <div className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-tight truncate max-w-[150px]">{selectedStock.name}</div>
+            <div className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-tight truncate max-w-[150px]">
+              {selectedStock.name} | {profile?.sector || "General_Sector"}
+            </div>
           </div>
           <div className="text-right">
+            <div className="text-[8px] font-mono text-zinc-600 mb-1">Source: {quote?.source || "Primary_Uplink"}</div>
             <div className="text-2xl font-mono text-white font-bold leading-none tracking-tighter">
               ${livePrice?.toFixed(2) || "---"}
             </div>
@@ -114,61 +210,19 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
       </div>
 
       {/* PRICE CHART */}
-      <div className="h-[250px] border-b border-zinc-800 p-4 bg-zinc-900/10 relative overflow-hidden">
+      <div className="h-[400px] border-b border-zinc-800 p-4 bg-zinc-900/10 relative overflow-hidden">
         <div className="flex justify-between items-center mb-2 z-10 relative">
           <span className="text-[10px] font-mono uppercase text-zinc-500 tracking-widest flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> Price vs Mkt_Cap
+            <TrendingUp className="w-3 h-3" /> Price_Telemetry_30D
           </span>
-          <span className="text-[10px] font-mono text-[#22ab94] flex items-center gap-1">
-            <div className="w-1 h-1 bg-[#22ab94] rounded-full" />
-            Price
-            <div className="w-1 h-1 bg-white rounded-full ml-1" />
-            Cap
-          </span>
+          <div className="text-[9px] text-zinc-500 font-mono tracking-tighter uppercase">{profile?.finnhubIndustry || profile?.industry || "DECRYPTING_SECTOR"}</div>
         </div>
-        <div className="absolute inset-x-0 bottom-4 top-12">
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <XAxis dataKey="time" hide />
-                <YAxis yAxisId="left" domain={['auto', 'auto']} hide />
-                <YAxis yAxisId="right" orientation="right" domain={['auto', 'auto']} hide />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#000', border: '1px solid #22ab94', borderRadius: '0', fontSize: '10px', fontFamily: 'JetBrains Mono' }}
-                  itemStyle={{ fontSize: '9px', padding: '2px 0' }}
-                  labelStyle={{ color: '#666', marginBottom: '4px' }}
-                  formatter={(value: any, name: string) => {
-                    if (name === "mktCap") return [formatCurrency(value), "Market Cap"];
-                    return [`$${value.toFixed(2)}`, "Price"];
-                  }}
-                />
-                <Line 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="price" 
-                  stroke="#22ab94" 
-                  strokeWidth={2} 
-                  dot={false}
-                  animationDuration={500}
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="mktCap" 
-                  stroke="#ffffff" 
-                  strokeWidth={1} 
-                  strokeDasharray="3 3"
-                  dot={false}
-                  animationDuration={500}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="font-mono text-[9px] text-zinc-800 animate-pulse uppercase tracking-[0.5em]">Waiting_For_Telemetry...</div>
-            </div>
-          )}
-        </div>
+        <div className="h-[340px] relative z-0" ref={chartContainerRef} />
+        {chartData.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-[#22ab94] font-mono text-[9px] animate-pulse z-10 bg-zinc-950/50">
+            [ WAITING_FOR_SYNC ]
+          </div>
+        )}
       </div>
 
       {/* QUICK STATS & MINI CHART */}
@@ -181,9 +235,22 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
         </div>
         <div className="p-3">
           <div className="text-[9px] font-mono text-zinc-600 uppercase mb-2">Income_History</div>
-          <div className="w-full h-16">
+          <div className="w-full h-20 mt-1">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={earningsData}>
+                <XAxis 
+                  dataKey="time" 
+                  hide={false} 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 7, fill: '#666', fontFamily: 'JetBrains Mono' }} 
+                  interval="preserveStartEnd"
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#000', border: '1px solid #22ab94', borderRadius: '0', fontSize: '9px', fontFamily: 'JetBrains Mono' }}
+                  itemStyle={{ fontSize: '8px', padding: '1px 0' }}
+                  formatter={(value: any) => [formatCurrency(value), "Net Income"]}
+                />
                 <Bar dataKey="value">
                   {earningsData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.value > 0 ? '#22ab94' : '#ef4444'} />

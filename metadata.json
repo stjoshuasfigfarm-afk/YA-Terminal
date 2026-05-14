@@ -1,10 +1,6 @@
-# Financial API Credentials
-# Get your keys from the respective providers
-FINANCIAL_API_KEY=afb05902415e550cb4a4cccefa62d2a1
-ITICK_API_KEY=d4c2fcc1f4d44ac0940afed75d8dec5de3d1be6d554d4747981e869c732f42d7
-FINNHUB_API_KEY=d81bp01r01qler4hnqf0d81bp01r01qler4hnqfg
-FMP_API_KEY=ZocM2dZdtEzoaHnWZHhWiz9viLqFxpNv
-ALPACA_API_KEY=CKSJEBPLAB2FUMJHEWEQUF2AWU
-ALPACA_SECRET_KEY=9XthZneYB5N4YjWG4kTVkzRbD3HaxDvWqYpipAPt7aRq
-MARKETAUX_API_KEY=NQPAvQI7EJJnjW6OROxDk3dmAKGa7CDqA561oO6F
-
+{
+  "name": "YA Terminal",
+  "description": "High-fidelity financial intelligence dashboard with global map integration, 150+ company nodes, and AI-powered news translation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

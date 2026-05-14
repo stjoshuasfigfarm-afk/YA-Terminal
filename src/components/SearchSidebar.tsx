@@ -31,7 +31,7 @@ export const SearchSidebar: React.FC<SearchSidebarProps> = ({
   });
 
   return (
-    <aside className="w-56 border-r border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0">
+    <aside className="w-64 border-r border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0">
       <div className="p-3 border-b border-zinc-800 bg-black">
         <input
           type="text"

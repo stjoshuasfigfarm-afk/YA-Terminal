@@ -30,18 +30,34 @@ export default function App() {
 
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `
-        Analyze these news headlines/summaries.
-        Translate to professional English if needed.
-        Summarize into a concise "Neural Link" headline (max 80 chars).
-        Return JSON array: [{ "translatedTitle": string }]
-        News:
-        ${rawNews.map((n: any, i: number) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+        As a neural intelligence relay, process the following market news stream.
+        1. DECRYPT: Translate foreign indices or non-English content to professional Financial English.
+        2. SYNOPSIS: Summarize each item into a high-impact, cyber-terminal style "INTELLIGENCE_LINK" (max 85 chars).
+        3. CODE: Format the output as a valid JSON array of objects.
+        
+        NEWS_STREAM:
+        ${rawNews.map((n: any, i: number) => `NODE_${i+1}: TITLE="${n.title}" | DETAIL="${n.description}"`).join("\n")}
+        
+        OUTPUT_FORMAT:
+        [ { "translatedTitle": "ENCRYPTED_SYNOPSIS_STRING" } ]
       `;
 
       const result = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: { responseMimeType: "application/json" }
+        config: { 
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                translatedTitle: { type: "STRING" }
+              },
+              required: ["translatedTitle"]
+            }
+          }
+        }
       });
 
       const processed = JSON.parse(result.text || "[]");
@@ -91,7 +107,7 @@ export default function App() {
   // Initial Load Guard
   useEffect(() => {
     if (!selectedStock && COMPANIES.length > 0) {
-      const defaultCompany = COMPANIES[0];
+      const defaultCompany = COMPANIES.find(c => c.symbol === "AAPL") || COMPANIES[0];
       setSelectedStock(defaultCompany);
       fetchData(defaultCompany.symbol);
     }
@@ -146,7 +162,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-black text-zinc-300 font-sans border-4 border-zinc-900 selection:bg-[#22ab94] selection:text-black">
-      <Header selectedStock={quote} />
+      <Header quote={quote} />
       
       <main className="flex-1 flex overflow-hidden">
         <SearchSidebar 
@@ -161,6 +177,7 @@ export default function App() {
           onSelectNode={handleSelectNode}
           intelligenceFeed={news}
           quote={quote}
+          profile={profile}
         />
 
         <IntelligenceSidebar 
