@@ -40,12 +40,12 @@ export default function App() {
       `;
 
       const result = await ai.models.generateContent({
-        model: "gemini-1.5-flash", // Use 1.5 flash for better reliability
+        model: "gemini-3-flash-preview",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" }
+        config: { responseMimeType: "application/json" }
       });
 
-      const text = result.response.text();
+      const text = result.text;
       const processed = JSON.parse(text || "[]");
       const enriched = rawNews.map((item, i) => ({
         ...item,
@@ -54,9 +54,11 @@ export default function App() {
       setNews(enriched);
     } catch (error: any) {
       console.error("AI Enrichment failed:", error);
-      // Check for quota error
+      // Check for quota or not found error
       if (error?.message?.includes("429") || error?.message?.includes("quota") || error?.status === 429) {
         console.warn("AI Quota exhausted. Falling back to raw telemetry.");
+      } else if (error?.status === 404 || error?.message?.includes("404")) {
+        console.warn("AI Model not found or endpoint misconfiguration. Check Settings > Secrets.");
       }
     } finally {
       setIsAiProcessing(false);
@@ -67,16 +69,43 @@ export default function App() {
     if (!symbol) return;
     setIsLoading(true);
     
+    const headers = { 'Content-Type': 'application/json' };
+    
     try {
       const [q, n, p, f, h] = await Promise.all([
-        fetch(`/api/quote/${symbol}`).then(res => res.json()).catch(() => ({})),
-        fetch(`/api/news/${symbol}`).then(res => res.json()).catch(() => ([])),
-        fetch(`/api/profile/${symbol}`).then(res => res.json()).catch(() => ({})),
-        fetch(`/api/financials/${symbol}`).then(res => res.json()).catch(() => ([])),
-        fetch(`/api/history/${symbol}`).then(res => res.json()).catch(() => ({ historical: [] })),
+        fetch(`/api/quote?symbol=${symbol}`, { headers }).then(res => {
+          if (!res.ok) console.error(`Quote API alert: Status ${res.status}`);
+          return res.json();
+        }).catch((e) => {
+          console.error("Quote fetch error:", e);
+          return {};
+        }),
+        fetch(`/api/news?symbol=${symbol}`, { headers }).then(res => {
+          if (!res.ok) console.error(`News API alert: Status ${res.status}`);
+          return res.json();
+        }).catch(() => ([])),
+        fetch(`/api/profile?symbol=${symbol}`, { headers }).then(res => {
+          if (!res.ok) console.error(`Profile API alert: Status ${res.status}`);
+          return res.json();
+        }).catch(() => ({})),
+        fetch(`/api/financials?symbol=${symbol}`, { headers }).then(res => {
+          if (!res.ok) console.error(`Financials API alert: Status ${res.status}`);
+          return res.json();
+        }).catch(() => ([])),
+        fetch(`/api/history?symbol=${symbol}`, { headers }).then(res => {
+          if (!res.ok) console.error(`History API alert: Status ${res.status}`);
+          return res.json();
+        }).catch(() => ({ historical: [] })),
       ]);
       
-      setQuote(q);
+      // Data Parsing check
+      if (q && (q.price !== undefined && q.price !== null)) {
+        setQuote(q);
+      } else {
+        console.warn("Quote price telemetery interrupted. Raw data:", q);
+        setQuote(q);
+      }
+
       setNews(n);
       setProfile(p);
       setFinancials(f);
@@ -107,11 +136,18 @@ export default function App() {
 
     const pollInterval = setInterval(async () => {
       try {
+        const headers = { 'Content-Type': 'application/json' };
         const [qRes, pRes] = await Promise.all([
-          fetch(`/api/quote/${selectedStock.symbol}`).then(res => res.json()),
-          fetch(`/api/profile/${selectedStock.symbol}`).then(res => res.json())
+          fetch(`/api/quote?symbol=${selectedStock.symbol}`, { headers }).then(res => res.json()),
+          fetch(`/api/profile?symbol=${selectedStock.symbol}`, { headers }).then(res => res.json())
         ]);
-        setQuote(qRes);
+        
+        if (qRes && qRes.price !== undefined) {
+          setQuote(qRes);
+        } else {
+          console.warn("Polling detected empty price data:", qRes);
+        }
+        
         setProfile(pRes);
       } catch (e) {
         console.warn("Telemetry polling drift detected.", e);
@@ -131,7 +167,10 @@ export default function App() {
     // Only fetch if different from selectedStock or if news is empty
     const fetchFocusNews = async () => {
       try {
-        const res = await fetch(`/api/news/${mapFocusStock.symbol}`);
+        const res = await fetch(`/api/news?symbol=${mapFocusStock.symbol}`, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) console.error(`Map Focus News status: ${res.status}`);
         const n = await res.json();
         setFocusNews(n);
       } catch (e) {

@@ -13,9 +13,10 @@ const PORT = 3000;
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
 
 // API Routes
-app.get("/api/quote/:symbol", async (req, res) => {
+app.get("/api/quote/:symbol?", async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     if (!FINNHUB_KEY) throw new Error("No Key");
     const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`);
     const data = await response.json();
@@ -30,6 +31,7 @@ app.get("/api/quote/:symbol", async (req, res) => {
       symbol
     });
   } catch (err) {
+    const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
     const price = Math.random() * 200 + 100;
     res.json({
       price: price,
@@ -39,15 +41,16 @@ app.get("/api/quote/:symbol", async (req, res) => {
       low: price - 2,
       open: price,
       previousClose: price - 1,
-      symbol: req.params.symbol.toUpperCase(),
+      symbol: symbol,
       mock: true
     });
   }
 });
 
-app.get("/api/profile/:symbol", async (req, res) => {
+app.get("/api/profile/:symbol?", async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     if (!FINNHUB_KEY) throw new Error("No Key");
     const response = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_KEY}`);
     const data = await response.json();
@@ -60,9 +63,10 @@ app.get("/api/profile/:symbol", async (req, res) => {
       currency: data.currency
     });
   } catch (err) {
+    const symbol = (req.params.symbol || req.query.symbol as string || "AAPL").toUpperCase();
     res.json({
       mktCap: 1500000000000 + Math.random() * 1000000000,
-      companyName: COMPANIES.find(c => c.symbol === req.params.symbol.toUpperCase())?.name || req.params.symbol.toUpperCase(),
+      companyName: COMPANIES.find(c => c.symbol === symbol)?.name || symbol,
       industry: "Technology",
       website: "https://example.com",
       currency: "USD",
@@ -71,14 +75,16 @@ app.get("/api/profile/:symbol", async (req, res) => {
   }
 });
 
-app.get("/api/news/:symbol", async (req, res) => {
+app.get("/api/news/:symbol?", async (req, res) => {
   try {
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     const today = new Date().toISOString().split('T')[0];
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     const fromDate = lastMonth.toISOString().split('T')[0];
     
-    const url = `https://finnhub.io/api/v1/company-news?symbol=${req.params.symbol.toUpperCase()}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
+    const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
     
@@ -97,9 +103,10 @@ app.get("/api/news/:symbol", async (req, res) => {
   }
 });
 
-app.get("/api/financials/:symbol", async (req, res) => {
+app.get("/api/financials/:symbol?", async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     if (!FINNHUB_KEY) throw new Error("No Key");
     const response = await fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${symbol}&token=${FINNHUB_KEY}`);
     const data = await response.json();
@@ -110,20 +117,19 @@ app.get("/api/financials/:symbol", async (req, res) => {
     }));
     res.json(mapped);
   } catch (err) {
-    const mockFinancials = [];
-    for (let i = 4; i >= 1; i--) {
-      mockFinancials.push({
-        date: `2023-Q${i}`,
-        netIncome: (Math.random() - 0.2) * 5 // Mock surprise/velocity
-      });
-    }
-    res.json(mockFinancials);
+    res.json([
+      { date: "2023-Q4", netIncome: 1.2 },
+      { date: "2023-Q3", netIncome: 0.8 },
+      { date: "2023-Q2", netIncome: 1.5 },
+      { date: "2023-Q1", netIncome: -0.4 }
+    ]);
   }
 });
 
-app.get("/api/history/:symbol", async (req, res) => {
+app.get("/api/history/:symbol?", async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     
     if (!FINNHUB_KEY) {
       // Return mock historical data if no key
