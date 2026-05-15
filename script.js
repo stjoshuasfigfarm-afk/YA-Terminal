@@ -104,7 +104,7 @@ export async function fetchLogistics(ticker) {
  */
 export async function fetchHistory(ticker) {
   try {
-    const res = await fetch(`/api/history/${ticker}`);
+    const res = await fetch(`/api?service=history&symbol=${ticker}`);
     const data = await res.json();
     state.history = data.historical || [];
     renderPriceHistoryChart();
@@ -958,7 +958,7 @@ async function searchTickers(query) {
   }
 
   try {
-    const res = await fetch(`/api/search?q=${query}`);
+    const res = await fetch(`/api?service=search&q=${query}`);
     const matches = await res.json();
     
     if (matches && matches.length > 0) {

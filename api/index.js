@@ -56,6 +56,13 @@ export default async function handler(req, res) {
       case 'macro':
         const macro = await fetchMacroNews(ticker, keys);
         return res.status(200).json(macro);
+      case 'history':
+        const history = await fetchHistoricalPrice(ticker, keys);
+        return res.status(200).json(history);
+      case 'search':
+        const q = req.query.q || ticker;
+        const matches = await searchTickerSymbols(q, keys);
+        return res.status(200).json(matches);
       case 'regulatory':
         const reg = await fetchRegulatoryChecks(ticker, keys);
         return res.status(200).json(reg);
@@ -288,4 +295,65 @@ async function fetchRegulatoryChecks(symbol, keys) {
     },
     riskScore: 0.24
   };
+}
+
+/**
+ * FMP Historical Price Data
+ */
+async function fetchHistoricalPrice(symbol, keys) {
+  if (!isKeyReady(keys.fmp)) {
+    // Generate mock historical data
+    const historical = [];
+    const now = Math.floor(Date.now() / 1000);
+    let lastPrice = 150;
+    for (let i = 0; i < 60; i++) {
+      const change = (Math.random() - 0.48) * 4;
+      lastPrice += change;
+      historical.unshift({
+        time: now - (i * 86400),
+        close: lastPrice
+      });
+    }
+    return { symbol, historical };
+  }
+  try {
+    const res = await fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${symbol}?timeseries=60&apikey=${keys.fmp}`);
+    const data = await res.json();
+    if (data && data.historical) {
+      return {
+        symbol: data.symbol,
+        historical: data.historical.map(d => ({
+          time: Math.floor(new Date(d.date).getTime() / 1000),
+          close: d.close
+        })).reverse()
+      };
+    }
+    return { symbol, historical: [] };
+  } catch (e) {
+    return { symbol, historical: [], error: e.message };
+  }
+}
+
+/**
+ * FMP Ticker Search
+ */
+async function searchTickerSymbols(query, keys) {
+  if (!isKeyReady(keys.fmp)) {
+    // Mock search
+    const all = [
+      { symbol: 'AAPL', name: 'Apple Inc.' },
+      { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+      { symbol: 'MSFT', name: 'Microsoft Corp.' },
+      { symbol: 'TSLA', name: 'Tesla Inc.' },
+      { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+      { symbol: 'NVDA', name: 'NVIDIA Corp.' }
+    ];
+    return all.filter(s => s.symbol.includes(query.toUpperCase()) || s.name.toUpperCase().includes(query.toUpperCase()));
+  }
+  try {
+    const res = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${query}&limit=10&apikey=${keys.fmp}`);
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
 }
