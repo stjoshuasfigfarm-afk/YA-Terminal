@@ -15,6 +15,7 @@ const state = {
   markerLayer: null,
   newsCycleIndex: 0,
   newsCycleInterval: null,
+  history: [],
 };
 
 /**
@@ -99,6 +100,113 @@ export async function fetchLogistics(ticker) {
 }
 
 /**
+ * Historical Price Data fetcher
+ */
+export async function fetchHistory(ticker) {
+  try {
+    const res = await fetch(`/api/history/${ticker}`);
+    const data = await res.json();
+    state.history = data.historical || [];
+    renderPriceHistoryChart();
+  } catch (err) {
+    console.warn('[History Error]', err);
+  }
+}
+
+/**
+ * D3 Price History Chart
+ */
+function renderPriceHistoryChart() {
+  const container = document.getElementById('price-history-chart');
+  if (!container || !state.history || state.history.length === 0) return;
+
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  container.innerHTML = ''; // Clear previous
+
+  const margin = { top: 10, right: 10, bottom: 20, left: 35 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  const svg = d3.select('#price-history-chart')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const data = state.history.map(d => ({
+    date: new Date(d.time * 1000),
+    value: d.close
+  }));
+
+  const x = d3.scaleTime()
+    .domain(d3.extent(data, d => d.date))
+    .range([0, innerWidth]);
+
+  const y = d3.scaleLinear()
+    .domain([d3.min(data, d => d.value) * 0.98, d3.max(data, d => d.value) * 1.02])
+    .range([innerHeight, 0]);
+
+  // Axes
+  const xAxis = d3.axisBottom(x).ticks(4).tickFormat(d3.timeFormat('%m/%d'));
+  const yAxis = d3.axisLeft(y).ticks(5).tickFormat(d => `$${d.toFixed(0)}`);
+
+  svg.append('g')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .attr('class', 'axis text-[8px] text-gray-700 opacity-50')
+    .call(xAxis);
+
+  svg.append('g')
+    .attr('class', 'axis text-[8px] text-gray-700 opacity-50')
+    .call(yAxis);
+
+  // Line
+  const line = d3.line()
+    .x(d => x(d.date))
+    .y(d => y(d.value))
+    .curve(d3.curveMonotoneX);
+
+  svg.append('path')
+    .datum(data)
+    .attr('fill', 'none')
+    .attr('stroke', '#06b6d4')
+    .attr('stroke-width', 2)
+    .attr('d', line);
+
+  // Gradient fill
+  const area = d3.area()
+    .x(d => x(d.date))
+    .y0(innerHeight)
+    .y1(d => y(d.value))
+    .curve(d3.curveMonotoneX);
+
+  const gradient = svg.append('defs')
+    .append('linearGradient')
+    .attr('id', 'chart-gradient')
+    .attr('x1', '0%').attr('y1', '0%')
+    .attr('x2', '0%').attr('y2', '100%');
+
+  gradient.append('stop').attr('offset', '0%').attr('stop-color', '#06b6d4').attr('stop-opacity', 0.2);
+  gradient.append('stop').attr('offset', '100%').attr('stop-color', 'transparent').attr('stop-opacity', 0);
+
+  svg.append('path')
+    .datum(data)
+    .attr('fill', 'url(#chart-gradient)')
+    .attr('d', area);
+
+  // Growth label
+  const growthEl = document.getElementById('chart-growth');
+  if (growthEl && data.length > 1) {
+    const startValue = data[0].value;
+    const endValue = data[data.length - 1].value;
+    const growth = ((endValue - startValue) / startValue) * 100;
+    growthEl.innerText = `${growth >= 0 ? '+' : ''}${growth.toFixed(2)}%`;
+    growthEl.className = `text-[8px] font-bold ${growth >= 0 ? 'text-green-500' : 'text-red-500'}`;
+  }
+}
+
+/**
  * Background News Sync (Real-time polling)
  */
 function startBackgroundSync() {
@@ -178,6 +286,16 @@ const GLOBAL_HUBS = [
   { city: 'Tel Aviv', country: 'IL', coords: [32.0853, 34.7818], company: 'WIX', symbol: 'WIX', sector: 'TECH', employees: 6000, type: 'HQ' },
   { city: 'Helsinki', country: 'FI', coords: [60.1699, 24.9384], company: 'NOKIA', symbol: 'NOK', sector: 'TECH', employees: 86000, type: 'HQ' },
   { city: 'Oslo', country: 'NO', coords: [59.9139, 10.7522], company: 'EQUINOR', symbol: 'EQNR', sector: 'ENERGY', employees: 22000, type: 'HQ' },
+  { city: 'San Jose', country: 'USA', coords: [37.3337, -121.8907], company: 'ADOBE', symbol: 'ADBE', sector: 'TECH', employees: 30000, type: 'HQ' },
+  { city: 'Burbank', country: 'USA', coords: [34.1808, -118.3090], company: 'DISNEY', symbol: 'DIS', sector: 'MEDIA', employees: 225000, type: 'HQ' },
+  { city: 'Minato', country: 'JP', coords: [35.6586, 139.7454], company: 'SONY', symbol: 'SONY', sector: 'TECH', employees: 113000, type: 'HQ' },
+  { city: 'Hangzhou', country: 'CN', coords: [30.2741, 120.1551], company: 'ALIBABA', symbol: 'BABA', sector: 'TECH', employees: 235000, type: 'HQ' },
+  { city: 'Beijing', country: 'CN', coords: [39.9042, 116.4074], company: 'BAIDU', symbol: 'BIDU', sector: 'TECH', employees: 42000, type: 'HQ' },
+  { city: 'Sejong', country: 'KR', coords: [36.4800, 127.2890], company: 'HYUNDAI', symbol: 'HYMTF', sector: 'AUTO', employees: 120000, type: 'HQ' },
+  { city: 'Wolfsburg', country: 'DE', coords: [52.4227, 10.7865], company: 'VOLKSWAGEN', symbol: 'VWAGY', sector: 'AUTO', employees: 673000, type: 'HQ' },
+  { city: 'Dublin', country: 'IE', coords: [53.3498, -6.2603], company: 'META_EMEA', symbol: 'META', sector: 'TECH', employees: 5000, type: 'HUB' },
+  { city: 'Dubai', country: 'AE', coords: [25.2048, 55.2708], company: 'EMIRATES', symbol: 'UAE', sector: 'AERO', employees: 105000, type: 'HQ' },
+  { city: 'Perth', country: 'AU', coords: [-31.9505, 115.8605], company: 'RIO_TINTO', symbol: 'RIO', sector: 'MINING', employees: 52000, type: 'HQ' },
   // Operational hubs (Simulated Logistics nodes)
   { city: 'Chicago', country: 'USA', coords: [41.8781, -87.6298], company: 'AMZN_LOGISTICS', symbol: 'AMZN', type: 'HUB', employees: 85000 },
   { city: 'Shanghai', country: 'CN', coords: [31.2304, 121.4737], company: 'AAPL_MFG', symbol: 'AAPL', type: 'HUB', employees: 350000 },
@@ -690,6 +808,31 @@ const FALLBACK_NEWS = [
     title: "EQUITY INDEX REBALANCING", 
     description: "Global indices move toward heavier weightings in green-tech and cybersecurity verticals. Passive funds are expected to rotate $1.2T in assets over the weekend, leading to high-than-average late-session volatility and potential liquidity gaps in legacy industrial sectors.",
     published_at: new Date().toISOString() 
+  },
+  { 
+    title: "ORBITAL DEBRIS CASCADE", 
+    description: "A satellite disintegration event in Low Earth Orbit (LEO) has triggered CSS (Critical Space Situation) alerts. Fiber-optic failovers are active as high-bandwidth satellite links for high-frequency trading firms experience packet loss and increased latency.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "UNDERSEA CABLE TENSION", 
+    description: "Anomalous seismic activity detected near the Arctic-Pacific data bridge. Submarine maintenance drones report surface-level scorch marks on primary trunk lines, leading to speculation regarding state-sponsored signal interception attempts.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "AI SOVEREIGNTY CRISIS", 
+    description: "The European Data Protection Board has issued a cease-and-desist to non-compliant Large Language Model providers. Model weights hosted within EU jurisdictions must now undergo 'ethical verification' cycles, impacting the real-time inference speed for financial chatbots.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "DIGITAL CURRENCY COLD WAR", 
+    description: "A major reserve bank has launched a pilot for its Programmable CBDC. Institutional investors are monitoring for 'logic-bombs' in cross-border settlement smart contracts as legacy SWIFT channels face obsolescence pressure.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "DEEPFAKE MARKET VOLATILITY", 
+    description: "A synthetic video of a central bank governor resigned prematurely sent the Dow into a 400-point tailspin within 90 seconds. Algorithmic sentiment analyzers failed to flag the artifact before high-frequency sell-stops were triggered across major exchanges.",
+    published_at: new Date().toISOString() 
   }
 ];
 
@@ -856,6 +999,7 @@ window.initTerminal = (ticker, fromMapTag = false) => {
   
   fetchTerminalCore(ticker);
   fetchLogistics(ticker);
+  fetchHistory(ticker);
 };
 
 // Initial boot
