@@ -36,6 +36,50 @@
             0% { opacity: 1; }
             100% { opacity: 0; }
         }
+        .ghost-text {
+            color: transparent;
+            text-shadow: 0 0 5px rgba(6, 182, 212, 0.4);
+            animation: textScramble 2s infinite linear;
+        }
+        .scanline {
+            position: relative;
+            overflow: hidden;
+        }
+        .scanline::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+        @keyframes textScramble {
+            0% { opacity: 0.1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 0.1; }
+        }
+        @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        @keyframes scrolling {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50%); }
+        }
+        @keyframes dash {
+            0% { stroke-dasharray: 0, 200; stroke-dashoffset: 0; }
+            50% { stroke-dasharray: 100, 200; stroke-dashoffset: -50; }
+            100% { stroke-dasharray: 100, 200; stroke-dashoffset: -200; }
+        }
     </style>
 </head>
 <body class="p-1 md:p-2 min-h-screen bg-black text-gray-400 overflow-x-hidden">
@@ -81,7 +125,7 @@
 
         <!-- CENTER: TOPOLOGY & REGULATORY -->
         <div class="md:col-span-6 flex flex-col gap-2">
-            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 h-[450px] overflow-hidden relative">
+            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 h-[450px] overflow-hidden relative scanline">
                 <div id="topology-map" class="w-full h-full z-0">
                     <!-- Injected via script.js -->
                 </div>
@@ -97,19 +141,8 @@
             </section>
 
             <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2">
-                <div class="text-[10px] text-cyan-700 font-mono mb-2 uppercase">Regulatory // FinancialData.net</div>
-                <div id="regulatory-synthesis" class="grid grid-cols-5 gap-2">
-                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_A</div>
-                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_B</div>
-                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_C</div>
-                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_D</div>
-                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_E</div>
-                </div>
-            </section>
-
-            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2">
                 <div class="text-[10px] text-cyan-700 font-mono mb-1 uppercase text-center">System // Log</div>
-                <div id="terminal-log" class="text-[9px] text-green-900 font-mono h-24 overflow-y-auto bg-black border border-green-950 p-2">
+                <div id="terminal-log" class="text-[9px] text-green-900 font-mono h-[168px] overflow-y-auto bg-black border border-green-950 p-2">
                     [SYSTEM] UPLINK ESTABLISHED...<br>
                     [SYSTEM] PARSING SILO ARCHITECTURE...<br>
                     [ENGINE] HARVESTING INITIAL TELEMETRY...
@@ -119,18 +152,18 @@
 
         <!-- RIGHT SIDEBAR: PRICE & LABOR -->
         <aside class="md:col-span-3 flex flex-col gap-2">
-            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 h-40 flex flex-col justify-between">
+            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 h-40 flex flex-col justify-between scanline">
                 <div class="text-[10px] text-cyan-700 font-mono mb-1 uppercase tracking-tighter">Core Telemetry // FMP</div>
                 <div id="price-feed" class="flex-grow flex items-center">
                     <span class="text-gray-700 animate-pulse text-[10px]">AWAITING_UPLINK...</span>
                 </div>
             </section>
 
-            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 flex-grow">
-                <div class="text-[10px] text-cyan-700 font-mono mb-2 uppercase">Labor Logistics // FMP</div>
-                <div id="labor-stats">
+            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 flex-grow scanline">
+                <div class="text-[10px] text-cyan-700 font-mono mb-2 uppercase">Financials // FMP + FDA</div>
+                <div id="labor-stats" class="h-full">
                     <!-- Injected via script.js -->
-                    <span class="text-gray-700 animate-pulse text-[10px]">ANALYZING_LABOR_DATA...</span>
+                    <span class="text-gray-700 animate-pulse text-[10px]">ANALYZING_FINANCIAL_DATA...</span>
                 </div>
             </section>
         </aside>

@@ -31,8 +31,8 @@ export default async function handler(req, res) {
     fmp: process.env.FMP_API_KEY,
     alpaca: process.env.ALPACA_API_KEY,
     alpacaSecret: process.env.ALPACA_SECRET_KEY,
-    financialData: process.env.FINANCIALDATA_API_KEY,
-    itick: process.env.ITICK_API_KEY,
+    financialData: process.env.FINANCIAL_DATA_API_KEY,
+    itick: process.env.ITIC_API_KEY,
     finnhub: process.env.FINNHUB_API_KEY,
     marketaux: process.env.MARKETAUX_API_KEY,
   };
@@ -147,21 +147,54 @@ async function fetchCoreMetrics(symbol, keys) {
  */
 async function fetchLogisticsMetrics(symbol, keys) {
   if (!isKeyReady(keys.fmp)) {
+    const mockPrice = 145 + (Math.random() * 10);
+    const mockChanges = (Math.random() - 0.4) * 2;
+    const mockDcf = mockPrice * (0.9 + Math.random() * 0.3);
     return {
-      employees: 'KEY_MISSING',
-      sector: 'N/A',
-      industry: 'N/A',
-      hq: { city: 'N/A', state: 'N/A', country: 'N/A' }
+      employees: 154000 + Math.floor(Math.random() * 1000),
+      mktCap: 2850000000000 + (Math.random() * 100000000),
+      beta: 1.2 + (Math.random() * 0.2),
+      volAvg: 54000000 + Math.floor(Math.random() * 500000),
+      dividend: 0.24 + (Math.random() * 0.05),
+      pe: 28.4 + (Math.random() * 2),
+      eps: 6.55 + (Math.random() * 0.5),
+      dcf: mockDcf,
+      price: mockPrice,
+      changes: mockChanges,
+      range: `${(mockPrice * 0.8).toFixed(2)} - ${(mockPrice * 1.2).toFixed(2)}`,
+      companyName: `${symbol} // MOCK_TELEMETRY`,
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
+      hq: { city: 'Cupertino', state: 'CA', country: 'USA' }
     };
   }
   try {
-    const fmpProfiles = await fetch(`https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${keys.fmp}`).then(r => r.json());
-    const profile = fmpProfiles[0] || {};
+    const [profileData, dcfData] = await Promise.all([
+      fetch(`https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${keys.fmp}`).then(r => r.json()),
+      fetch(`https://financialmodelingprep.com/api/v3/discounted-cash-flow/${symbol}?apikey=${keys.fmp}`).then(r => r.json())
+    ]);
+    
+    const profile = profileData[0] || {};
+    const dcf = dcfData[0] || {};
     
     return {
       employees: profile.fullTimeEmployees || 'DATA_CLOAKED',
+      mktCap: profile.mktCap || 0,
+      beta: profile.beta || 0,
+      volAvg: profile.volAvg || 0,
+      dividend: profile.lastDiv || 0,
+      range: profile.range || 'N/A',
+      companyName: profile.name || 'N/A',
+      pe: profile.pe || 0,
+      eps: profile.eps || 0,
+      dcf: dcf.dcf || 0,
+      price: profile.price || 0,
+      changes: profile.changes || 0,
+      currency: profile.currency || 'USD',
+      exchange: profile.exchangeShortName || 'NAS',
+      industry: profile.industry || 'N/A',
+      website: profile.website,
       sector: profile.sector,
-      industry: profile.industry,
       hq: {
         city: profile.city,
         state: profile.state,
@@ -169,7 +202,7 @@ async function fetchLogisticsMetrics(symbol, keys) {
       }
     };
   } catch (e) {
-    return { employees: 'FETCH_ERROR', sector: 'ERR', industry: 'ERR', hq: { city: 'ERR', state: 'ERR', country: 'ERR' } };
+    return { employees: 'FETCH_ERROR', mktCap: 0, beta: 0, sector: 'ERR', industry: 'ERR', hq: { city: 'ERR', state: 'ERR', country: 'ERR' } };
   }
 }
 
