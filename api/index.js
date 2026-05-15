@@ -208,7 +208,7 @@ async function fetchBookDepth(symbol, keys) {
 async function fetchMacroNews(symbol, keys) {
   if (!isKeyReady(keys.marketaux)) return { data: [], message: 'Marketaux key missing' };
   try {
-    const res = await fetch(`https://api.marketaux.com/v1/news/all?symbols=${symbol}&filter_entities=true&limit=3&api_token=${keys.marketaux}`);
+    const res = await fetch(`https://api.marketaux.com/v1/news/all?symbols=${symbol}&filter_entities=true&limit=30&api_token=${keys.marketaux}`);
     return await res.json();
   } catch (e) {
     return { data: [], error: e.message };
