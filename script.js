@@ -170,7 +170,9 @@ function updateTopologyMap() {
           box-shadow: 0 0 15px rgba(6,182,212,0.2) !important;
         }
         .leaflet-popup-content {
-          margin: 8px !important;
+          margin: 0 !important;
+          padding: 8px !important;
+          background: linear-gradient(135deg, rgba(0,0,0,0.95) 0%, rgba(10,30,40,0.95) 100%) !important;
         }
         .targeting-icon {
           background: transparent;
@@ -235,9 +237,46 @@ function updateTopologyMap() {
   });
 
   const { city, country } = state.logistics?.hq || { city: 'N/A', country: 'N/A' };
+  const { price, changes, dcf, mktCap, industry } = state.logistics || {};
+  const isUp = changes >= 0;
+  const overvalued = dcf && price ? (price > dcf) : false;
+
+  const formatLarge = (num) => {
+    if (typeof num !== 'number' || num === 0) return '---';
+    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    return num.toLocaleString();
+  };
+
   const hubsMap = {};
   GLOBAL_HUBS.forEach(h => { hubsMap[h.symbol] = h.coords; hubsMap[h.city] = h.coords; });
   const activeCoords = state.targetCoords || hubsMap[state.currentTicker] || hubsMap[city] || [34.0522, -118.2437];
+
+  const activePopupHtml = `
+    <div class="font-mono text-[9px] uppercase space-y-1.5 min-w-[140px]">
+      <div class="flex justify-between border-b border-cyan-500/30 pb-1 mb-1">
+        <span class="text-cyan-400 font-black animate-pulse">LINK_ESTABLISHED</span>
+        <span class="text-white opacity-50">${state.currentTicker}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+        <span class="text-gray-500">VALUATION:</span>
+        <span class="${isUp ? 'text-green-500' : 'text-red-500'} font-bold">${price ? price.toFixed(2) : '---'}</span>
+        
+        <span class="text-gray-500">MKT_CAP:</span>
+        <span class="text-white">${formatLarge(mktCap)}</span>
+        
+        <span class="text-gray-500">IV_DCF:</span>
+        <span class="${overvalued ? 'text-yellow-600' : 'text-green-600'} font-bold">${dcf ? dcf.toFixed(2) : '---'}</span>
+        
+        <span class="text-gray-500">VERTICAL:</span>
+        <span class="text-cyan-700 truncate w-20" title="${industry}">${industry || 'GENERAL'}</span>
+      </div>
+      <div class="mt-2 text-[7px] text-cyan-400 bg-cyan-950/50 px-1 py-1 border border-cyan-900/40 text-center tracking-tighter">
+        LOC_ID: ${city.toUpperCase()} // PING: 24ms
+      </div>
+    </div>
+  `;
 
   if (!state.newsCycleInterval) {
     state.map.flyTo(activeCoords, 11, { duration: 2.5 });
@@ -266,7 +305,7 @@ function updateTopologyMap() {
     opacity: 0.8,
     fillOpacity: 0.6
   }).addTo(state.markerLayer)
-    .bindPopup(`<div class="font-mono text-[9px] uppercase"><span class="text-cyan-400 font-bold">LINK_ESTABLISHED</span><br>ACTIVE_NODE: ${city}<br>IP: 192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}</div>`)
+    .bindPopup(activePopupHtml, { closeButton: false })
     .openPopup();
 }
 
