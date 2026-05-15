@@ -8,7 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body { font-family: 'JetBrains Mono', monospace; }
         .glitch-text { text-shadow: 2px 0 #00ffff, -2px 0 #ff00ff; }
@@ -160,25 +159,6 @@
                 <div class="text-[8px] text-cyan-900 font-mono mt-1 uppercase tracking-tighter border-t border-cyan-950 pt-1 flex justify-between">
                     <span>Core Telemetry // FMP</span>
                     <span class="animate-pulse">ONLINE</span>
-                </div>
-            </section>
-
-            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 h-48 flex flex-col scanline">
-                <div class="text-[9px] text-cyan-600 font-mono mb-2 uppercase tracking-widest flex justify-between items-center bg-cyan-950/20 px-2 py-0.5">
-                    <span>Nodal_Price_History // 60D</span>
-                    <span id="chart-growth" class="text-[8px] font-bold">---</span>
-                </div>
-                <div id="price-history-chart" class="flex-grow w-full relative">
-                    <!-- D3 Chart Injected Here -->
-                    <div class="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                        <svg width="100%" height="100%" class="animate-pulse">
-                            <path d="M0,50 L20,45 L40,55 L60,40 L80,50 L100,30" fill="none" stroke="cyan" stroke-width="1" />
-                        </svg>
-                    </div>
-                </div>
-                <div class="text-[7px] text-cyan-900 font-mono mt-1 pt-1 border-t border-cyan-950 flex justify-between">
-                    <span>AXIS_X: TEMPORAL_QUANTUM</span>
-                    <span>AXIS_Y: USD_PRICE</span>
                 </div>
             </section>
 
