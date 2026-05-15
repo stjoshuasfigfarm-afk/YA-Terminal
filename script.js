@@ -10,6 +10,7 @@ const state = {
   core: null,
   logistics: null,
   macro: [],
+  syncInterval: null,
   map: null,
   markerLayer: null,
   newsCycleIndex: 0,
@@ -72,74 +73,118 @@ export async function fetchLogistics(ticker) {
     ]);
     
     state.logistics = logistics;
-    state.macro = macro.data || [];
+    
+    // Merge macro news logic - avoid duplicates
+    const newItems = macro.data || [];
+    const currentTitles = new Set(state.macro.map(m => m.title));
+    const merged = [...state.macro];
+    
+    newItems.forEach(item => {
+      if (!currentTitles.has(item.title)) {
+        merged.unshift(item); // Put newest at the front
+      }
+    });
+    
+    state.macro = merged.length > 0 ? merged : state.macro;
     state.regulatory = regulatory;
     
     renderFinancials();
     renderSiloIndex();
     updateTopologyMap();
+    
+    logToTerminal(`SYNC_COMPLETE :: ${state.macro.length} STORIES_IN_SILO`, 'SYSTEM');
   } catch (err) {
     console.warn('[Logistics Error]', err);
   }
 }
 
 /**
+ * Background News Sync (Real-time polling)
+ */
+function startBackgroundSync() {
+  if (state.syncInterval) return;
+  
+  state.syncInterval = setInterval(async () => {
+    try {
+      const ticker = state.currentTicker || 'AAPL';
+      const res = await fetch(`/api?service=macro&symbol=${ticker}`);
+      const macro = await res.json();
+      
+      const newItems = macro.data || [];
+      if (newItems.length === 0) return;
+
+      const currentTitles = new Set(state.macro.map(m => m.title));
+      let addedCount = 0;
+      
+      newItems.forEach(item => {
+        if (!currentTitles.has(item.title)) {
+          state.macro.unshift(item);
+          addedCount++;
+        }
+      });
+
+      if (addedCount > 0) {
+        logToTerminal(`LIVE_INTEL_RECOVERY :: ${addedCount} NEW_HEADLINES`, 'INFO');
+        // Show sync pulse in UI
+        const syncLabel = document.getElementById('sync-pulse');
+        if (syncLabel) {
+          syncLabel.classList.remove('opacity-0');
+          setTimeout(() => syncLabel.classList.add('opacity-0'), 3000);
+        }
+      }
+    } catch (e) {
+      console.warn('Sync heartbeat failed', e);
+    }
+  }, 60000); // Check for new intel every 60 seconds
+}
+
+/**
  * Topology Visualizer (Leaflet implementation)
  */
 const GLOBAL_HUBS = [
-  { city: 'Cupertino', country: 'USA', coords: [37.3229, -122.0322], company: 'APPLE', symbol: 'AAPL', sector: 'TECH' },
-  { city: 'Mountain View', country: 'USA', coords: [37.3861, -122.0839], company: 'GOOGLE', symbol: 'GOOGL', sector: 'TECH' },
-  { city: 'Redmond', country: 'USA', coords: [47.6740, -122.1215], company: 'MICROSOFT', symbol: 'MSFT', sector: 'TECH' },
-  { city: 'Seattle', country: 'USA', coords: [47.6062, -122.3321], company: 'AMAZON', symbol: 'AMZN', sector: 'RETAIL' },
-  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'JPMORGAN', symbol: 'JPM', sector: 'FIN' },
-  { city: 'San Francisco', country: 'USA', coords: [37.7749, -122.4194], company: 'SALESFORCE', symbol: 'CRM', sector: 'TECH' },
-  { city: 'Seoul', country: 'KR', coords: [37.5665, 126.9780], company: 'SAMSUNG', symbol: 'SSNLF', sector: 'TECH' },
-  { city: 'Austin', country: 'USA', coords: [30.2672, -97.7431], company: 'TESLA', symbol: 'TSLA', sector: 'AUTO' },
-  { city: 'Palo Alto', country: 'USA', coords: [37.4419, -122.1430], company: 'META', symbol: 'META', sector: 'TECH' },
-  { city: 'London', country: 'UK', coords: [51.5074, -0.1278], company: 'HSBC', symbol: 'HSBC', sector: 'FIN' },
-  { city: 'Tokyo', country: 'JP', coords: [35.6762, 139.6503], company: 'SONY', symbol: 'SONY', sector: 'TECH' },
-  { city: 'Paris', country: 'FR', coords: [48.8566, 2.3522], company: 'LVMH', symbol: 'LVMHF', sector: 'LUX' },
-  { city: 'Taipei', country: 'TW', coords: [25.0330, 121.5654], company: 'TSMC', symbol: 'TSM', sector: 'SEMI' },
-  { city: 'Shenzhen', country: 'CN', coords: [22.5431, 114.0579], company: 'TENCENT', symbol: 'TCEHY', sector: 'TECH' },
-  { city: 'Omaha', country: 'USA', coords: [41.2565, -95.9345], company: 'BERKSHIRE', symbol: 'BRK-B', sector: 'FIN' },
-  { city: 'Bentonville', country: 'USA', coords: [36.3724, -94.2088], company: 'WALMART', symbol: 'WMT', sector: 'RETAIL' },
-  { city: 'Santa Clara', country: 'USA', coords: [37.3541, -121.9552], company: 'NVIDIA', symbol: 'NVDA', sector: 'SEMI' },
-  { city: 'Amsterdam', country: 'NL', coords: [52.3676, 4.9041], company: 'ASML', symbol: 'ASML', sector: 'SEMI' },
-  { city: 'Hangzhou', country: 'CN', coords: [30.2741, 120.1551], company: 'ALIBABA', symbol: 'BABA', sector: 'RETAIL' },
-  { city: 'Mumbai', country: 'IN', coords: [19.0760, 72.8777], company: 'RELIANCE', symbol: 'RELIANCE.NS', sector: 'ENERGY' },
-  { city: 'Wolfsburg', country: 'DE', coords: [52.4227, 10.7865], company: 'VOLKSWAGEN', symbol: 'VOW3.DE', sector: 'AUTO' },
-  { city: 'Zurich', country: 'CH', coords: [47.3769, 8.5417], company: 'UBS', symbol: 'UBS', sector: 'FIN' },
-  { city: 'Singapore', country: 'SG', coords: [1.3521, 103.8198], company: 'SEA', symbol: 'SE', sector: 'TECH' },
-  { city: 'Sydney', country: 'AU', coords: [-33.8688, 151.2093], company: 'BHP', symbol: 'BHP', sector: 'MINING' },
-  { city: 'Toronto', country: 'CA', coords: [43.6532, -79.3832], company: 'SHOPIFY', symbol: 'SHOP', sector: 'TECH' },
-  { city: 'Stockholm', country: 'SE', coords: [59.3293, 18.0686], company: 'SPOTIFY', symbol: 'SPOT', sector: 'TECH' },
-  { city: 'Bangalore', country: 'IN', coords: [12.9716, 77.5946], company: 'INFOSYS', symbol: 'INFY', sector: 'TECH' },
-  { city: 'Milan', country: 'IT', coords: [45.4642, 9.1900], company: 'FERRARI', symbol: 'RACE', sector: 'AUTO' },
-  { city: 'Dhahran', country: 'SA', coords: [26.3079, 50.1430], company: 'ARAMCO', symbol: '2222.SR', sector: 'ENERGY' },
-  { city: 'Rio de Janeiro', country: 'BR', coords: [-22.9068, -43.1729], company: 'PETROBRAS', symbol: 'PBR', sector: 'ENERGY' },
-  { city: 'Johannesburg', country: 'ZA', coords: [-26.2041, 28.0473], company: 'MTN', symbol: 'MTNOY', sector: 'TELE' },
-  { city: 'Nairobi', country: 'KE', coords: [-1.2921, 36.8219], company: 'SAFARICOM', symbol: 'SCOM.KE', sector: 'FIN' },
-  { city: 'Lagos', country: 'NG', coords: [6.5244, 3.3792], company: 'DANGOTE', symbol: 'DANGCEM.LG', sector: 'IND' },
-  { city: 'Cape Town', country: 'ZA', coords: [-33.9249, 18.4232], company: 'NASPERS', symbol: 'NPSNY', sector: 'TECH' },
-  { city: 'Dubai', country: 'AE', coords: [25.2048, 55.2708], company: 'DP_WORLD', symbol: 'DPW.AE', sector: 'LOG' },
-  { city: 'Tel Aviv', country: 'IL', coords: [32.0853, 34.7818], company: 'CHECKPOINT', symbol: 'CHKP', sector: 'SEC' },
-  { city: 'Buenos Aires', country: 'AR', coords: [-34.6037, -58.3816], company: 'MERCADOLIBRE', symbol: 'MELI', sector: 'RETAIL' },
-  { city: 'Mexico City', country: 'MX', coords: [19.4326, -99.1332], company: 'AMX', symbol: 'AMX', sector: 'TELE' },
-  { city: 'Jakarta', country: 'ID', coords: [-6.2088, 106.8456], company: 'GOTO', symbol: 'GOTO.JK', sector: 'TECH' },
-  { city: 'Bangkok', country: 'TH', coords: [13.7563, 100.5018], company: 'PTT', symbol: 'PTT.BK', sector: 'ENERGY' },
-  { city: 'Manila', country: 'PH', coords: [14.5995, 120.9842], company: 'SM_INVEST', symbol: 'SM.PH', sector: 'FIN' },
-  { city: 'Ho Chi Minh', country: 'VN', coords: [10.8231, 106.6297], company: 'VINGROUP', symbol: 'VIC.HM', sector: 'IND' },
-  { city: 'Istanbul', country: 'TR', coords: [41.0082, 28.9784], company: 'KOC_HOLDING', symbol: 'KCHOL.IS', sector: 'IND' },
-  { city: 'Cairo', country: 'EG', coords: [30.0444, 31.2357], company: 'CIB', symbol: 'COMI.EY', sector: 'FIN' },
-  { city: 'Santiago', country: 'CL', coords: [-33.4489, -70.6693], company: 'SQM', symbol: 'SQM', sector: 'MINING' },
-  { city: 'Lima', country: 'PE', coords: [-12.0464, -77.0428], company: 'CREDICORP', symbol: 'BAP', sector: 'FIN' },
-  { city: 'Warsaw', country: 'PL', coords: [52.2297, 21.0122], company: 'CD_PROJEKT', symbol: 'OTGLF', sector: 'ENT' },
-  { city: 'Prague', country: 'CZ', coords: [50.0755, 14.4378], company: 'CEZ', symbol: 'CEZ.PR', sector: 'ENERGY' },
-  { city: 'Helsinki', country: 'FI', coords: [60.1699, 24.9384], company: 'NOKIA', symbol: 'NOK', sector: 'TECH' },
-  { city: 'Oslo', country: 'NO', coords: [59.9139, 10.7522], company: 'EQUINOR', symbol: 'EQNR', sector: 'ENERGY' },
-  { city: 'Athens', country: 'GR', coords: [37.9838, 23.7275], company: 'PIRAEUS', symbol: 'BPIRY', sector: 'FIN' },
-  { city: 'Riyadh', country: 'SA', coords: [24.7136, 46.6753], company: 'STC', symbol: '7010.SR', sector: 'TELE' },
-  { city: 'Doha', country: 'QA', coords: [25.2854, 51.5310], company: 'OOREDOO', symbol: 'ORDS.QA', sector: 'TELE' }
+  { city: 'Cupertino', country: 'USA', coords: [37.3229, -122.0322], company: 'APPLE', symbol: 'AAPL', sector: 'TECH', employees: 161000, type: 'HQ' },
+  { city: 'Mountain View', country: 'USA', coords: [37.3861, -122.0839], company: 'GOOGLE', symbol: 'GOOGL', sector: 'TECH', employees: 182000, type: 'HQ' },
+  { city: 'Redmond', country: 'USA', coords: [47.6740, -122.1215], company: 'MICROSOFT', symbol: 'MSFT', sector: 'TECH', employees: 221000, type: 'HQ' },
+  { city: 'Seattle', country: 'USA', coords: [47.6062, -122.3321], company: 'AMAZON', symbol: 'AMZN', sector: 'RETAIL', employees: 1541000, type: 'HQ' },
+  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'JPMORGAN', symbol: 'JPM', sector: 'FIN', employees: 293000, type: 'HQ' },
+  { city: 'Seoul', country: 'KR', coords: [37.5665, 126.9780], company: 'SAMSUNG', symbol: 'SSNLF', sector: 'TECH', employees: 267000, type: 'HQ' },
+  { city: 'Austin', country: 'USA', coords: [30.2672, -97.7431], company: 'TESLA', symbol: 'TSLA', sector: 'AUTO', employees: 127000, type: 'HQ' },
+  { city: 'Paris', country: 'FR', coords: [48.8566, 2.3522], company: 'LVMH', symbol: 'LVMHF', sector: 'LUX', employees: 175000, type: 'HQ' },
+  { city: 'Taipei', country: 'TW', coords: [25.0330, 121.5654], company: 'TSMC', symbol: 'TSM', sector: 'SEMI', employees: 73000, type: 'HQ' },
+  { city: 'Shenzhen', country: 'CN', coords: [22.5431, 114.0579], company: 'TENCENT', symbol: 'TCEHY', sector: 'TECH', employees: 108000, type: 'HQ' },
+  { city: 'Bentonville', country: 'USA', coords: [36.3724, -94.2088], company: 'WALMART', symbol: 'WMT', sector: 'RETAIL', employees: 2100000, type: 'HQ' },
+  { city: 'Amsterdam', country: 'NL', coords: [52.3676, 4.9041], company: 'ASML', symbol: 'ASML', sector: 'SEMI', employees: 39000, type: 'HQ' },
+  { city: 'Mumbai', country: 'IN', coords: [19.0760, 72.8777], company: 'RELIANCE', symbol: 'RELIANCE.NS', sector: 'ENERGY', employees: 342000, type: 'HQ' },
+  { city: 'Singapore', country: 'SG', coords: [1.3521, 103.8198], company: 'SEA', symbol: 'SE', sector: 'TECH', employees: 67000, type: 'HQ' },
+  { city: 'Johannesburg', country: 'ZA', coords: [-26.2041, 28.0473], company: 'MTN', symbol: 'MTNOY', sector: 'TELE', employees: 19000, type: 'HQ' },
+  { city: 'Santa Clara', country: 'USA', coords: [37.3541, -121.9552], company: 'NVIDIA', symbol: 'NVDA', sector: 'SEMI', employees: 26000, type: 'HQ' },
+  { city: 'Omaha', country: 'USA', coords: [41.2565, -95.9345], company: 'BERKSHIRE', symbol: 'BRK-B', sector: 'FIN', employees: 382000, type: 'HQ' },
+  { city: 'London', country: 'UK', coords: [51.5074, -0.1278], company: 'HSBC', symbol: 'HSBC', sector: 'FIN', employees: 220000, type: 'HQ' },
+  { city: 'Toyota City', country: 'JP', coords: [35.0824, 137.1562], company: 'TOYOTA', symbol: 'TM', sector: 'AUTO', employees: 375000, type: 'HQ' },
+  { city: 'Zurich', country: 'CH', coords: [47.3769, 8.5417], company: 'NESTLE', symbol: 'NSRGY', sector: 'FOOD', employees: 275000, type: 'HQ' },
+  { city: 'Dearborn', country: 'USA', coords: [42.3223, -83.1763], company: 'FORD', symbol: 'F', sector: 'AUTO', employees: 177000, type: 'HQ' },
+  { city: 'Ludwigshafen', country: 'DE', coords: [49.4875, 8.4660], company: 'BASF', symbol: 'BASFY', sector: 'CHEM', employees: 111000, type: 'HQ' },
+  { city: 'Stuttgart', country: 'DE', coords: [48.7758, 9.1829], company: 'MERCEDES', symbol: 'MBG.DE', sector: 'AUTO', employees: 170000, type: 'HQ' },
+  { city: 'Basel', country: 'CH', coords: [47.5596, 7.5886], company: 'ROCHE', symbol: 'RHHBY', sector: 'PHARMA', employees: 103000, type: 'HQ' },
+  { city: 'Munich', country: 'DE', coords: [48.1351, 11.5820], company: 'BMW', symbol: 'BMW.DE', sector: 'AUTO', employees: 149000, type: 'HQ' },
+  { city: 'Osaka', country: 'JP', coords: [34.6937, 135.5023], company: 'KEYENCE', symbol: 'KYCCF', sector: 'TECH', employees: 10000, type: 'HQ' },
+  { city: 'Stockholm', country: 'SE', coords: [59.3293, 18.0686], company: 'SPOTIFY', symbol: 'SPOT', sector: 'TECH', employees: 9000, type: 'HQ' },
+  { city: 'Toronto', country: 'CA', coords: [43.6532, -79.3832], company: 'SHOPIFY', symbol: 'SHOP', sector: 'TECH', employees: 11000, type: 'HQ' },
+  { city: 'Bangalore', country: 'IN', coords: [12.9716, 77.5946], company: 'INFOSYS', symbol: 'INFY', sector: 'TECH', employees: 345000, type: 'HQ' },
+  { city: 'Sydney', country: 'AU', coords: [-33.8688, 151.2093], company: 'CANVA', symbol: 'CANVA', sector: 'TECH', employees: 4000, type: 'HQ' },
+  { city: 'Melbourne', country: 'AU', coords: [-37.8136, 144.9631], company: 'BHP', symbol: 'BHP', sector: 'MINING', employees: 80000, type: 'HQ' },
+  { city: 'Rio de Janeiro', country: 'BR', coords: [-22.9068, -43.1729], company: 'PETROBRAS', symbol: 'PBR', sector: 'ENERGY', employees: 45000, type: 'HQ' },
+  { city: 'Dhahran', country: 'SA', coords: [26.3079, 50.1430], company: 'ARAMCO', symbol: '2222.SR', sector: 'ENERGY', employees: 70000, type: 'HQ' },
+  { city: 'Tel Aviv', country: 'IL', coords: [32.0853, 34.7818], company: 'WIX', symbol: 'WIX', sector: 'TECH', employees: 6000, type: 'HQ' },
+  { city: 'Helsinki', country: 'FI', coords: [60.1699, 24.9384], company: 'NOKIA', symbol: 'NOK', sector: 'TECH', employees: 86000, type: 'HQ' },
+  { city: 'Oslo', country: 'NO', coords: [59.9139, 10.7522], company: 'EQUINOR', symbol: 'EQNR', sector: 'ENERGY', employees: 22000, type: 'HQ' },
+  // Operational hubs (Simulated Logistics nodes)
+  { city: 'Chicago', country: 'USA', coords: [41.8781, -87.6298], company: 'AMZN_LOGISTICS', symbol: 'AMZN', type: 'HUB', employees: 85000 },
+  { city: 'Shanghai', country: 'CN', coords: [31.2304, 121.4737], company: 'AAPL_MFG', symbol: 'AAPL', type: 'HUB', employees: 350000 },
+  { city: 'Berlin', country: 'DE', coords: [52.5200, 13.4050], company: 'TSLA_GIGA', symbol: 'TSLA', type: 'HUB', employees: 12000 },
+  { city: 'Ho Chi Minh', country: 'VN', coords: [10.8231, 106.6297], company: 'INTC_MFG', symbol: 'INTC', type: 'HUB', employees: 45000 },
+  { city: 'Phoenix', country: 'USA', coords: [33.4484, -112.0740], company: 'TSMC_AZ', symbol: 'TSM', type: 'HUB', employees: 15000 },
+  { city: 'Eindhoven', country: 'NL', coords: [51.4416, 5.4697], company: 'ASML_R&D', symbol: 'ASML', type: 'HUB', employees: 22000 }
 ];
 
 function updateTopologyMap() {
@@ -157,129 +202,175 @@ function updateTopologyMap() {
     }).addTo(state.map);
 
     state.markerLayer = L.layerGroup().addTo(state.map);
+    state.hubsLayer = L.layerGroup().addTo(state.map);
+    state.activeLayer = L.layerGroup().addTo(state.map);
+    state.linesLayer = L.layerGroup().addTo(state.map);
     
     if (!document.getElementById('leaflet-custom-style')) {
       const style = document.createElement('style');
       style.id = 'leaflet-custom-style';
       style.innerHTML = `
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-          background: rgba(0,0,0,0.9) !important;
-          border: 1px solid #164e63 !important;
+          background: rgba(0,0,0,0.98) !important;
+          border: 1px solid #06b6d4 !important;
           color: #06b6d4 !important;
           border-radius: 0 !important;
-          box-shadow: 0 0 15px rgba(6,182,212,0.2) !important;
+          box-shadow: 0 0 25px rgba(6,182,212,0.4) !important;
         }
         .leaflet-popup-content {
           margin: 0 !important;
-          padding: 8px !important;
-          background: linear-gradient(135deg, rgba(0,0,0,0.95) 0%, rgba(10,30,40,0.95) 100%) !important;
+          padding: 10px !important;
+          background: linear-gradient(180deg, rgba(6,182,212,0.08) 0%, rgba(0,0,0,0.1) 100%) !important;
+          max-width: 450px !important;
+          width: auto !important;
         }
         .targeting-icon {
           background: transparent;
           border: none;
+          width: 0 !important;
+          height: 0 !important;
         }
         @keyframes pulse-cyan {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.5); opacity: 0.5; }
-          100% { transform: scale(1); opacity: 1; }
+          0% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.4); opacity: 0.3; }
+          100% { transform: scale(1); opacity: 0.8; }
         }
         .active-hq-pulse {
-          animation: pulse-cyan 2s infinite ease-in-out;
+          animation: pulse-cyan 3s infinite ease-in-out;
+        }
+        .trade-line {
+          stroke-dasharray: 4;
+          animation: dash-animation 60s linear infinite;
+        }
+        @keyframes dash-animation {
+          from { stroke-dashoffset: 1000; }
+          to { stroke-dashoffset: 0; }
         }
       `;
       document.head.appendChild(style);
     }
   }
 
-  state.markerLayer.clearLayers();
-
-  GLOBAL_HUBS.forEach(hub => {
-    // Generate simulated telemetry for each node
-    const mockPrice = 50 + (Math.random() * 200);
-    const mockChange = (Math.random() - 0.4) * 5;
-    const isUp = mockChange >= 0;
-    
-    const popupHtml = `
-      <div class="font-mono text-[8px] uppercase space-y-1">
-        <div class="flex justify-between border-b border-cyan-900/50 pb-1 mb-1">
-          <span class="text-cyan-400 font-black">${hub.company}</span>
-          <span class="text-white opacity-50">${hub.symbol}</span>
-        </div>
-        <div class="grid grid-cols-2 gap-x-2">
-          <span class="text-gray-500">LOC:</span>
-          <span class="text-white">${hub.city}, ${hub.country}</span>
-          <span class="text-gray-500">IDX:</span>
-          <span class="${isUp ? 'text-green-500' : 'text-red-500'} font-bold">${mockPrice.toFixed(2)} [${isUp ? '+' : ''}${mockChange.toFixed(2)}%]</span>
-          <span class="text-gray-500">SEC:</span>
-          <span class="text-cyan-600">${hub.sector || 'GENERAL'}</span>
-        </div>
-        <div class="mt-2 pt-1 border-t border-cyan-900/40 text-center animate-pulse text-cyan-200 cursor-pointer">
-          [ ACCESS_NODE_CORE ]
-        </div>
-      </div>
-    `;
-
-    const marker = L.circleMarker(hub.coords, {
-      radius: 3,
-      fillColor: "#164e63",
-      color: "#164e63",
-      weight: 1,
-      opacity: 0.6,
-      fillOpacity: 0.4
-    }).addTo(state.markerLayer)
-      .bindPopup(popupHtml, { closeButton: false });
-    
-    marker.on('click', () => {
-      state.targetCoords = hub.coords;
-      window.initTerminal(hub.symbol);
-      logToTerminal(`TERMINAL_HANDOFF :: ${hub.symbol} // NODE_${hub.city.toUpperCase()}`, 'SYSTEM');
-    });
-  });
-
-  const { city, country } = state.logistics?.hq || { city: 'N/A', country: 'N/A' };
-  const { price, changes, dcf, mktCap, industry } = state.logistics || {};
-  const isUp = changes >= 0;
-  const overvalued = dcf && price ? (price > dcf) : false;
-
-  const formatLarge = (num) => {
+  // Helper for large numbers
+  const formatLargeLocal = (num) => {
     if (typeof num !== 'number' || num === 0) return '---';
     if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
     if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
     if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(0) + 'K';
     return num.toLocaleString();
   };
+
+  // Only render hubs if not already present
+  if (state.hubsLayer.getLayers().length === 0) {
+    GLOBAL_HUBS.forEach(hub => {
+      const radius = Math.max(3, Math.sqrt(hub.employees || 5000) / 40);
+      const isHQ = hub.type === 'HQ';
+      
+      const popupHtml = `
+        <div class="font-mono text-[8px] uppercase space-y-1.5 min-w-[200px]">
+          <div class="flex justify-between border-b border-cyan-900/50 pb-1">
+            <span class="${isHQ ? 'text-cyan-400 font-black' : 'text-cyan-700 font-bold'}">${hub.company}</span>
+            <span class="text-white opacity-40">${hub.type || 'NODE'}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-2">
+            <span class="text-gray-500">CITY:</span>
+            <span class="text-white truncate">${hub.city}</span>
+            <span class="text-gray-500">STAFF:</span>
+            <span class="text-white font-bold">${formatLargeLocal(hub.employees)}</span>
+          </div>
+          <div class="text-[7px] text-cyan-800 border-t border-cyan-950/50 pt-1">
+            NODE_STATE: <span class="text-green-500">OPERATIONAL</span>
+          </div>
+        </div>
+      `;
+
+      const marker = L.circleMarker(hub.coords, {
+        radius: radius,
+        fillColor: isHQ ? "#164e63" : "#083344",
+        color: isHQ ? "#06b6d4" : "#155e75",
+        weight: 1,
+        opacity: 0.8,
+        fillOpacity: 0.5
+      }).addTo(state.hubsLayer)
+        .bindPopup(popupHtml, { closeButton: false });
+      
+      marker.on('click', () => {
+        state.targetCoords = hub.coords;
+        window.initTerminal(hub.symbol, true);
+      });
+    });
+  }
+
+  const { city, country, employees, revenue, ppe, headcountGrowth, regionalDist } = state.logistics || {};
+  const { price, changes, dcf, industry } = state.logistics || {};
+  
+  const isUp = changes >= 0;
+  const overvalued = dcf && price ? (price > dcf) : false;
 
   const hubsMap = {};
   GLOBAL_HUBS.forEach(h => { hubsMap[h.symbol] = h.coords; hubsMap[h.city] = h.coords; });
   const activeCoords = state.targetCoords || hubsMap[state.currentTicker] || hubsMap[city] || [34.0522, -118.2437];
 
   const activePopupHtml = `
-    <div class="font-mono text-[9px] uppercase space-y-1.5 min-w-[140px]">
-      <div class="flex justify-between border-b border-cyan-500/30 pb-1 mb-1">
-        <span class="text-cyan-400 font-black animate-pulse">LINK_ESTABLISHED</span>
-        <span class="text-white opacity-50">${state.currentTicker}</span>
+    <div class="font-mono text-[9px] uppercase space-y-2 min-w-[260px]">
+      <div class="flex justify-between border-b border-cyan-500/40 pb-1">
+        <span class="text-cyan-400 font-black animate-pulse flex items-center gap-1">
+          <span class="w-1 h-1 bg-cyan-400 rounded-full"></span>
+          CENTRAL_CONTROL
+        </span>
+        <span class="text-white opacity-60">${state.currentTicker}</span>
       </div>
+      
       <div class="grid grid-cols-2 gap-x-2 gap-y-1">
-        <span class="text-gray-500">VALUATION:</span>
-        <span class="${isUp ? 'text-green-500' : 'text-red-500'} font-bold">${price ? price.toFixed(2) : '---'}</span>
+        <span class="text-gray-500">WORKFORCE:</span>
+        <span class="text-white font-bold">${formatLargeLocal(employees)}</span>
         
-        <span class="text-gray-500">MKT_CAP:</span>
-        <span class="text-white">${formatLarge(mktCap)}</span>
+        <span class="text-gray-500">ASSETS (PPE):</span>
+        <span class="text-cyan-300">${formatLargeLocal(ppe)}</span>
         
-        <span class="text-gray-500">IV_DCF:</span>
-        <span class="${overvalued ? 'text-yellow-600' : 'text-green-600'} font-bold">${dcf ? dcf.toFixed(2) : '---'}</span>
-        
-        <span class="text-gray-500">VERTICAL:</span>
-        <span class="text-cyan-700 truncate w-20" title="${industry}">${industry || 'GENERAL'}</span>
+        <span class="text-gray-500">EFFICIENCY:</span>
+        <span class="text-green-500">${revenue && employees ? '$' + formatLargeLocal(revenue / employees) : '---'}/EE</span>
       </div>
-      <div class="mt-2 text-[7px] text-cyan-400 bg-cyan-950/50 px-1 py-1 border border-cyan-900/40 text-center tracking-tighter">
-        LOC_ID: ${city.toUpperCase()} // PING: 24ms
+
+      <div class="border-t border-cyan-900/40 pt-1.5">
+          <div class="flex justify-between text-[7px] text-gray-500 mb-1">
+            <span>REGIONAL_RISK_EXPOSURE</span>
+            <span class="${headcountGrowth >= 0 ? 'text-green-500' : 'text-red-500'}">${headcountGrowth ? (headcountGrowth > 0 ? '+' : '') + headcountGrowth.toFixed(1) + '%' : '0.0%'}</span>
+          </div>
+          <div class="flex gap-[1px] h-1.5 bg-black/40">
+             <div class="bg-cyan-500 h-full" style="width: ${regionalDist?.NA || 33}%" title="NA"></div>
+             <div class="bg-cyan-700 h-full" style="width: ${regionalDist?.APAC || 33}%" title="APAC"></div>
+             <div class="bg-cyan-900 h-full" style="width: ${regionalDist?.EMEA || 34}%" title="EMEA"></div>
+          </div>
+          <div class="flex justify-between text-[6px] text-gray-700 mt-0.5">
+             <span>NA:${(regionalDist?.NA || 33).toFixed(0)}%</span>
+             <span>APAC:${(regionalDist?.APAC || 33).toFixed(0)}%</span>
+             <span>EMEA:${(regionalDist?.EMEA || 34).toFixed(0)}%</span>
+          </div>
       </div>
     </div>
   `;
 
+  // Always refresh active marker and lines
+  state.activeLayer.clearLayers();
+  state.linesLayer.clearLayers();
+
+  // Draw lines to other hubs of the same company
+  if (state.currentTicker) {
+    const companyHubs = GLOBAL_HUBS.filter(h => h.symbol === state.currentTicker && h.coords.toString() !== activeCoords.toString());
+    companyHubs.forEach(hub => {
+      L.polyline([activeCoords, hub.coords], {
+        color: '#06b6d4',
+        weight: 1,
+        opacity: 0.3,
+        className: 'trade-line'
+      }).addTo(state.linesLayer);
+    });
+  }
+
   if (!state.newsCycleInterval) {
-    state.map.flyTo(activeCoords, 11, { duration: 2.5 });
+    state.map.flyTo(activeCoords, 10, { duration: 2.5 });
     
     const targetingIcon = L.divIcon({
       className: 'targeting-icon',
@@ -294,7 +385,7 @@ function updateTopologyMap() {
       iconSize: [0, 0],
       iconAnchor: [0, 0]
     });
-    L.marker(activeCoords, { icon: targetingIcon }).addTo(state.markerLayer);
+    L.marker(activeCoords, { icon: targetingIcon }).addTo(state.activeLayer);
   }
 
   L.circleMarker(activeCoords, {
@@ -304,7 +395,7 @@ function updateTopologyMap() {
     weight: 2,
     opacity: 0.8,
     fillOpacity: 0.6
-  }).addTo(state.markerLayer)
+  }).addTo(state.activeLayer)
     .bindPopup(activePopupHtml, { closeButton: false })
     .openPopup();
 }
@@ -326,9 +417,8 @@ function renderPriceFeed() {
           <span class="text-[14px] font-black text-white tracking-widest leading-none">${symbol}</span>
           <span class="text-[8px] text-cyan-700 font-mono uppercase truncate w-32">${name || ''}</span>
         </div>
-        <span class="text-[8px] font-mono text-cyan-900 uppercase tracking-tighter self-end">${source} // ACTIVE</span>
       </div>
-      <div class="flex items-baseline justify-between">
+      <div class="flex items-baseline justify-between mb-2">
         <span class="text-5xl font-mono font-black tracking-tighter ${isUp ? 'text-green-400' : 'text-red-400'}">
           ${Number(price).toFixed(2)}
         </span>
@@ -338,6 +428,10 @@ function renderPriceFeed() {
           </span>
           <span class="text-[8px] text-gray-700 font-mono uppercase">USD_EQUIV</span>
         </div>
+      </div>
+      <div class="flex justify-between items-center pt-1 border-t border-cyan-950 mt-1">
+        <span class="text-[7px] font-mono text-cyan-900 uppercase tracking-tighter self-end">TELEMETRY_UPLINK :: ${source}</span>
+        <span class="text-[7px] font-mono text-green-900 uppercase tracking-tighter">DATA_STABLE // SECURED</span>
       </div>
     </div>
   `;
@@ -370,29 +464,30 @@ function renderFinancials() {
   const isUp = changes >= 0;
 
   // Analysis Logic
-  const divYield = (dividend && price) ? ((dividend / price) * 100).toFixed(2) : '0.00';
-  const targetPrice = (eps && pe) ? (eps * pe * 1.15).toFixed(2) : '---';
-  const sentiment = isUp ? (Math.random() * 30 + 65).toFixed(0) : (Math.random() * 35 + 30).toFixed(0);
   const overvalued = dcf && price ? (price > dcf) : false;
   const dcfDelta = dcf && price ? Math.abs(((price - dcf) / dcf) * 100).toFixed(1) : '---';
 
-  // Regulatory Logic merge
-  const solvency = Math.min(100, Math.max(20, (mktCap > 1e11 ? 85 : 45) + (Math.random() * 10)));
-  const compliance = Math.min(100, Math.max(40, 95 - (beta * 12)));
+  const revPerEE = (state.logistics.revenue && state.logistics.employees) ? state.logistics.revenue / state.logistics.employees : 0;
+  const growth = state.logistics.headcountGrowth || 0;
+
+  const divYield = (dividend && price) ? ((dividend / price) * 100).toFixed(2) : '0.00';
+  const targetPrice = (eps && pe) ? (eps * pe * 1.15).toFixed(2) : '---';
+  const sentiment = isUp ? (Math.random() * 30 + 65).toFixed(0) : (Math.random() * 35 + 30).toFixed(0);
+
   const indicators = [
-    { label: 'SOLV', val: solvency.toFixed(0), detail: 'Solvency_Adequacy' },
-    { label: 'QUALT', val: compliance.toFixed(0), detail: 'Market_Quality' },
-    { label: 'BETA', val: (Math.min(100, beta * 40)).toFixed(1), detail: 'Volatility_Rel' }
+    { label: 'PPE', val: formatLarge(state.logistics.ppe), detail: 'Property, Plant, & Equipment: Gross physical asset footprint.' },
+    { label: 'REV/EE', val: '$' + formatLarge(revPerEE), detail: 'Labor Efficiency: Total revenue generated per full-time employee.' },
+    { label: 'GRWTH', val: (growth > 0 ? '+' : '') + growth.toFixed(1) + '%', detail: 'Workforce Velocity: Net headcount expansion or contraction rate.' }
   ];
 
   el.innerHTML = `
     <div class="flex flex-col h-full space-y-2">
-      <!-- P/E Ratio Header (Replaced Valuation) -->
-      <div class="p-2 border-l-2 ${isUp ? 'border-green-500 bg-green-950/10' : 'border-red-500 bg-red-950/10'} relative overflow-hidden group">
+      <!-- Labor Efficiency Header -->
+      <div class="p-2 border-l-2 ${isUp ? 'border-cyan-500 bg-cyan-950/10' : 'border-red-500 bg-red-950/10'} relative overflow-hidden group">
         <div class="flex justify-between items-center mb-1">
-          <div class="text-[10px] ${isUp ? 'text-green-600' : 'text-red-600'} font-mono uppercase tracking-widest font-bold flex items-center gap-1">
-            <span class="w-1.5 h-1.5 ${isUp ? 'bg-green-500' : 'bg-red-500'} rounded-full animate-pulse"></span>
-            Financial_Index // LIVE
+          <div class="text-[10px] text-cyan-600 font-mono uppercase tracking-widest font-bold flex items-center gap-1">
+            <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
+            Operational_Velocity // LIVE
           </div>
           <div class="flex gap-1">
             <span class="text-[8px] bg-black/40 px-1 text-cyan-400 font-mono">${exchange || 'N/A'}</span>
@@ -401,54 +496,46 @@ function renderFinancials() {
         </div>
         <div class="flex items-baseline justify-between relative z-10">
           <div class="flex items-baseline gap-2">
-            <div class="text-3xl font-black text-white font-mono tracking-tighter leading-none shadow-[0_0_15px_rgba(255,255,255,0.1)]">
-              ${formatNum(pe, 1)}
+            <div class="text-3xl font-black text-white font-mono tracking-tighter leading-none">
+              ${formatLarge(employees)}
             </div>
-            <div class="text-[9px] text-cyan-800 font-mono uppercase flex flex-col leading-tight cursor-help" title="Price to Earnings Ratio: Measures share price relative to per-share earnings.">
-              <span>P/E</span>
-              <span>INDEX</span>
+            <div class="text-[9px] text-cyan-800 font-mono uppercase flex flex-col leading-tight">
+              <span>STAFF</span>
+              <span>COUNT</span>
             </div>
           </div>
           <div class="flex flex-col items-end">
-            <span class="text-[10px] font-mono ${isUp ? 'text-green-400' : 'text-red-400'} font-bold brightness-125">
-              ${isUp ? '+' : ''}${priceChangePct}%
+            <span class="text-[10px] font-mono ${growth >= 0 ? 'text-green-400' : 'text-red-400'} font-bold">
+              ${growth > 0 ? '+' : ''}${growth.toFixed(1)}%
             </span>
-            <span class="text-[7px] text-gray-700 font-mono uppercase">Telemetry_Shift</span>
+            <span class="text-[7px] text-gray-700 font-mono uppercase">H/C_Growth</span>
           </div>
-        </div>
-        <div class="absolute right-0 bottom-0 opacity-10 text-[24px] font-black text-cyan-500 pointer-events-none translate-y-2">P/E</div>
-        <div class="h-0.5 w-full bg-gray-900/50 mt-2 relative overflow-hidden">
-           <div class="h-full ${isUp ? 'bg-green-500/50' : 'bg-red-500/50'} animate-[shimmer_2s_infinite]" style="width: 100%"></div>
         </div>
       </div>
 
       <!-- Intrinsic Value Analysis (DCF) -->
       <div class="bg-cyan-950/10 border border-cyan-900/40 p-2 flex justify-between items-center relative overflow-hidden group">
          <div class="flex flex-col">
-            <span class="text-[7px] text-cyan-700 font-mono uppercase cursor-help" title="Discounted Cash Flow: Valuation based on future cash flow projections.">Intrinsic_Value // DCF</span>
-            <span class="text-lg font-black text-white font-mono leading-none border-b border-cyan-900/50 pb-0.5">${currency === 'USD' ? '$' : ''}${formatNum(dcf, 2)}</span>
+            <span class="text-[7px] text-cyan-700 font-mono uppercase">Revenue_Yield // Efficiency</span>
+            <span class="text-lg font-black text-white font-mono leading-none border-b border-cyan-900/50 pb-0.5">$${formatLarge(revPerEE)}/EE</span>
          </div>
          <div class="flex flex-col items-end">
-            <span class="text-[8px] font-bold ${overvalued ? 'text-red-500' : 'text-green-500'} font-mono uppercase tracking-widest ring-1 ${overvalued ? 'ring-red-900/50' : 'ring-green-900/50'} px-1">
-              ${overvalued ? 'OVERVALUED' : 'UNDERVALUED'}
+            <span class="text-[8px] font-bold text-cyan-500 font-mono uppercase tracking-widest ring-1 ring-cyan-900/50 px-1">
+              ${revPerEE > 500000 ? 'HIGH_CAP' : 'LABOR_INT'}
             </span>
-            <span class="text-[10px] text-cyan-100 font-mono font-bold mt-1">${dcfDelta}% Delta</span>
+            <span class="text-[10px] text-cyan-100 font-mono font-bold mt-1">${formatLarge(state.logistics.revenue)} REV</span>
          </div>
-         <div class="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
       </div>
 
-      <!-- Regulatory Quick Stats (Unified) -->
+      <!-- Asset & Labor Metrics Grid -->
       <div class="grid grid-cols-3 gap-1">
         ${indicators.map(ind => `
           <div class="bg-black/60 border border-gray-900 p-1 flex flex-col items-center justify-center relative overflow-hidden h-10 group cursor-help" title="${ind.detail}">
-            <div class="text-[6px] text-cyan-500 font-mono mb-0.5 uppercase tracking-widest flex items-center gap-0.5">
-              <span class="w-0.5 h-0.5 bg-cyan-800 rounded-full"></span>
+            <div class="text-[6px] text-cyan-500 font-mono mb-0.5 uppercase tracking-widest">
               ${ind.label}
             </div>
-            <div class="text-[9px] font-black text-white font-mono">${ind.val === '0' || ind.val === '0.0' ? '---' : ind.val}${ind.label === 'BETA' || ind.val === '0' ? '' : '%'}</div>
-            <div class="absolute bottom-0 left-0 h-0.5 bg-cyan-900/40 w-full">
-              <div class="h-full bg-cyan-500" style="width: ${ind.val}%"></div>
-            </div>
+            <div class="text-[9px] font-black text-white font-mono">${ind.val}</div>
+            <div class="absolute bottom-0 left-0 h-[1px] bg-cyan-900/40 w-full"></div>
           </div>
         `).join('')}
       </div>
@@ -568,6 +655,44 @@ function renderMacroCorridor() {
   // but main panel now uses silo index.
 }
 
+const FALLBACK_NEWS = [
+  { 
+    title: "GLOBAL LOGISTICS TRANSIT DELAYS", 
+    description: "Suez Canal blockage persists as high winds and tidal shifts complicate salvage operations. Maritime insurance rates for the Red Sea corridor have surged 400 basis points as carrier fleets divert around the Cape of Good Hope, adding 14 days to the global supply chain loop.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "SEMICONDUCTOR NODE CAPACITY REACHED", 
+    description: "Leading foundries report 98% utilization across 3nm and 5nm lines. Speculative hoarding of H100 units has triggered a secondary market liquidity crisis, forcing major cloud providers to implement compute-rationing protocols for non-critical AI training loads.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "RENEWABLE SILO EXPANSION", 
+    description: "The Nordic Energy Grid integrates a new 5GW offshore wind cluster. Excess thermal generation is being routed to secondary electrolysis plants, potentially stabilizing green hydrogen pricing for the upcoming industrial manufacturing cycle.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "ALGORITHMIC TRADING PEAK", 
+    description: "High-frequency arbitrage bots accounted for 82% of mid-day volume on the CME. Regulatory watchdogs are investigating a series of 'flash-spikes' in the commodities index, suspected to be triggered by a Recursive Reinforcement Learning feedback loop within the dark pools.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "AUTONOMOUS FREIGHT DEPLOYMENT", 
+    description: "Level 4 truck convoys have entered standard operation between the Phoenix and Dallas logistics hubs. Tele-operator centers report a 35% reduction in fuel consumption and zero safety incidents during the 48-hour pilot, signaling a phase-shift in last-mile freight economics.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "QUANTUM MODELING BREAKTHROUGH", 
+    description: "New 112-qubit processor achieves error-corrected simulation of complex portfolio derivatives. Financial institutions are rushing to migrate legacy RSA-based encryption layers as the 'Y2Q' horizon for cryptographic obsolescence moves closer to reality.",
+    published_at: new Date().toISOString() 
+  },
+  { 
+    title: "EQUITY INDEX REBALANCING", 
+    description: "Global indices move toward heavier weightings in green-tech and cybersecurity verticals. Passive funds are expected to rotate $1.2T in assets over the weekend, leading to high-than-average late-session volatility and potential liquidity gaps in legacy industrial sectors.",
+    published_at: new Date().toISOString() 
+  }
+];
+
 /**
  * News Cycle Logic
  */
@@ -582,74 +707,97 @@ window.toggleNewsCycle = () => {
     indicator.classList.add('hidden');
     if (state.markerLayer) state.markerLayer.clearLayers();
     logToTerminal('NEWS_CYCLE_TERMINATED', 'WARN');
-    // Snap back to HQ if available
+    // Snap back to current ticker HQ
     updateTopologyMap();
     return;
   }
 
-  if (state.macro.length === 0) {
-    logToTerminal('NEWS_CYCLE_ERROR :: NO_DATA', 'ERROR');
-    return;
-  }
+  const newsItems = state.macro && state.macro.length > 0 ? state.macro : FALLBACK_NEWS;
 
   overlay.classList.remove('hidden');
   indicator.classList.remove('hidden');
   logToTerminal('NEWS_CYCLE_ENGAGED :: 30S_ROTATION', 'INFO');
 
-  const globalHubs = [
-    { city: 'London', coords: [51.5074, -0.1278] },
-    { city: 'Tokyo', coords: [35.6762, 139.6503] },
-    { city: 'New York', coords: [40.7128, -74.0060] },
-    { city: 'Frankfurt', coords: [50.1109, 8.6821] },
-    { city: 'Hong Kong', coords: [22.3193, 114.1694] },
-    { city: 'Singapore', coords: [1.3521, 103.8198] },
-    { city: 'Shanghai', coords: [31.2304, 121.4737] },
-    { city: 'Paris', coords: [48.8566, 2.3522] },
-    { city: 'Sydney', coords: [-33.8688, 151.2093] },
-    { city: 'San Francisco', coords: [37.7749, -122.4194] }
-  ];
-
   const rotate = () => {
-    const item = state.macro[state.newsCycleIndex];
+    const item = newsItems[state.newsCycleIndex % newsItems.length];
     if (!item) return;
 
-    // Pick a hub for visual impact (derived from entities if we wanted to be fancy, but simple random hub looks cooler)
-    const hub = globalHubs[state.newsCycleIndex % globalHubs.length];
+    // Pick a hub from the full list for deeper global coverage
+    const hub = GLOBAL_HUBS[state.newsCycleIndex % GLOBAL_HUBS.length];
     
     overlay.innerHTML = `
-      <div class="flex flex-col gap-1">
-        <div class="flex justify-between items-center text-[8px] font-mono text-cyan-500 uppercase">
-          <span>Macro_Bulletin // ${hub.city} // ${new Date(item.published_at).toLocaleTimeString()}</span>
-          <span class="bg-cyan-900 px-1">${state.newsCycleIndex + 1}/${state.macro.length}</span>
+      <div class="flex flex-col gap-1 relative">
+        <div id="sync-pulse" class="absolute -top-6 right-0 text-[7px] text-cyan-400 font-bold opacity-0 transition-opacity flex items-center gap-1">
+          <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
+          LIVE_INTEL_SYNC
         </div>
-        <div class="text-[11px] text-white font-bold leading-tight line-clamp-2">${item.title}</div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-cyan-500 uppercase font-bold">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 bg-cyan-500 rounded-full animate-ping"></span>
+            <span>INTEL_STORY // ${hub.city} // ${hub.company}</span>
+          </div>
+          <span class="bg-cyan-900/50 border border-cyan-800 px-2 py-0.5 text-[8px]">${(state.newsCycleIndex % newsItems.length) + 1}/${newsItems.length}</span>
+        </div>
+        <div class="text-[11px] text-cyan-50 font-medium leading-relaxed tracking-tight border-l-2 border-cyan-500 pl-3 my-1">
+          ${item.description || item.title || 'NO_STORY_DATA'}
+        </div>
+        <div class="flex justify-between items-center text-[8px] text-cyan-900 font-mono mt-1 pt-1 border-t border-cyan-950">
+          <span>SOURCE: GLOBAL_NET_TERMINAL</span>
+          <span class="text-cyan-600 font-bold uppercase">HEADLINE: ${item.title}</span>
+        </div>
       </div>
     `;
 
     if (state.map) {
-      state.map.flyTo(hub.coords, 6, { duration: 3 });
+      state.map.flyTo(hub.coords, 8, { 
+        duration: 4,
+        easeLinearity: 0.25 
+      });
       
       state.markerLayer.clearLayers();
       
+      // Targeting effect at the new location
+      const targetingIcon = L.divIcon({
+        className: 'targeting-icon',
+        html: `
+          <div class="relative flex items-center justify-center pointer-events-none active-hq-pulse">
+            <div class="absolute w-24 h-24 border-2 border-cyan-500/30 rounded-full animate-ping"></div>
+            <div class="absolute w-40 h-40 border border-cyan-500/10 rounded-full"></div>
+            <div class="crosshair-v absolute pointer-events-none" style="height: 1000px; width: 1px; margin-top: -500px; background: rgba(6,182,212,0.2);"></div>
+            <div class="crosshair-h absolute pointer-events-none" style="width: 2000px; height: 1px; margin-left: -1000px; background: rgba(6,182,212,0.2);"></div>
+          </div>
+        `,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0]
+      });
+      L.marker(hub.coords, { icon: targetingIcon }).addTo(state.markerLayer);
+
       L.circleMarker(hub.coords, {
-        radius: 12,
+        radius: 15,
         fillColor: "#06b6d4",
         color: "#06b6d4",
         weight: 1,
         opacity: 0.8,
-        fillOpacity: 0.2
+        fillOpacity: 0.3
       }).addTo(state.markerLayer)
         .bindPopup(`
-          <div class="font-mono text-[10px] w-48">
-            <div class="text-cyan-500 font-bold mb-1 underline uppercase">${hub.city} SILO</div>
-            <div class="text-white">${item.title}</div>
-            <div class="text-[8px] mt-2 text-cyan-800 italic">SOURCE: MARKETAUX</div>
+          <div class="font-mono text-[10px] w-64 uppercase">
+            <div class="text-cyan-400 font-black mb-1 border-b border-cyan-900 pb-1 flex justify-between">
+              <span>${hub.city} NODAL_POINT</span>
+              <span class="text-[8px] opacity-40">${hub.sector}</span>
+            </div>
+            <div class="text-white font-bold my-2 leading-none border-l-2 border-cyan-500 pl-2">${item.title}</div>
+            <div class="flex justify-between items-center mt-3 pt-1 border-t border-cyan-950 text-[7px] text-cyan-800">
+               <span>LAT: ${hub.coords[0].toFixed(4)}</span>
+               <span>LNG: ${hub.coords[1].toFixed(4)}</span>
+               <span>STAFF: ${hub.employees.toLocaleString()}</span>
+            </div>
           </div>
-        `, { closeButton: false })
+        `, { closeButton: false, offset: [0, -10] })
         .openPopup();
     }
 
-    state.newsCycleIndex = (state.newsCycleIndex + 1) % state.macro.length;
+    state.newsCycleIndex = (state.newsCycleIndex + 1);
   };
 
   rotate();
@@ -694,10 +842,10 @@ window.selectTicker = (ticker) => {
 };
 
 // Global hook for the Chassis
-window.initTerminal = (ticker) => {
+window.initTerminal = (ticker, fromMapTag = false) => {
   if (!ticker) return;
   ticker = ticker.toUpperCase();
-  if (state.currentTicker !== ticker) {
+  if (state.currentTicker !== ticker && !fromMapTag) {
     state.targetCoords = null; // Clear if manual jump
   }
   state.currentTicker = ticker;
@@ -713,6 +861,7 @@ window.initTerminal = (ticker) => {
 // Initial boot
 document.addEventListener('DOMContentLoaded', () => {
   window.initTerminal('AAPL');
+  startBackgroundSync();
 
   const symbolInput = document.getElementById('symbol-input');
   

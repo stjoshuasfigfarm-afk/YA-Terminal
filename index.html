@@ -152,18 +152,24 @@
 
         <!-- RIGHT SIDEBAR: PRICE & LABOR -->
         <aside class="md:col-span-3 flex flex-col gap-2">
-            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 h-40 flex flex-col justify-between scanline">
-                <div class="text-[10px] text-cyan-700 font-mono mb-1 uppercase tracking-tighter">Core Telemetry // FMP</div>
+            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 h-40 flex flex-col justify-between scanline relative">
                 <div id="price-feed" class="flex-grow flex items-center">
                     <span class="text-gray-700 animate-pulse text-[10px]">AWAITING_UPLINK...</span>
                 </div>
+                <div class="text-[8px] text-cyan-900 font-mono mt-1 uppercase tracking-tighter border-t border-cyan-950 pt-1 flex justify-between">
+                    <span>Core Telemetry // FMP</span>
+                    <span class="animate-pulse">ONLINE</span>
+                </div>
             </section>
 
-            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 flex-grow scanline">
-                <div class="text-[10px] text-cyan-700 font-mono mb-2 uppercase">Financials // FMP + FDA</div>
-                <div id="labor-stats" class="h-full">
+            <section class="border border-gray-800 bg-black/40 backdrop-blur-md p-2 flex-grow scanline flex flex-col justify-between">
+                <div id="labor-stats" class="flex-grow">
                     <!-- Injected via script.js -->
                     <span class="text-gray-700 animate-pulse text-[10px]">ANALYZING_FINANCIAL_DATA...</span>
+                </div>
+                <div class="text-[8px] text-cyan-900 font-mono mt-1 uppercase tracking-tighter border-t border-cyan-950 pt-1 flex justify-between">
+                    <span>Financials // FMP + FDA</span>
+                    <span class="animate-pulse">STABLE</span>
                 </div>
             </section>
         </aside>

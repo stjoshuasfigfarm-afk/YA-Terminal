@@ -150,9 +150,11 @@ async function fetchLogisticsMetrics(symbol, keys) {
     const mockPrice = 145 + (Math.random() * 10);
     const mockChanges = (Math.random() - 0.4) * 2;
     const mockDcf = mockPrice * (0.9 + Math.random() * 0.3);
+    const mockEmployees = 154000 + Math.floor(Math.random() * 1000);
+    const mockMktCap = 2850000000000 + (Math.random() * 100000000);
     return {
-      employees: 154000 + Math.floor(Math.random() * 1000),
-      mktCap: 2850000000000 + (Math.random() * 100000000),
+      employees: mockEmployees,
+      mktCap: mockMktCap,
       beta: 1.2 + (Math.random() * 0.2),
       volAvg: 54000000 + Math.floor(Math.random() * 500000),
       dividend: 0.24 + (Math.random() * 0.05),
@@ -165,6 +167,10 @@ async function fetchLogisticsMetrics(symbol, keys) {
       companyName: `${symbol} // MOCK_TELEMETRY`,
       sector: 'Technology',
       industry: 'Consumer Electronics',
+      revenue: mockPrice * 2.5 * mockEmployees,
+      ppe: mockMktCap * 0.12,
+      headcountGrowth: 4.2,
+      regionalDist: { NA: 45, APAC: 30, EMEA: 25 },
       hq: { city: 'Cupertino', state: 'CA', country: 'USA' }
     };
   }
@@ -185,9 +191,11 @@ async function fetchLogisticsMetrics(symbol, keys) {
     const pe = profile.pe || (15 + Math.random() * 20);
     const eps = profile.eps || (pe > 0 ? price / pe : 4.5);
     const dcfVal = dcf.dcf || (price * (0.9 + Math.random() * 0.25));
+    const employees = profile.fullTimeEmployees || 5000 + Math.floor(Math.random() * 150000);
+    const revenue = (eps * 20) * employees * (0.5 + Math.random()); // Synthetic revenue base
 
     return {
-      employees: profile.fullTimeEmployees || 5000 + Math.floor(Math.random() * 50000),
+      employees: employees,
       mktCap: mktCap,
       beta: beta,
       volAvg: volAvg,
@@ -204,6 +212,14 @@ async function fetchLogisticsMetrics(symbol, keys) {
       industry: profile.industry || 'Global Market',
       website: profile.website,
       sector: profile.sector || 'Financial Technology',
+      revenue: revenue,
+      ppe: mktCap * (0.15 + Math.random() * 0.2), // Property, Plant, & Equipment estimate
+      headcountGrowth: (Math.random() - 0.2) * 15, // Headcount growth %
+      regionalDist: {
+        NA: 30 + Math.random() * 40,
+        APAC: 10 + Math.random() * 30,
+        EMEA: 10 + Math.random() * 25
+      },
       hq: {
         city: profile.city,
         state: profile.state,
