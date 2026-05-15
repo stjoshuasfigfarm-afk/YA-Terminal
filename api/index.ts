@@ -1,5 +1,3 @@
-import app from "../server";
-export default app;
 export default async function handler(req, res) {
   const { type, ticker } = req.query;
   const API_KEY = process.env.FMP_API_KEY; // Use the key from your docs
