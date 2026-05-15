@@ -6,33 +6,59 @@ import { COMPANIES } from "./src/data/companies";
 
 dotenv.config();
 
+
+import handler from "./api/index.js";
+
 const app = express();
 export default app;
 const PORT = 3000;
 
-const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
-
 // API Routes
+app.get("/api", async (req, res) => {
+  // Wrap the serverless handler
+  try {
+    // Vercel handlers are (req, res) => void | Promise<void>
+    // but they expect a slightly different res object if it's purely serverless.
+    // However, for Express compatibility in dev, this usually works or needs slight mapping.
+    await handler(req, res);
+  } catch (err) {
+    console.error("API Proxy Error:", err);
+    res.status(500).json({ error: "Silo Engine Fault", details: err.message });
+  }
+});
+
+const FMP_KEY = process.env.FMP_API_KEY || "";
 app.get("/api/quote/:symbol?", async (req, res) => {
   try {
     const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
     if (!symbol) return res.status(400).json({ error: "Missing symbol" });
-    if (!FINNHUB_KEY) throw new Error("No Key");
-    const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`);
-    const data = await response.json();
+    
+    let data: any = {};
+    if (FMP_KEY && FMP_KEY.length > 5 && !FMP_KEY.includes('YOUR_')) {
+      const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`);
+      const fmpData = await response.json();
+      if (fmpData && fmpData[0]) {
+        data = fmpData[0];
+      } else {
+        throw new Error("No FMP data");
+      }
+    } else {
+      throw new Error("No valid FMP Key");
+    }
+
     res.json({
-      price: data.c,
-      changes: data.d,
-      changesPercentage: data.dp,
-      high: data.h,
-      low: data.l,
-      open: data.o,
-      previousClose: data.pc,
+      price: data.price,
+      changes: data.change,
+      changesPercentage: data.changesPercentage,
+      high: data.dayHigh,
+      low: data.dayLow,
+      open: data.open,
+      previousClose: data.previousClose,
       symbol
     });
   } catch (err) {
     const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
-    const price = Math.random() * 200 + 100;
+    const price = 150 + Math.random() * 50;
     res.json({
       price: price,
       changes: (Math.random() - 0.5) * 5,
@@ -42,7 +68,8 @@ app.get("/api/quote/:symbol?", async (req, res) => {
       open: price,
       previousClose: price - 1,
       symbol: symbol,
-      mock: true
+      mock: true,
+      error: err.message
     });
   }
 });

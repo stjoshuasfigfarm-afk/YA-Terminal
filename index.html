@@ -1,13 +1,97 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Y Analysis Terminal</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="en" class="bg-black text-gray-400">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Y_ANALYSIS_TERMINAL // HIGH_YIELD_SILO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; }
+        .glitch-text { text-shadow: 2px 0 #00ffff, -2px 0 #ff00ff; }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+    <header class="mb-8 flex flex-col md:flex-row md:items-end justify-between border-b border-gray-800 pb-4">
+        <div>
+            <h1 class="text-2xl font-black text-white tracking-widest uppercase items-center flex gap-2">
+                <span class="w-3 h-3 bg-cyan-500 rounded-full animate-pulse"></span>
+                Analysis_Terminal <span class="text-cyan-500 font-normal text-xs">[V_4.2.1]</span>
+            </h1>
+            <p class="text-[10px] text-gray-500 mt-1 uppercase tracking-widest">Autonomous Financial Intelligence Harvesting System</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex gap-2">
+            <input type="text" id="symbol-input" placeholder="TICKER_ID" 
+                class="bg-gray-900 border border-gray-700 px-3 py-1 text-sm text-cyan-400 focus:outline-none focus:border-cyan-500 uppercase">
+            <button onclick="window.initTerminal(document.getElementById('symbol-input').value)"
+                class="bg-cyan-900/30 border border-cyan-800 text-cyan-500 px-4 py-1 text-xs font-bold uppercase hover:bg-cyan-900/50 transition-colors">
+                Initialize
+            </button>
+        </div>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <!-- TOP LEFT: PRICE FEED -->
+        <section class="md:col-span-4 border border-gray-800 bg-black/40 backdrop-blur-md p-4 flex flex-col justify-between h-48">
+            <div class="text-[10px] text-cyan-700 font-mono mb-2 uppercase tracking-tighter">Core Telemetry // FMP, ITICK, Finnhub</div>
+            <div id="price-feed" class="flex-grow flex items-center">
+                <span class="text-gray-700 animate-pulse">AWAITING_UPLINK...</span>
+            </div>
+        </section>
+
+        <!-- TOP RIGHT: TOPOLOGY MAP -->
+        <section class="md:col-span-8 border border-gray-800 bg-black/40 backdrop-blur-md p-4 h-48 overflow-hidden relative">
+            <div class="absolute top-2 left-2 text-[10px] text-cyan-700 font-mono z-10 uppercase">Geospatial Topology // FMP</div>
+            <div id="topology-map" class="w-full h-full">
+                <!-- Injected via script.js -->
+            </div>
+        </section>
+
+        <!-- BOTTOM LEFT: MACRO CORRIDOR -->
+        <section class="md:col-span-4 border border-gray-800 bg-black/40 backdrop-blur-md p-4 h-96 overflow-y-auto">
+            <div class="text-[10px] text-cyan-700 font-mono mb-4 uppercase">Macro Corridor // Marketaux</div>
+            <div id="macro-corridor" class="space-y-4">
+                <!-- Injected via script.js -->
+            </div>
+        </section>
+
+        <!-- BOTTOM RIGHT: LABOR & REGULATORY -->
+        <section class="md:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="border border-gray-800 bg-black/40 backdrop-blur-md p-4 h-44">
+                <div class="text-[10px] text-cyan-700 font-mono mb-4 uppercase">Labor Logistics // FMP</div>
+                <div id="labor-stats">
+                    <!-- Injected via script.js -->
+                </div>
+            </div>
+            
+            <div class="border border-gray-800 bg-black/40 backdrop-blur-md p-4 h-44">
+                <div class="text-[10px] text-cyan-700 font-mono mb-4 uppercase">Regulatory // FinancialData.net</div>
+                <div id="regulatory-synthesis" class="grid grid-cols-5 gap-2">
+                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_A</div>
+                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_B</div>
+                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_C</div>
+                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_D</div>
+                    <div class="bg-gray-900 h-12 flex items-center justify-center text-[10px] text-gray-600 border border-gray-800">PH_E</div>
+                </div>
+            </div>
+
+            <div class="md:col-span-2 border border-gray-800 bg-black/40 backdrop-blur-md p-4 min-h-[176px]">
+                <div class="text-[10px] text-cyan-700 font-mono mb-4 uppercase">Terminal_System_Log // System</div>
+                <div id="terminal-log" class="text-[9px] text-green-900 font-mono h-24 overflow-y-auto bg-black border border-green-950 p-2">
+                    [SYSTEM] UPLINK ESTABLISHED...<br>
+                    [SYSTEM] PARSING SILO ARCHITECTURE...<br>
+                    [ENGINE] HARVESTING INITIAL TELEMETRY...
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="mt-8 pt-4 border-t border-gray-800 flex justify-between items-center bg-transparent">
+        <div class="text-[9px] text-gray-600 uppercase">Architecture: High-Yield Silo / Chassis Design Pattern</div>
+        <div class="text-[9px] text-gray-600 uppercase">Encrypted Point-to-Point Uplink // [SECURED]</div>
+    </footer>
+
+    <script type="module" src="/script.js"></script>
+</body>
 </html>
 
