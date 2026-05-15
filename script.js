@@ -87,86 +87,65 @@ export async function fetchLogistics(ticker) {
  * Topology Visualizer (Leaflet implementation)
  */
 const GLOBAL_HUBS = [
-  { city: 'Cupertino', country: 'USA', coords: [37.3229, -122.0322], company: 'APPLE', symbol: 'AAPL' },
-  { city: 'Mountain View', country: 'USA', coords: [37.3861, -122.0839], company: 'GOOGLE', symbol: 'GOOGL' },
-  { city: 'Redmond', country: 'USA', coords: [47.6740, -122.1215], company: 'MICROSOFT', symbol: 'MSFT' },
-  { city: 'Seattle', country: 'USA', coords: [47.6062, -122.3321], company: 'AMAZON', symbol: 'AMZN' },
-  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'FINANCIAL_DISTRICT', symbol: 'SPY' },
-  { city: 'San Francisco', country: 'USA', coords: [37.7749, -122.4194], company: 'SALESFORCE', symbol: 'CRM' },
-  { city: 'Seoul', country: 'KR', coords: [37.5665, 126.9780], company: 'SAMSUNG', symbol: 'SSNLF' },
-  { city: 'Austin', country: 'USA', coords: [30.2672, -97.7431], company: 'TESLA', symbol: 'TSLA' },
-  { city: 'Palo Alto', country: 'USA', coords: [37.4419, -122.1430], company: 'META', symbol: 'META' },
-  { city: 'London', country: 'UK', coords: [51.5074, -0.1278], company: 'HSBC', symbol: 'HSBC' },
-  { city: 'Tokyo', country: 'JP', coords: [35.6762, 139.6503], company: 'SONY', symbol: 'SONY' },
-  { city: 'Paris', country: 'FR', coords: [48.8566, 2.3522], company: 'LVMH', symbol: 'LVMHF' },
-  { city: 'Taipei', country: 'TW', coords: [25.0330, 121.5654], company: 'TSMC', symbol: 'TSM' },
-  { city: 'Shenzhen', country: 'CN', coords: [22.5431, 114.0579], company: 'TENCENT', symbol: 'TCEHY' },
-  { city: 'Omaha', country: 'USA', coords: [41.2565, -95.9345], company: 'BERKSHIRE', symbol: 'BRK-B' },
-  { city: 'Bentonville', country: 'USA', coords: [36.3724, -94.2088], company: 'WALMART', symbol: 'WMT' },
-  // Added 20 more
-  { city: 'Santa Clara', country: 'USA', coords: [37.3541, -121.9552], company: 'NVIDIA', symbol: 'NVDA' },
-  { city: 'Armonk', country: 'USA', coords: [41.1265, -73.7140], company: 'IBM', symbol: 'IBM' },
-  { city: 'Deerfield', country: 'USA', coords: [42.1712, -87.8445], company: 'CATERPILLAR', symbol: 'CAT' },
-  { city: 'Wolfsburg', country: 'DE', coords: [52.4227, 10.7865], company: 'VOLKSWAGEN', symbol: 'VOW3.DE' },
-  { city: 'Toyota City', country: 'JP', coords: [35.0824, 137.1562], company: 'TOYOTA', symbol: 'TM' },
-  { city: 'Stuttgart', country: 'DE', coords: [48.7758, 9.1829], company: 'MERCEDES', symbol: 'MBG.DE' },
-  { city: 'Espoo', country: 'FI', coords: [60.2055, 24.6559], company: 'NOKIA', symbol: 'NOK' },
-  { city: 'Beaverton', country: 'USA', coords: [45.4865, -122.8037], company: 'NIKE', symbol: 'NKE' },
-  { city: 'Portland', country: 'USA', coords: [45.5152, -122.6784], company: 'INTEL', symbol: 'INTC' },
-  { city: 'Burbank', country: 'USA', coords: [34.1808, -118.3090], company: 'DISNEY', symbol: 'DIS' },
-  { city: 'Atlanta', country: 'USA', coords: [33.7490, -84.3880], company: 'COCA-COLA', symbol: 'KO' },
-  { city: 'Purchase', country: 'USA', coords: [41.0401, -73.7143], company: 'PEPSICO', symbol: 'PEP' },
-  { city: 'Cincinnati', country: 'USA', coords: [39.1031, -84.5120], company: 'P&G', symbol: 'PG' },
-  { city: 'San Jose', country: 'USA', coords: [37.3382, -121.8863], company: 'ADOBE', symbol: 'ADBE' },
-  { city: 'Walldorf', country: 'DE', coords: [49.3008, 8.6441], company: 'SAP', symbol: 'SAP' },
-  { city: 'Dublin', country: 'IE', coords: [53.3498, -6.2603], company: 'ACCENTURE', symbol: 'ACN' },
-  { city: 'Basel', country: 'CH', coords: [47.5596, 7.5886], company: 'NOVARTIS', symbol: 'NVS' },
-  { city: 'Round Rock', country: 'USA', coords: [30.5083, -97.6789], company: 'DELL', symbol: 'DELL' },
-  { city: 'Minato', country: 'JP', coords: [35.6586, 139.7511], company: 'HONDA', symbol: 'HMC' },
-  { city: 'Amsterdam', country: 'NL', coords: [52.3676, 4.9041], company: 'ASML', symbol: 'ASML' },
-  { city: 'Hangzhou', country: 'CN', coords: [30.2741, 120.1551], company: 'ALIBABA', symbol: 'BABA' },
-  { city: 'Mumbai', country: 'IN', coords: [19.0760, 72.8777], company: 'RELIANCE', symbol: 'RELIANCE.NS' },
-  { city: 'Munich', country: 'DE', coords: [48.1351, 11.5820], company: 'BMW', symbol: 'BMW.DE' },
-  { city: 'Zurich', country: 'CH', coords: [47.3769, 8.5417], company: 'UBS', symbol: 'UBS' },
-  { city: 'Tel Aviv', country: 'IL', coords: [32.0853, 34.7818], company: 'CHECKPOINT', symbol: 'CHKP' },
-  { city: 'Singapore', country: 'SG', coords: [1.3521, 103.8198], company: 'SEA', symbol: 'SE' },
-  { city: 'Sydney', country: 'AU', coords: [-33.8688, 151.2093], company: 'ATLASSIAN', symbol: 'TEAM' },
-  { city: 'Toronto', country: 'CA', coords: [43.6532, -79.3832], company: 'SHOPIFY', symbol: 'SHOP' },
-  { city: 'Madrid', country: 'ES', coords: [40.4168, -3.7038], company: 'SANTANDER', symbol: 'SAN' },
-  { city: 'Stockholm', country: 'SE', coords: [59.3293, 18.0686], company: 'SPOTIFY', symbol: 'SPOT' },
-  { city: 'Bangalore', country: 'IN', coords: [12.9716, 77.5946], company: 'INFOSYS', symbol: 'INFY' },
-  { city: 'Oslo', country: 'NO', coords: [59.9139, 10.7522], company: 'EQUINOR', symbol: 'EQNR' },
-  { city: 'Milan', country: 'IT', coords: [45.4642, 9.1900], company: 'FERRARI', symbol: 'RACE' },
-  { city: 'Beijing', country: 'CN', coords: [39.9042, 116.4074], company: 'BAIDU', symbol: 'BIDU' },
-  { city: 'Melbourne', country: 'AU', coords: [-37.8136, 144.9631], company: 'BHP', symbol: 'BHP' },
-  // Added 20 more
-  { city: 'Vevey', country: 'CH', coords: [46.4674, 6.8436], company: 'NESTLE', symbol: 'NESN.SW' },
-  { city: 'Basel', country: 'CH', coords: [47.5596, 7.5886], company: 'ROCHE', symbol: 'ROG.SW' },
-  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'PFIZER', symbol: 'PFE' },
-  { city: 'San Ramon', country: 'USA', coords: [37.7799, -121.9780], company: 'CHEVRON', symbol: 'CVX' },
-  { city: 'London', country: 'UK', coords: [51.5074, -0.1278], company: 'SHELL', symbol: 'SHEL' },
-  { city: 'London', country: 'UK', coords: [51.5074, -0.1278], company: 'BP', symbol: 'BP' },
-  { city: 'Dhahran', country: 'SA', coords: [26.3079, 50.1430], company: 'ARAMCO', symbol: '2222.SR' },
-  { city: 'Rio de Janeiro', country: 'BR', coords: [-22.9068, -43.1729], company: 'PETROBRAS', symbol: 'PBR' },
-  { city: 'Rio de Janeiro', country: 'BR', coords: [-22.9068, -43.1729], company: 'VALE', symbol: 'VALE' },
-  { city: 'Suwon', country: 'KR', coords: [37.2636, 127.0286], company: 'SAMSUNG_ELECTRO', symbol: '009150.KS' },
-  { city: 'Osaka', country: 'JP', coords: [34.6937, 135.5022], company: 'SHARP', symbol: 'SHCAY' },
-  { city: 'Kyoto', country: 'JP', coords: [34.9696, 135.7562], company: 'NINTENDO', symbol: 'NTDOY' },
-  { city: 'Toulouse', country: 'FR', coords: [43.6047, 1.4442], company: 'AIRBUS', symbol: 'AIR.PA' },
-  { city: 'Paris', country: 'FR', coords: [48.8566, 2.3522], company: 'SANOFI', symbol: 'SNY' },
-  { city: 'Paris', country: 'FR', coords: [48.8566, 2.3522], company: 'TOTALENERGIES', symbol: 'TTE' },
-  { city: 'Basel', country: 'CH', coords: [47.5596, 7.5886], company: 'SYNGENTA', symbol: 'SYT' },
-  { city: 'London', country: 'UK', coords: [51.5074, -0.1278], company: 'RIO_TINTO', symbol: 'RIO' },
-  { city: 'Baar', country: 'CH', coords: [47.1662, 8.5155], company: 'GLENCORE', symbol: 'GLNCY' },
-  { city: 'Zurich', country: 'CH', coords: [47.3769, 8.5417], company: 'ABB', symbol: 'ABB' },
-  { city: 'Copenhagen', country: 'DK', coords: [55.6761, 12.5683], company: 'MAERSK', symbol: 'AMKBY' }
+  { city: 'Cupertino', country: 'USA', coords: [37.3229, -122.0322], company: 'APPLE', symbol: 'AAPL', sector: 'TECH' },
+  { city: 'Mountain View', country: 'USA', coords: [37.3861, -122.0839], company: 'GOOGLE', symbol: 'GOOGL', sector: 'TECH' },
+  { city: 'Redmond', country: 'USA', coords: [47.6740, -122.1215], company: 'MICROSOFT', symbol: 'MSFT', sector: 'TECH' },
+  { city: 'Seattle', country: 'USA', coords: [47.6062, -122.3321], company: 'AMAZON', symbol: 'AMZN', sector: 'RETAIL' },
+  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'JPMORGAN', symbol: 'JPM', sector: 'FIN' },
+  { city: 'San Francisco', country: 'USA', coords: [37.7749, -122.4194], company: 'SALESFORCE', symbol: 'CRM', sector: 'TECH' },
+  { city: 'Seoul', country: 'KR', coords: [37.5665, 126.9780], company: 'SAMSUNG', symbol: 'SSNLF', sector: 'TECH' },
+  { city: 'Austin', country: 'USA', coords: [30.2672, -97.7431], company: 'TESLA', symbol: 'TSLA', sector: 'AUTO' },
+  { city: 'Palo Alto', country: 'USA', coords: [37.4419, -122.1430], company: 'META', symbol: 'META', sector: 'TECH' },
+  { city: 'London', country: 'UK', coords: [51.5074, -0.1278], company: 'HSBC', symbol: 'HSBC', sector: 'FIN' },
+  { city: 'Tokyo', country: 'JP', coords: [35.6762, 139.6503], company: 'SONY', symbol: 'SONY', sector: 'TECH' },
+  { city: 'Paris', country: 'FR', coords: [48.8566, 2.3522], company: 'LVMH', symbol: 'LVMHF', sector: 'LUX' },
+  { city: 'Taipei', country: 'TW', coords: [25.0330, 121.5654], company: 'TSMC', symbol: 'TSM', sector: 'SEMI' },
+  { city: 'Shenzhen', country: 'CN', coords: [22.5431, 114.0579], company: 'TENCENT', symbol: 'TCEHY', sector: 'TECH' },
+  { city: 'Omaha', country: 'USA', coords: [41.2565, -95.9345], company: 'BERKSHIRE', symbol: 'BRK-B', sector: 'FIN' },
+  { city: 'Bentonville', country: 'USA', coords: [36.3724, -94.2088], company: 'WALMART', symbol: 'WMT', sector: 'RETAIL' },
+  { city: 'Santa Clara', country: 'USA', coords: [37.3541, -121.9552], company: 'NVIDIA', symbol: 'NVDA', sector: 'SEMI' },
+  { city: 'Amsterdam', country: 'NL', coords: [52.3676, 4.9041], company: 'ASML', symbol: 'ASML', sector: 'SEMI' },
+  { city: 'Hangzhou', country: 'CN', coords: [30.2741, 120.1551], company: 'ALIBABA', symbol: 'BABA', sector: 'RETAIL' },
+  { city: 'Mumbai', country: 'IN', coords: [19.0760, 72.8777], company: 'RELIANCE', symbol: 'RELIANCE.NS', sector: 'ENERGY' },
+  { city: 'Wolfsburg', country: 'DE', coords: [52.4227, 10.7865], company: 'VOLKSWAGEN', symbol: 'VOW3.DE', sector: 'AUTO' },
+  { city: 'Zurich', country: 'CH', coords: [47.3769, 8.5417], company: 'UBS', symbol: 'UBS', sector: 'FIN' },
+  { city: 'Singapore', country: 'SG', coords: [1.3521, 103.8198], company: 'SEA', symbol: 'SE', sector: 'TECH' },
+  { city: 'Sydney', country: 'AU', coords: [-33.8688, 151.2093], company: 'BHP', symbol: 'BHP', sector: 'MINING' },
+  { city: 'Toronto', country: 'CA', coords: [43.6532, -79.3832], company: 'SHOPIFY', symbol: 'SHOP', sector: 'TECH' },
+  { city: 'Stockholm', country: 'SE', coords: [59.3293, 18.0686], company: 'SPOTIFY', symbol: 'SPOT', sector: 'TECH' },
+  { city: 'Bangalore', country: 'IN', coords: [12.9716, 77.5946], company: 'INFOSYS', symbol: 'INFY', sector: 'TECH' },
+  { city: 'Milan', country: 'IT', coords: [45.4642, 9.1900], company: 'FERRARI', symbol: 'RACE', sector: 'AUTO' },
+  { city: 'Dhahran', country: 'SA', coords: [26.3079, 50.1430], company: 'ARAMCO', symbol: '2222.SR', sector: 'ENERGY' },
+  { city: 'Rio de Janeiro', country: 'BR', coords: [-22.9068, -43.1729], company: 'PETROBRAS', symbol: 'PBR', sector: 'ENERGY' },
+  { city: 'Johannesburg', country: 'ZA', coords: [-26.2041, 28.0473], company: 'MTN', symbol: 'MTNOY', sector: 'TELE' },
+  { city: 'Nairobi', country: 'KE', coords: [-1.2921, 36.8219], company: 'SAFARICOM', symbol: 'SCOM.KE', sector: 'FIN' },
+  { city: 'Lagos', country: 'NG', coords: [6.5244, 3.3792], company: 'DANGOTE', symbol: 'DANGCEM.LG', sector: 'IND' },
+  { city: 'Cape Town', country: 'ZA', coords: [-33.9249, 18.4232], company: 'NASPERS', symbol: 'NPSNY', sector: 'TECH' },
+  { city: 'Dubai', country: 'AE', coords: [25.2048, 55.2708], company: 'DP_WORLD', symbol: 'DPW.AE', sector: 'LOG' },
+  { city: 'Tel Aviv', country: 'IL', coords: [32.0853, 34.7818], company: 'CHECKPOINT', symbol: 'CHKP', sector: 'SEC' },
+  { city: 'Buenos Aires', country: 'AR', coords: [-34.6037, -58.3816], company: 'MERCADOLIBRE', symbol: 'MELI', sector: 'RETAIL' },
+  { city: 'Mexico City', country: 'MX', coords: [19.4326, -99.1332], company: 'AMX', symbol: 'AMX', sector: 'TELE' },
+  { city: 'Jakarta', country: 'ID', coords: [-6.2088, 106.8456], company: 'GOTO', symbol: 'GOTO.JK', sector: 'TECH' },
+  { city: 'Bangkok', country: 'TH', coords: [13.7563, 100.5018], company: 'PTT', symbol: 'PTT.BK', sector: 'ENERGY' },
+  { city: 'Manila', country: 'PH', coords: [14.5995, 120.9842], company: 'SM_INVEST', symbol: 'SM.PH', sector: 'FIN' },
+  { city: 'Ho Chi Minh', country: 'VN', coords: [10.8231, 106.6297], company: 'VINGROUP', symbol: 'VIC.HM', sector: 'IND' },
+  { city: 'Istanbul', country: 'TR', coords: [41.0082, 28.9784], company: 'KOC_HOLDING', symbol: 'KCHOL.IS', sector: 'IND' },
+  { city: 'Cairo', country: 'EG', coords: [30.0444, 31.2357], company: 'CIB', symbol: 'COMI.EY', sector: 'FIN' },
+  { city: 'Santiago', country: 'CL', coords: [-33.4489, -70.6693], company: 'SQM', symbol: 'SQM', sector: 'MINING' },
+  { city: 'Lima', country: 'PE', coords: [-12.0464, -77.0428], company: 'CREDICORP', symbol: 'BAP', sector: 'FIN' },
+  { city: 'Warsaw', country: 'PL', coords: [52.2297, 21.0122], company: 'CD_PROJEKT', symbol: 'OTGLF', sector: 'ENT' },
+  { city: 'Prague', country: 'CZ', coords: [50.0755, 14.4378], company: 'CEZ', symbol: 'CEZ.PR', sector: 'ENERGY' },
+  { city: 'Helsinki', country: 'FI', coords: [60.1699, 24.9384], company: 'NOKIA', symbol: 'NOK', sector: 'TECH' },
+  { city: 'Oslo', country: 'NO', coords: [59.9139, 10.7522], company: 'EQUINOR', symbol: 'EQNR', sector: 'ENERGY' },
+  { city: 'Athens', country: 'GR', coords: [37.9838, 23.7275], company: 'PIRAEUS', symbol: 'BPIRY', sector: 'FIN' },
+  { city: 'Riyadh', country: 'SA', coords: [24.7136, 46.6753], company: 'STC', symbol: '7010.SR', sector: 'TELE' },
+  { city: 'Doha', country: 'QA', coords: [25.2854, 51.5310], company: 'OOREDOO', symbol: 'ORDS.QA', sector: 'TELE' }
 ];
 
 function updateTopologyMap() {
   const mapEl = document.getElementById('topology-map');
   if (!mapEl) return;
   
-  // Initialize map if not exists
   if (!state.map) {
     state.map = L.map('topology-map', {
       zoomControl: false,
@@ -184,92 +163,110 @@ function updateTopologyMap() {
       style.id = 'leaflet-custom-style';
       style.innerHTML = `
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-          background: #000 !important;
+          background: rgba(0,0,0,0.9) !important;
           border: 1px solid #164e63 !important;
           color: #06b6d4 !important;
           border-radius: 0 !important;
+          box-shadow: 0 0 15px rgba(6,182,212,0.2) !important;
+        }
+        .leaflet-popup-content {
+          margin: 8px !important;
         }
         .targeting-icon {
           background: transparent;
           border: none;
+        }
+        @keyframes pulse-cyan {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.5); opacity: 0.5; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .active-hq-pulse {
+          animation: pulse-cyan 2s infinite ease-in-out;
         }
       `;
       document.head.appendChild(style);
     }
   }
 
-  // Clear previous markers
   state.markerLayer.clearLayers();
 
-  // Add all global hubs
   GLOBAL_HUBS.forEach(hub => {
+    // Generate simulated telemetry for each node
+    const mockPrice = 50 + (Math.random() * 200);
+    const mockChange = (Math.random() - 0.4) * 5;
+    const isUp = mockChange >= 0;
+    
+    const popupHtml = `
+      <div class="font-mono text-[8px] uppercase space-y-1">
+        <div class="flex justify-between border-b border-cyan-900/50 pb-1 mb-1">
+          <span class="text-cyan-400 font-black">${hub.company}</span>
+          <span class="text-white opacity-50">${hub.symbol}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-x-2">
+          <span class="text-gray-500">LOC:</span>
+          <span class="text-white">${hub.city}, ${hub.country}</span>
+          <span class="text-gray-500">IDX:</span>
+          <span class="${isUp ? 'text-green-500' : 'text-red-500'} font-bold">${mockPrice.toFixed(2)} [${isUp ? '+' : ''}${mockChange.toFixed(2)}%]</span>
+          <span class="text-gray-500">SEC:</span>
+          <span class="text-cyan-600">${hub.sector || 'GENERAL'}</span>
+        </div>
+        <div class="mt-2 pt-1 border-t border-cyan-900/40 text-center animate-pulse text-cyan-200 cursor-pointer">
+          [ ACCESS_NODE_CORE ]
+        </div>
+      </div>
+    `;
+
     const marker = L.circleMarker(hub.coords, {
-      radius: 4,
+      radius: 3,
       fillColor: "#164e63",
       color: "#164e63",
       weight: 1,
       opacity: 0.6,
-      fillOpacity: 0.3
+      fillOpacity: 0.4
     }).addTo(state.markerLayer)
-      .bindPopup(`<div class="font-mono text-[8px] uppercase">HUB: ${hub.city}<br>SEC: ${hub.company}<br><span class="text-cyan-400 mt-1 block">[CLICK_TO_ANALYZE]</span></div>`);
+      .bindPopup(popupHtml, { closeButton: false });
     
     marker.on('click', () => {
       state.targetCoords = hub.coords;
       window.initTerminal(hub.symbol);
-      logToTerminal(`TERMINAL_HANDOFF :: ${hub.symbol}`, 'SYSTEM');
+      logToTerminal(`TERMINAL_HANDOFF :: ${hub.symbol} // NODE_${hub.city.toUpperCase()}`, 'SYSTEM');
     });
   });
 
-  if (!state.logistics || !state.logistics.hq || state.logistics.hq.city === 'N/A' || state.logistics.hq.city === 'KEY_MISSING') {
-    return;
-  }
-  
-  const { city, country } = state.logistics.hq;
-  
-  // Find coords for the current ticker HQ
-  const hubs = {};
-  GLOBAL_HUBS.forEach(h => { 
-    hubs[h.city] = h.coords;
-    hubs[h.symbol] = h.coords;
-  });
-  
-  const coords = state.targetCoords || hubs[state.currentTicker] || hubs[city] || [34.0522, -118.2437]; // Default fallback
-  
-  logToTerminal(`LOCATING_HQ :: ${city}, ${country} [${coords[0].toFixed(2)}, ${coords[1].toFixed(2)}]`, 'SYSTEM');
-  
+  const { city, country } = state.logistics?.hq || { city: 'N/A', country: 'N/A' };
+  const hubsMap = {};
+  GLOBAL_HUBS.forEach(h => { hubsMap[h.symbol] = h.coords; hubsMap[h.city] = h.coords; });
+  const activeCoords = state.targetCoords || hubsMap[state.currentTicker] || hubsMap[city] || [34.0522, -118.2437];
+
   if (!state.newsCycleInterval) {
-    state.map.flyTo(coords, 12, {
-      duration: 3,
-      easeLinearity: 0.25
-    });
-
-    // Targeting Animation Overlay
+    state.map.flyTo(activeCoords, 11, { duration: 2.5 });
+    
     const targetingIcon = L.divIcon({
       className: 'targeting-icon',
       html: `
-        <div class="relative flex items-center justify-center pointer-events-none">
-          <div class="targeting-sq absolute w-16 h-16 pointer-events-none"></div>
-          <div class="crosshair-v absolute pointer-events-none" style="height: 1000px; width: 1px; margin-top: -500px;"></div>
-          <div class="crosshair-h absolute pointer-events-none" style="width: 2000px; height: 1px; margin-left: -1000px;"></div>
+        <div class="relative flex items-center justify-center pointer-events-none active-hq-pulse">
+          <div class="absolute w-20 h-20 border border-cyan-500/20 rounded-full"></div>
+          <div class="absolute w-32 h-32 border border-cyan-500/10 rounded-full"></div>
+          <div class="crosshair-v absolute pointer-events-none" style="height: 1000px; width: 1px; margin-top: -500px; background: rgba(6,182,212,0.1);"></div>
+          <div class="crosshair-h absolute pointer-events-none" style="width: 2000px; height: 1px; margin-left: -1000px; background: rgba(6,182,212,0.1);"></div>
         </div>
       `,
       iconSize: [0, 0],
       iconAnchor: [0, 0]
     });
-
-    L.marker(coords, { icon: targetingIcon }).addTo(state.markerLayer);
+    L.marker(activeCoords, { icon: targetingIcon }).addTo(state.markerLayer);
   }
 
-  // Add special marker for current HQ
-  const currentMarker = L.circleMarker(coords, {
-    radius: 10,
+  L.circleMarker(activeCoords, {
+    radius: 8,
     fillColor: "#06b6d4",
     color: "#06b6d4",
     weight: 2,
-    opacity: 1,
-    fillOpacity: 0.5
+    opacity: 0.8,
+    fillOpacity: 0.6
   }).addTo(state.markerLayer)
-    .bindPopup(`<div class="font-mono text-[9px] uppercase">ACTIVE_HQ: ${city}<br>STATUS: COMPLIANT</div>`)
+    .bindPopup(`<div class="font-mono text-[9px] uppercase"><span class="text-cyan-400 font-bold">LINK_ESTABLISHED</span><br>ACTIVE_NODE: ${city}<br>IP: 192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}</div>`)
     .openPopup();
 }
 
@@ -365,19 +362,19 @@ function renderFinancials() {
         </div>
         <div class="flex items-baseline justify-between relative z-10">
           <div class="flex items-baseline gap-2">
-            <div class="text-3xl font-black text-white font-mono tracking-tighter leading-none">
+            <div class="text-3xl font-black text-white font-mono tracking-tighter leading-none shadow-[0_0_15px_rgba(255,255,255,0.1)]">
               ${formatNum(pe, 1)}
             </div>
-            <div class="text-[9px] text-cyan-800 font-mono uppercase flex flex-col leading-tight">
+            <div class="text-[9px] text-cyan-800 font-mono uppercase flex flex-col leading-tight cursor-help" title="Price to Earnings Ratio: Measures share price relative to per-share earnings.">
               <span>P/E</span>
-              <span>RATIO</span>
+              <span>INDEX</span>
             </div>
           </div>
           <div class="flex flex-col items-end">
-            <span class="text-[10px] font-mono ${isUp ? 'text-green-400' : 'text-red-400'} font-bold">
+            <span class="text-[10px] font-mono ${isUp ? 'text-green-400' : 'text-red-400'} font-bold brightness-125">
               ${isUp ? '+' : ''}${priceChangePct}%
             </span>
-            <span class="text-[7px] text-gray-700 font-mono uppercase">24H_DELTA</span>
+            <span class="text-[7px] text-gray-700 font-mono uppercase">Telemetry_Shift</span>
           </div>
         </div>
         <div class="absolute right-0 bottom-0 opacity-10 text-[24px] font-black text-cyan-500 pointer-events-none translate-y-2">P/E</div>
@@ -386,17 +383,17 @@ function renderFinancials() {
         </div>
       </div>
 
-      <!-- Intrinsic Value Check (DCF) -->
+      <!-- Intrinsic Value Analysis (DCF) -->
       <div class="bg-cyan-950/10 border border-cyan-900/40 p-2 flex justify-between items-center relative overflow-hidden group">
          <div class="flex flex-col">
-            <span class="text-[7px] text-cyan-700 font-mono uppercase">Intrinsic_Value // DCF</span>
-            <span class="text-lg font-black text-white font-mono leading-none">${currency === 'USD' ? '$' : ''}${formatNum(dcf, 2)}</span>
+            <span class="text-[7px] text-cyan-700 font-mono uppercase cursor-help" title="Discounted Cash Flow: Valuation based on future cash flow projections.">Intrinsic_Value // DCF</span>
+            <span class="text-lg font-black text-white font-mono leading-none border-b border-cyan-900/50 pb-0.5">${currency === 'USD' ? '$' : ''}${formatNum(dcf, 2)}</span>
          </div>
          <div class="flex flex-col items-end">
-            <span class="text-[8px] font-bold ${overvalued ? 'text-red-500' : 'text-green-500'} font-mono uppercase">
-              ${overvalued ? 'PREMIUM' : 'DISCOUNT'}
+            <span class="text-[8px] font-bold ${overvalued ? 'text-red-500' : 'text-green-500'} font-mono uppercase tracking-widest ring-1 ${overvalued ? 'ring-red-900/50' : 'ring-green-900/50'} px-1">
+              ${overvalued ? 'OVERVALUED' : 'UNDERVALUED'}
             </span>
-            <span class="text-[10px] text-white font-mono font-bold">${dcfDelta}%</span>
+            <span class="text-[10px] text-cyan-100 font-mono font-bold mt-1">${dcfDelta}% Delta</span>
          </div>
          <div class="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
       </div>
@@ -424,9 +421,9 @@ function renderFinancials() {
             <div class="text-[7px] text-gray-600 uppercase font-bold tracking-tighter">Market_Sentiment</div>
             <span class="text-[8px] text-cyan-900 font-mono">${sentiment}%_BULL</span>
           </div>
-          <div class="text-lg text-cyan-400 font-mono leading-none my-1 uppercase tracking-tighter">${sentiment > 50 ? 'Bullish' : 'Bearish'}</div>
+          <div class="text-lg text-cyan-400 font-mono leading-none my-1 uppercase tracking-tighter shadow-cyan-900/20 drop-shadow-md">${sentiment > 50 ? 'Bullish' : 'Bearish'}</div>
           <div class="w-full bg-gray-950 h-1 overflow-hidden relative">
-            <div class="bg-cyan-500 h-full absolute transition-all duration-1000" style="width: ${sentiment}%"></div>
+            <div class="bg-cyan-500 h-full absolute transition-all duration-1000 shadow-[0_0_8px_rgba(6,182,212,0.6)]" style="width: ${sentiment}%"></div>
           </div>
         </div>
         <div class="border border-gray-900 p-2 bg-black/40 relative overflow-hidden group hover:border-cyan-900/50 transition-colors">
@@ -449,15 +446,15 @@ function renderFinancials() {
               <span class="text-[11px] text-cyan-700 font-mono font-bold">${divYield}%</span>
            </div>
            <div class="flex flex-col border-b border-cyan-900/10 pb-1">
-              <span class="text-[7px] text-cyan-900 font-mono uppercase">Forecast_Target</span>
-              <span class="text-[11px] text-cyan-700 font-mono font-bold">${currency === 'USD' ? '$' : ''}${targetPrice}</span>
+              <span class="text-[7px] text-cyan-900 font-mono uppercase cursor-help" title="Estimated share price target based on analyst consensus and EPS growth.">Forecast_Target</span>
+              <span class="text-[11px] text-cyan-400 font-mono font-bold">${currency === 'USD' ? '$' : ''}${targetPrice}</span>
            </div>
         </div>
         
         <div class="space-y-1">
           <div class="text-[7px] text-cyan-900 font-mono uppercase flex justify-between">
-            <span>Volume_Intensity // ${formatLarge(volAvg)}</span>
-            <span class="text-white font-bold">${(volAvg && mktCap ? (volAvg / (mktCap / 1e5)).toFixed(1) : 4.2)}x</span>
+            <span>Trading_Intensity // ${formatLarge(volAvg)}</span>
+            <span class="text-white font-bold opacity-80">${(volAvg && mktCap ? (volAvg / (mktCap / 1e5)).toFixed(1) : 4.2)}x</span>
           </div>
           <div class="w-full bg-cyan-950/20 h-1.5 p-[1px] relative">
             <div class="absolute left-0 h-full bg-cyan-500/40" style="width: ${Math.min(100, (volAvg && mktCap ? (volAvg / (mktCap / 1e4)) * 100 : 45))}%"></div>
@@ -466,20 +463,20 @@ function renderFinancials() {
 
         <div class="text-[7px] text-cyan-800 font-mono border-t border-cyan-900/20 pt-1 flex flex-col gap-1">
           <div class="flex justify-between">
-            <span class="opacity-50">MARKET_CAP:</span>
-            <span class="text-white font-bold">${mktCap ? formatLarge(mktCap) : '---'}</span>
+            <span class="opacity-50">MARKET_VALUATION:</span>
+            <span class="text-white font-bold decoration-cyan-900/40 decoration-dotted underline underline-offset-2">${mktCap ? formatLarge(mktCap) : '---'}</span>
           </div>
           <div class="flex justify-between">
-            <span class="opacity-50">RISK_SCORE (RE):</span>
-            <span class="font-mono text-[7px] ${state.regulatory?.riskScore < 0.4 ? 'text-green-500' : 'text-yellow-500'}">${(state.regulatory?.riskScore || 0.24).toFixed(3)}</span>
+            <span class="opacity-50">AGGREGATE_RISK:</span>
+            <span class="font-mono text-[7px] ${state.regulatory?.riskScore < 0.4 ? 'text-green-500' : 'text-yellow-500'} bg-black/40 px-1 rounded-sm">${(state.regulatory?.riskScore || 0.24).toFixed(3)}</span>
           </div>
           <div class="flex justify-between">
-            <span class="opacity-50">52W_RANGE:</span>
-            <span class="text-cyan-400 font-mono text-[7px]">${range || 'N/A'}</span>
+            <span class="opacity-50">ANNUAL_BANDWIDTH:</span>
+            <span class="text-cyan-400 font-mono text-[7px] tracking-tight">${range || 'N/A'}</span>
           </div>
           <div class="flex justify-between">
-            <span class="opacity-50">INDUSTRY_SEGMENT:</span>
-            <span class="truncate w-32 text-right uppercase text-cyan-600">${industry || 'N/A'}</span>
+            <span class="opacity-50">VERTICAL_DOMAIN:</span>
+            <span class="truncate w-32 text-right uppercase text-cyan-600 font-bold">${industry || 'N/A'}</span>
           </div>
           <!-- Regulatory Event Feed Mini -->
            <div class="bg-black/50 p-1 mt-1 border border-cyan-900/20 max-h-12 overflow-hidden">
