@@ -28,6 +28,36 @@ app.get("/api", async (req, res) => {
 });
 
 const FMP_KEY = process.env.FMP_API_KEY || "";
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
+
+app.get("/api/search", async (req, res) => {
+  try {
+    const query = (req.query.q as string || "").toUpperCase();
+    if (!query) return res.json([]);
+    
+    if (FMP_KEY && FMP_KEY.length > 5 && !FMP_KEY.includes('YOUR_')) {
+      const response = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${query}&limit=10&apikey=${FMP_KEY}`);
+      const data = await response.json();
+      return res.json(data.map((item: any) => ({
+        symbol: item.symbol,
+        name: item.name
+      })));
+    }
+    
+    // Fallback search
+    const mockTickers = [
+      { symbol: 'AAPL', name: 'Apple Inc.' },
+      { symbol: 'MSFT', name: 'Microsoft Corp.' },
+      { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+      { symbol: 'TSLA', name: 'Tesla Inc.' },
+      { symbol: 'NVDA', name: 'Nvidia Corp.' }
+    ].filter(t => t.symbol.includes(query));
+    res.json(mockTickers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/quote/:symbol?", async (req, res) => {
   try {
     const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
