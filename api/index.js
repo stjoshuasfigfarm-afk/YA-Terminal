@@ -53,12 +53,21 @@ export default async function handler(req, res) {
       case 'book-depth':
         const depth = await fetchBookDepth(ticker, keys);
         return res.status(200).json(depth);
+      case 'batch-core':
+        const batch = await fetchBatchCoreMetrics(symbol, keys);
+        return res.status(200).json(batch);
       case 'macro':
         const macro = await fetchMacroNews(ticker, keys);
         return res.status(200).json(macro);
+      case 'news':
+        const news = await fetchGeneralNews(ticker, keys);
+        return res.status(200).json(news);
       case 'regulatory':
         const reg = await fetchRegulatoryChecks(ticker, keys);
         return res.status(200).json(reg);
+      case 'relationships':
+        const rels = await fetchCompanyRelationships(ticker, keys);
+        return res.status(200).json(rels);
       case 'status':
         return res.status(200).json({ 
           status: 'ONLINE', 
@@ -140,6 +149,41 @@ async function fetchCoreMetrics(symbol, keys) {
     symbol, 
     status: missing.length ? `KEYS_MISSING: ${missing.join(', ')}` : 'ALL_KEYS_FAILED'
   };
+}
+
+async function fetchBatchCoreMetrics(symbols, keys) {
+  const tickerList = symbols.toUpperCase().split(',');
+  const results = {};
+
+  try {
+    if (isKeyReady(keys.fmp)) {
+      const fmpRes = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbols}?apikey=${keys.fmp}`);
+      const data = await fmpRes.json();
+      if (Array.isArray(data)) {
+        data.forEach(item => {
+          results[item.symbol] = {
+            price: item.price,
+            change: item.change,
+            changesPercentage: item.changesPercentage
+          };
+        });
+        return { source: 'FMP_BATCH', data: results };
+      }
+    }
+  } catch (e) {
+    console.warn('[SILO_FAIL] FMP Batch Telemetry bypassed.', e.message);
+  }
+
+  // Simulated fallback for all tickers requested
+  tickerList.forEach(t => {
+    results[t] = {
+      price: 150.00 + Math.random() * 50,
+      change: (Math.random() - 0.4) * 5,
+      changesPercentage: (Math.random() - 0.4) * 2
+    };
+  });
+
+  return { source: 'MOCK_BATCH', data: results };
 }
 
 /**
@@ -271,6 +315,103 @@ async function fetchMacroNews(symbol, keys) {
   } catch (e) {
     return { data: [], error: e.message };
   }
+}
+
+/**
+ * Finnhub / Marketaux Ticker News Stream
+ */
+async function fetchGeneralNews(symbol, keys) {
+  // Primary: Finnhub Ticker News
+  try {
+    if (isKeyReady(keys.finnhub)) {
+      const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const to = new Date().toISOString().split('T')[0];
+      const res = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${from}&to=${to}&token=${keys.finnhub}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return { 
+          source: 'FINNHUB_STREAM', 
+          data: data.slice(0, 15).map(item => ({
+            title: item.headline,
+            description: item.summary,
+            published_at: new Date(item.datetime * 1000).toISOString(),
+            source: item.source
+          }))
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[SILO_FAIL] Finnhub Intel stream bypassed.', e.message);
+  }
+
+  // Fallback: Marketaux Language-specific stream
+  if (isKeyReady(keys.marketaux)) {
+    try {
+      const res = await fetch(`https://api.marketaux.com/v1/news/all?symbols=${symbol}&language=en&limit=10&api_token=${keys.marketaux}`);
+      const data = await res.json();
+      return { source: 'MARKETAUX_FALLBACK', ...data };
+    } catch (e) {
+      console.warn('[SILO_FAIL] Marketaux Fallback stream bypassed.', e.message);
+    }
+  }
+
+  return { source: 'SIMULATED_UPLINK', data: [], message: 'NO_LIVE_INTEL_KEYS_DETECTED' };
+}
+
+/**
+ * Supply Chain and Customer Relationships
+ */
+async function fetchCompanyRelationships(symbol, keys) {
+  // We use a combination of known industry peers and location-aware silos
+  const relationshipMap = {
+    'AAPL': {
+      suppliers: [
+        { name: 'TSMC', symbol: 'TSM', city: 'Hsinchu', coords: [24.7736, 120.9436] },
+        { name: 'Foxconn', symbol: '2317.TW', city: 'New Taipei', coords: [24.9983, 121.4842] },
+        { name: 'Samsung Display', symbol: '005930.KS', city: 'Suwon', coords: [37.2636, 127.0286] }
+      ],
+      customers: [
+        { name: 'Verizon', symbol: 'VZ', city: 'New York', coords: [40.7128, -74.0060] },
+        { name: 'AT&T', symbol: 'T', city: 'Dallas', coords: [32.7767, -96.7970] }
+      ]
+    },
+    'TSLA': {
+      suppliers: [
+        { name: 'Panasonic', symbol: '6752.T', city: 'Osaka', coords: [34.6937, 135.5023] },
+        { name: 'CATL', symbol: '300750.SZ', city: 'Ningde', coords: [26.6655, 119.5479] }
+      ],
+      customers: [
+        { name: 'US Government', symbol: 'USA', city: 'Washington', coords: [38.9072, -77.0369] },
+        { name: 'Hertz', symbol: 'HTZ', city: 'Estero', coords: [26.4381, -81.8068] }
+      ]
+    },
+    'NVDA': {
+      suppliers: [
+        { name: 'TSMC', symbol: 'TSM', city: 'Hsinchu', coords: [24.7736, 120.9436] },
+        { name: 'SK Hynix', symbol: '000660.KS', city: 'Icheon', coords: [37.2723, 127.4435] }
+      ],
+      customers: [
+        { name: 'Microsoft', symbol: 'MSFT', city: 'Redmond', coords: [47.6740, -122.1215] },
+        { name: 'Google', symbol: 'GOOGL', city: 'Mountain View', coords: [37.3861, -122.0839] },
+        { name: 'Meta', symbol: 'META', city: 'Menlo Park', coords: [37.4530, -122.1817] }
+      ]
+    }
+  };
+
+  const defaultRels = {
+    suppliers: [
+      { name: 'Logic_Silo_A', symbol: 'SUP_A', city: 'Shenzhen', coords: [22.5431, 114.0579] },
+      { name: 'Logic_Silo_B', symbol: 'SUP_B', city: 'Bangalore', coords: [12.9716, 77.5946] }
+    ],
+    customers: [
+      { name: 'Retail_Node_01', symbol: 'CON_01', city: 'London', coords: [51.5074, -0.1278] }
+    ]
+  };
+
+  return { 
+    source: 'RELATIONAL_SYNTHESIS', 
+    relationships: relationshipMap[symbol.toUpperCase()] || defaultRels 
+  };
 }
 
 /**

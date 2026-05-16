@@ -5,7 +5,7 @@
  */
 
 const state = {
-  currentTicker: 'AAPL',
+  currentTicker: '^GSPC',
   targetCoords: null,
   core: null,
   logistics: null,
@@ -15,6 +15,10 @@ const state = {
   markerLayer: null,
   newsCycleIndex: 0,
   newsCycleInterval: null,
+  siloTab: 'TICKERS',
+  registryPrices: {},
+  priceSyncInterval: null,
+  relationships: { suppliers: [], customers: [] },
 };
 
 /**
@@ -32,6 +36,40 @@ function logToTerminal(msg, type = 'INFO') {
 /**
  * Core Financial Telemetry
  */
+/**
+ * Registry Price Telemetry (Batch Uplink)
+ */
+async function fetchRegistryPrices() {
+  let source = [];
+  if (state.siloTab === 'TICKERS') source = GLOBAL_HUBS.filter(h => h.type === 'HQ');
+  else if (state.siloTab === 'COMMODITIES') source = COMMODITIES;
+  else if (state.siloTab === 'INDEXES') source = INDEXES;
+
+  if (source.length === 0) return;
+
+  const symbols = source.map(h => h.symbol).join(',');
+  try {
+    const res = await fetch(`/api?service=batch-core&symbol=${symbols}`);
+    const batch = await res.json();
+    
+    if (batch.data) {
+      // SPY Override as requested
+      if (batch.data['SPY']) {
+        const base = 739.00;
+        const noise = (Math.random() - 0.5) * 0.4;
+        batch.data['SPY'].price = base + noise;
+        batch.data['SPY'].changesPercentage = ((batch.data['SPY'].price - 540) / 540) * 100;
+      }
+
+      state.registryPrices = { ...state.registryPrices, ...batch.data };
+      renderSiloRegistry();
+      logToTerminal(`SILO_PRICES_SYNCED :: ${Object.keys(batch.data).length} NODES_ACTIVE`, 'SYSTEM');
+    }
+  } catch (err) {
+    console.warn('[Silo Price Error]', err);
+  }
+}
+
 export async function fetchTerminalCore(ticker) {
   try {
     logToTerminal(`INITIATING_UPLINK :: ${ticker}`, 'SYSTEM');
@@ -43,6 +81,14 @@ export async function fetchTerminalCore(ticker) {
       throw new Error(`HTTP_${res.status}: ${errorData.message || errorData.error || 'UNKNOWN_ERROR'}`);
     }
     const data = await res.json();
+    // SPY Override as requested
+    if (ticker === 'SPY') {
+      const base = 739.00;
+      const noise = (Math.random() - 0.5) * 0.5;
+      data.price = base + noise;
+      data.change = data.price - (data.previousClose || 540);
+      data.changesPercentage = (data.change / (data.previousClose || 540)) * 100;
+    }
     state.core = data;
     
     if (data.source === 'MOCK_EMERGENCY') {
@@ -66,13 +112,16 @@ export async function fetchTerminalCore(ticker) {
  */
 export async function fetchLogistics(ticker) {
   try {
-    const [logistics, macro, regulatory] = await Promise.all([
+    const [logistics, macro, regulatory, relations] = await Promise.all([
       fetch(`/api?service=logistics&symbol=${ticker}`).then(r => r.json()),
       fetch(`/api?service=macro&symbol=${ticker}`).then(r => r.json()),
-      fetch(`/api?service=regulatory&symbol=${ticker}`).then(r => r.json())
+      fetch(`/api?service=regulatory&symbol=${ticker}`).then(r => r.json()),
+      fetch(`/api?service=relationships&symbol=${ticker}`).then(r => r.json())
     ]);
     
     state.logistics = logistics;
+    state.regulatory = regulatory;
+    state.relationships = relations.relationships || { suppliers: [], customers: [] };
     
     // Merge macro news logic - avoid duplicates
     const newItems = macro.data || [];
@@ -89,7 +138,7 @@ export async function fetchLogistics(ticker) {
     state.regulatory = regulatory;
     
     renderFinancials();
-    renderSiloIndex();
+    renderSiloRegistry();
     updateTopologyMap();
     
     logToTerminal(`SYNC_COMPLETE :: ${state.macro.length} STORIES_IN_SILO`, 'SYSTEM');
@@ -99,49 +148,72 @@ export async function fetchLogistics(ticker) {
 }
 
 /**
- * Background News Sync (Real-time polling)
+ * Background News Sync (Automated Intel Harvesting)
  */
 function startBackgroundSync() {
   if (state.syncInterval) return;
   
+  logToTerminal('INTEL_HARVESTER_INIT :: SCANNING_GLOBAL_SILOS', 'SYSTEM');
+
   state.syncInterval = setInterval(async () => {
     try {
-      const ticker = state.currentTicker || 'AAPL';
-      const res = await fetch(`/api?service=macro&symbol=${ticker}`);
-      const macro = await res.json();
+      const ticker = state.currentTicker || '^GSPC';
       
-      const newItems = macro.data || [];
-      if (newItems.length === 0) return;
+      // Parallel harvest from different intelligence silos
+      const [macroRes, newsRes] = await Promise.all([
+        fetch(`/api?service=macro&symbol=${ticker}`),
+        fetch(`/api?service=news&symbol=${ticker}`) // New endpoint for ticker-specific automation
+      ]);
+      
+      const macro = await macroRes.json();
+      const news = await newsRes.json();
+      
+      // Also refresh registry prices for the current tab
+      fetchRegistryPrices();
+
+      const incomingIntel = [...(macro.data || []), ...(news.data || [])];
+      if (incomingIntel.length === 0) return;
 
       const currentTitles = new Set(state.macro.map(m => m.title));
       let addedCount = 0;
       
-      newItems.forEach(item => {
+      incomingIntel.forEach(item => {
         if (!currentTitles.has(item.title)) {
+          // Automated priority injection: New stories move to index 0
           state.macro.unshift(item);
           addedCount++;
         }
       });
 
       if (addedCount > 0) {
-        logToTerminal(`LIVE_INTEL_RECOVERY :: ${addedCount} NEW_HEADLINES`, 'INFO');
-        // Show sync pulse in UI
+        logToTerminal(`AUTO_INTEL_GATHERED :: ${addedCount} PACKETS_DECRYPTED`, 'INFO');
+        
+        // Visual Data Uplink Indicator
         const syncLabel = document.getElementById('sync-pulse');
         if (syncLabel) {
+          syncLabel.innerHTML = `<span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> UPLINK_SYNC_SUCCESS :: +${addedCount}`;
           syncLabel.classList.remove('opacity-0');
-          setTimeout(() => syncLabel.classList.add('opacity-0'), 3000);
+          setTimeout(() => syncLabel.classList.add('opacity-0'), 5000);
+        }
+
+        // If news cycle is running, notify it of the data shift
+        if (state.newsCycleInterval) {
+          logToTerminal('NEWS_CYCLE_REFRESHED :: NEW_PRIORITY_SATELLITE_FEED', 'INFO');
         }
       }
     } catch (e) {
-      console.warn('Sync heartbeat failed', e);
+      logToTerminal('AUTO_INTEL_STALL :: ATTEMPTING_RECONNECT', 'WARN');
+      console.warn('Intel harvesting heartbeat failed', e);
     }
-  }, 60000); // Check for new intel every 60 seconds
+  }, 45000); // Increased frequency for "Live" feel (45s)
 }
 
 /**
  * Topology Visualizer (Leaflet implementation)
  */
 const GLOBAL_HUBS = [
+  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'SPY_ETF', symbol: 'SPY', sector: 'ETF', employees: 0, type: 'HQ' },
+  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'QQQ_ETF', symbol: 'QQQ', sector: 'ETF', employees: 0, type: 'HQ' },
   { city: 'Cupertino', country: 'USA', coords: [37.3229, -122.0322], company: 'APPLE', symbol: 'AAPL', sector: 'TECH', employees: 161000, type: 'HQ' },
   { city: 'Mountain View', country: 'USA', coords: [37.3861, -122.0839], company: 'GOOGLE', symbol: 'GOOGL', sector: 'TECH', employees: 182000, type: 'HQ' },
   { city: 'Redmond', country: 'USA', coords: [47.6740, -122.1215], company: 'MICROSOFT', symbol: 'MSFT', sector: 'TECH', employees: 221000, type: 'HQ' },
@@ -323,7 +395,7 @@ function updateTopologyMap() {
   const activeCoords = state.targetCoords || hubsMap[state.currentTicker] || hubsMap[city] || [34.0522, -118.2437];
 
   const activePopupHtml = `
-    <div class="font-mono text-[9px] uppercase space-y-2 min-w-[260px]">
+    <div class="font-mono text-[9px] uppercase space-y-2 min-w-[280px]">
       <div class="flex justify-between border-b border-cyan-500/40 pb-1">
         <span class="text-cyan-400 font-black animate-pulse flex items-center gap-1">
           <span class="w-1 h-1 bg-cyan-400 rounded-full"></span>
@@ -341,6 +413,31 @@ function updateTopologyMap() {
         
         <span class="text-gray-500">EFFICIENCY:</span>
         <span class="text-green-500">${revenue && employees ? '$' + formatLargeLocal(revenue / employees) : '---'}/EE</span>
+      </div>
+
+      <!-- Relational Intelligence Silos -->
+      <div class="border-t border-gray-800 pt-1 mt-1">
+        <div class="text-[7px] text-red-500 mb-1 font-bold">STRATEGIC_SUPPLIERS [${state.relationships.suppliers.length}]</div>
+        <div class="space-y-0.5 max-h-12 overflow-y-auto pr-1">
+          ${state.relationships.suppliers.map(s => `
+            <div class="flex justify-between text-white/60">
+              <span>${s.name}</span>
+              <span class="text-red-900 font-bold">${s.symbol}</span>
+            </div>
+          `).join('') || '<div class="text-gray-700 italic">UNKNOWN_INPUT_CHANNELS</div>'}
+        </div>
+      </div>
+
+      <div class="border-t border-gray-800 pt-1">
+        <div class="text-[7px] text-blue-500 mb-1 font-bold">REVENUE_CHANNELS [${state.relationships.customers.length}]</div>
+        <div class="space-y-0.5 max-h-12 overflow-y-auto pr-1">
+          ${state.relationships.customers.map(c => `
+            <div class="flex justify-between text-white/60">
+              <span>${c.name}</span>
+              <span class="text-blue-900 font-bold">${c.symbol}</span>
+            </div>
+          `).join('') || '<div class="text-gray-700 italic">UNKNOWN_OUTPUT_NODES</div>'}
+        </div>
       </div>
 
       <div class="border-t border-cyan-900/40 pt-1.5">
@@ -408,6 +505,64 @@ function updateTopologyMap() {
   }).addTo(state.activeLayer)
     .bindPopup(activePopupHtml, { closeButton: false })
     .openPopup();
+
+  // 3. Add Supplier Nodes (Strategic Input Layer)
+  state.relationships.suppliers.forEach(sup => {
+    L.circleMarker(sup.coords, {
+      radius: 4,
+      fillColor: '#ef4444', 
+      color: '#7f1d1d',
+      weight: 1,
+      opacity: 0.8,
+      fillOpacity: 0.6
+    }).addTo(state.activeLayer)
+    .bindPopup(`
+      <div class="bg-black text-white p-2 font-mono text-[9px] border border-red-900 border-l-4">
+        <span class="text-red-500 font-bold tracking-tighter">NODE_VULNERABILITY :: STRATEGIC_SUPPLIER</span><br>
+        <div class="mt-1 flex justify-between text-white font-black">
+          <span>${sup.name}</span>
+          <span class="opacity-50">${sup.symbol}</span>
+        </div>
+        <div class="text-gray-500 text-[7px] mt-1">LOCATION: ${sup.city}</div>
+      </div>
+    `, { offset: [0, -5] });
+  });
+
+  // 4. Add Customer Nodes (Revenue Silos)
+  state.relationships.customers.forEach(cust => {
+    L.circleMarker(cust.coords, {
+      radius: 4,
+      fillColor: '#3b82f6', 
+      color: '#1e3a8a',
+      weight: 1,
+      opacity: 0.8,
+      fillOpacity: 0.6
+    }).addTo(state.activeLayer)
+    .bindPopup(`
+      <div class="bg-black text-white p-2 font-mono text-[9px] border border-blue-900 border-l-4">
+        <span class="text-blue-500 font-bold tracking-tighter">NODE_UPLINK :: ENTERPRISE_CUSTOMER</span><br>
+        <div class="mt-1 flex justify-between text-white font-black">
+          <span>${cust.name}</span>
+          <span class="opacity-50">${cust.symbol}</span>
+        </div>
+        <div class="text-gray-500 text-[7px] mt-1">LOCATION: ${cust.city}</div>
+      </div>
+    `, { offset: [0, -5] });
+  });
+
+  // Tactical Viewport Adjust
+  if (!state.newsCycleInterval) {
+    const allPoints = [
+      activeCoords,
+      ...state.relationships.suppliers.map(s => s.coords),
+      ...state.relationships.customers.map(s => s.coords)
+    ];
+    if (allPoints.length > 1) {
+      state.map.fitBounds(allPoints, { padding: [100, 100], maxZoom: 6, duration: 2 });
+    } else {
+      state.map.flyTo(activeCoords, 10, { duration: 2.5 });
+    }
+  }
 }
 
 function renderPriceFeed() {
@@ -422,10 +577,10 @@ function renderPriceFeed() {
   const isUp = change >= 0;
   el.innerHTML = `
     <div class="flex flex-col w-full">
-      <div class="flex justify-between items-end mb-2 border-b border-cyan-900/50 pb-1">
+      <div class="flex justify-between items-end mb-2 border-b border-emerald-900/50 pb-1">
         <div class="flex flex-col">
           <span class="text-[14px] font-black text-white tracking-widest leading-none">${symbol}</span>
-          <span class="text-[8px] text-cyan-700 font-mono uppercase truncate w-32">${name || ''}</span>
+          <span class="text-[8px] text-emerald-700 font-mono uppercase truncate w-32">${name || ''}</span>
         </div>
       </div>
       <div class="flex items-baseline justify-between mb-2">
@@ -439,8 +594,8 @@ function renderPriceFeed() {
           <span class="text-[8px] text-gray-700 font-mono uppercase">USD_EQUIV</span>
         </div>
       </div>
-      <div class="flex justify-between items-center pt-1 border-t border-cyan-950 mt-1">
-        <span class="text-[7px] font-mono text-cyan-900 uppercase tracking-tighter self-end">TELEMETRY_UPLINK :: ${source}</span>
+      <div class="flex justify-between items-center pt-1 border-t border-emerald-950 mt-1">
+        <span class="text-[7px] font-mono text-emerald-900 uppercase tracking-tighter self-end">TELEMETRY_UPLINK :: ${source}</span>
         <span class="text-[7px] font-mono text-green-900 uppercase tracking-tighter">DATA_STABLE // SECURED</span>
       </div>
     </div>
@@ -493,15 +648,15 @@ function renderFinancials() {
   el.innerHTML = `
     <div class="flex flex-col h-full space-y-2">
       <!-- Labor Efficiency Header -->
-      <div class="p-2 border-l-2 ${isUp ? 'border-cyan-500 bg-cyan-950/10' : 'border-red-500 bg-red-950/10'} relative overflow-hidden group">
+      <div class="p-2 border-l-2 ${isUp ? 'border-emerald-500 bg-emerald-950/10' : 'border-red-500 bg-red-950/10'} relative overflow-hidden group">
         <div class="flex justify-between items-center mb-1">
-          <div class="text-[10px] text-cyan-600 font-mono uppercase tracking-widest font-bold flex items-center gap-1">
-            <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
+          <div class="text-[10px] text-emerald-600 font-mono uppercase tracking-widest font-bold flex items-center gap-1">
+            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
             Operational_Velocity // LIVE
           </div>
           <div class="flex gap-1">
-            <span class="text-[8px] bg-black/40 px-1 text-cyan-400 font-mono">${exchange || 'N/A'}</span>
-            <span class="text-[8px] bg-black/40 px-1 text-cyan-400 font-mono">${currency || 'USD'}</span>
+            <span class="text-[8px] bg-black/40 px-1 text-emerald-400 font-mono">${exchange || 'N/A'}</span>
+            <span class="text-[8px] bg-black/40 px-1 text-emerald-400 font-mono">${currency || 'USD'}</span>
           </div>
         </div>
         <div class="flex items-baseline justify-between relative z-10">
@@ -509,7 +664,7 @@ function renderFinancials() {
             <div class="text-3xl font-black text-white font-mono tracking-tighter leading-none">
               ${formatLarge(employees)}
             </div>
-            <div class="text-[9px] text-cyan-800 font-mono uppercase flex flex-col leading-tight">
+            <div class="text-[9px] text-emerald-800 font-mono uppercase flex flex-col leading-tight">
               <span>STAFF</span>
               <span>COUNT</span>
             </div>
@@ -524,16 +679,16 @@ function renderFinancials() {
       </div>
 
       <!-- Intrinsic Value Analysis (DCF) -->
-      <div class="bg-cyan-950/10 border border-cyan-900/40 p-2 flex justify-between items-center relative overflow-hidden group">
+      <div class="bg-emerald-950/10 border border-emerald-900/40 p-2 flex justify-between items-center relative overflow-hidden group">
          <div class="flex flex-col">
-            <span class="text-[7px] text-cyan-700 font-mono uppercase">Revenue_Yield // Efficiency</span>
-            <span class="text-lg font-black text-white font-mono leading-none border-b border-cyan-900/50 pb-0.5">$${formatLarge(revPerEE)}/EE</span>
+            <span class="text-[7px] text-emerald-700 font-mono uppercase">Revenue_Yield // Efficiency</span>
+            <span class="text-lg font-black text-white font-mono leading-none border-b border-emerald-900/50 pb-0.5">$${formatLarge(revPerEE)}/EE</span>
          </div>
          <div class="flex flex-col items-end">
-            <span class="text-[8px] font-bold text-cyan-500 font-mono uppercase tracking-widest ring-1 ring-cyan-900/50 px-1">
+            <span class="text-[8px] font-bold text-emerald-500 font-mono uppercase tracking-widest ring-1 ring-emerald-900/50 px-1">
               ${revPerEE > 500000 ? 'HIGH_CAP' : 'LABOR_INT'}
             </span>
-            <span class="text-[10px] text-cyan-100 font-mono font-bold mt-1">${formatLarge(state.logistics.revenue)} REV</span>
+            <span class="text-[10px] text-emerald-100 font-mono font-bold mt-1">${formatLarge(state.logistics.revenue)} REV</span>
          </div>
       </div>
 
@@ -541,66 +696,66 @@ function renderFinancials() {
       <div class="grid grid-cols-3 gap-1">
         ${indicators.map(ind => `
           <div class="bg-black/60 border border-gray-900 p-1 flex flex-col items-center justify-center relative overflow-hidden h-10 group cursor-help" title="${ind.detail}">
-            <div class="text-[6px] text-cyan-500 font-mono mb-0.5 uppercase tracking-widest">
+            <div class="text-[6px] text-emerald-500 font-mono mb-0.5 uppercase tracking-widest">
               ${ind.label}
             </div>
             <div class="text-[9px] font-black text-white font-mono">${ind.val}</div>
-            <div class="absolute bottom-0 left-0 h-[1px] bg-cyan-900/40 w-full"></div>
+            <div class="absolute bottom-0 left-0 h-[1px] bg-emerald-900/40 w-full"></div>
           </div>
         `).join('')}
       </div>
 
       <!-- Secondary Metrics Grid -->
       <div class="grid grid-cols-2 gap-1 px-0.5">
-        <div class="border border-gray-900 p-2 bg-black/40 relative overflow-hidden group hover:border-cyan-900/50 transition-colors">
+        <div class="border border-gray-900 p-2 bg-black/40 relative overflow-hidden group hover:border-emerald-900/50 transition-colors">
           <div class="flex justify-between items-start">
             <div class="text-[7px] text-gray-600 uppercase font-bold tracking-tighter">Market_Sentiment</div>
-            <span class="text-[8px] text-cyan-900 font-mono">${sentiment}%_BULL</span>
+            <span class="text-[8px] text-emerald-900 font-mono">${sentiment}%_BULL</span>
           </div>
-          <div class="text-lg text-cyan-400 font-mono leading-none my-1 uppercase tracking-tighter shadow-cyan-900/20 drop-shadow-md">${sentiment > 50 ? 'Bullish' : 'Bearish'}</div>
-          <div class="w-full bg-gray-950 h-1 overflow-hidden relative">
-            <div class="bg-cyan-500 h-full absolute transition-all duration-1000 shadow-[0_0_8px_rgba(6,182,212,0.6)]" style="width: ${sentiment}%"></div>
+          <div class="text-lg text-emerald-400 font-mono leading-none my-1 uppercase tracking-tighter shadow-emerald-900/20 drop-shadow-md">${sentiment > 50 ? 'Bullish' : 'Bearish'}</div>
+          <div class="w-full bg-gray-950 h-1 overflow-hidden relative" style="background: rgba(16, 185, 129, 0.1);">
+            <div class="bg-emerald-500 h-full absolute transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.6)]" style="width: ${sentiment}%"></div>
           </div>
         </div>
-        <div class="border border-gray-900 p-2 bg-black/40 relative overflow-hidden group hover:border-cyan-900/50 transition-colors">
+        <div class="border border-gray-900 p-2 bg-black/40 relative overflow-hidden group hover:border-emerald-900/50 transition-colors">
           <div class="text-[7px] text-gray-600 uppercase font-bold tracking-tighter">Neural_EPS</div>
-          <div class="text-lg text-cyan-400 font-mono leading-none my-1">${formatNum(eps, 2)}</div>
+          <div class="text-lg text-emerald-400 font-mono leading-none my-1">${formatNum(eps, 2)}</div>
           <div class="flex gap-1 h-3 items-end relative">
-            ${Array(12).fill(0).map((_, i) => `<div class="w-1 bg-cyan-900/40 rounded-t-sm transition-all duration-500" style="height: ${40 + Math.sin(i / 2) * 20 + Math.random() * 10}%"></div>`).join('')}
+            ${Array(12).fill(0).map((_, i) => `<div class="w-1 bg-emerald-900/40 rounded-t-sm transition-all duration-500" style="height: ${40 + Math.sin(i / 2) * 20 + Math.random() * 10}%"></div>`).join('')}
             <svg class="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
-               <path d="M0,80 Q25,60 50,70 T100,30" fill="none" stroke="rgba(6,182,212,0.3)" stroke-width="2" class="animate-[dash_3s_linear_infinite]"/>
+               <path d="M0,80 Q25,60 50,70 T100,30" fill="none" stroke="rgba(16, 185, 129, 0.3)" stroke-width="2" class="animate-[dash_3s_linear_infinite]"/>
             </svg>
           </div>
         </div>
       </div>
 
       <!-- Integrated Detail Panel -->
-      <div class="border border-cyan-900/20 bg-cyan-950/5 p-2 space-y-2 flex-grow overflow-hidden relative">
+      <div class="border border-emerald-900/20 bg-emerald-950/5 p-2 space-y-2 flex-grow overflow-hidden relative">
         <div class="grid grid-cols-2 gap-3">
-           <div class="flex flex-col border-b border-cyan-900/10 pb-1">
-              <span class="text-[7px] text-cyan-900 font-mono uppercase">Dividend_Yield</span>
-              <span class="text-[11px] text-cyan-700 font-mono font-bold">${divYield}%</span>
+           <div class="flex flex-col border-b border-emerald-900/10 pb-1">
+              <span class="text-[7px] text-emerald-900 font-mono uppercase">Dividend_Yield</span>
+              <span class="text-[11px] text-emerald-700 font-mono font-bold">${divYield}%</span>
            </div>
-           <div class="flex flex-col border-b border-cyan-900/10 pb-1">
-              <span class="text-[7px] text-cyan-900 font-mono uppercase cursor-help" title="Estimated share price target based on analyst consensus and EPS growth.">Forecast_Target</span>
-              <span class="text-[11px] text-cyan-400 font-mono font-bold">${currency === 'USD' ? '$' : ''}${targetPrice}</span>
+           <div class="flex flex-col border-b border-emerald-900/10 pb-1">
+              <span class="text-[7px] text-emerald-900 font-mono uppercase cursor-help" title="Estimated share price target based on analyst consensus and EPS growth.">Forecast_Target</span>
+              <span class="text-[11px] text-emerald-400 font-mono font-bold">${currency === 'USD' ? '$' : ''}${targetPrice}</span>
            </div>
         </div>
         
         <div class="space-y-1">
-          <div class="text-[7px] text-cyan-900 font-mono uppercase flex justify-between">
+          <div class="text-[7px] text-emerald-900 font-mono uppercase flex justify-between">
             <span>Trading_Intensity // ${formatLarge(volAvg)}</span>
             <span class="text-white font-bold opacity-80">${(volAvg && mktCap ? (volAvg / (mktCap / 1e5)).toFixed(1) : 4.2)}x</span>
           </div>
-          <div class="w-full bg-cyan-950/20 h-1.5 p-[1px] relative">
-            <div class="absolute left-0 h-full bg-cyan-500/40" style="width: ${Math.min(100, (volAvg && mktCap ? (volAvg / (mktCap / 1e4)) * 100 : 45))}%"></div>
+          <div class="w-full bg-emerald-950/20 h-1.5 p-[1px] relative">
+            <div class="absolute left-0 h-full bg-emerald-500/40" style="width: ${Math.min(100, (volAvg && mktCap ? (volAvg / (mktCap / 1e4)) * 100 : 45))}%"></div>
           </div>
         </div>
 
-        <div class="text-[7px] text-cyan-800 font-mono border-t border-cyan-900/20 pt-1 flex flex-col gap-1">
+        <div class="text-[7px] text-emerald-800 font-mono border-t border-emerald-900/20 pt-1 flex flex-col gap-1">
           <div class="flex justify-between">
             <span class="opacity-50">MARKET_VALUATION:</span>
-            <span class="text-white font-bold decoration-cyan-900/40 decoration-dotted underline underline-offset-2">${mktCap ? formatLarge(mktCap) : '---'}</span>
+            <span class="text-white font-bold decoration-emerald-900/40 decoration-dotted underline underline-offset-2">${mktCap ? formatLarge(mktCap) : '---'}</span>
           </div>
           <div class="flex justify-between">
             <span class="opacity-50">AGGREGATE_RISK:</span>
@@ -608,19 +763,19 @@ function renderFinancials() {
           </div>
           <div class="flex justify-between">
             <span class="opacity-50">ANNUAL_BANDWIDTH:</span>
-            <span class="text-cyan-400 font-mono text-[7px] tracking-tight">${range || 'N/A'}</span>
+            <span class="text-emerald-400 font-mono text-[7px] tracking-tight">${range || 'N/A'}</span>
           </div>
           <div class="flex justify-between">
             <span class="opacity-50">VERTICAL_DOMAIN:</span>
-            <span class="truncate w-32 text-right uppercase text-cyan-600 font-bold">${industry || 'N/A'}</span>
+            <span class="truncate w-32 text-right uppercase text-emerald-600 font-bold">${industry || 'N/A'}</span>
           </div>
           <!-- Regulatory Event Feed Mini -->
-           <div class="bg-black/50 p-1 mt-1 border border-cyan-900/20 max-h-12 overflow-hidden">
+           <div class="bg-black/50 p-1 mt-1 border border-emerald-900/20 max-h-12 overflow-hidden">
              <div class="animate-[scrolling_15s_linear_infinite] flex flex-col gap-0.5">
-               <div class="text-[6px] text-cyan-500 font-mono flex justify-between"><span>SEC_8K_FILED</span><span class="opacity-30">OK</span></div>
-               <div class="text-[6px] text-cyan-500 font-mono flex justify-between"><span>KYC_AM_PASS</span><span class="opacity-30">OK</span></div>
-               <div class="text-[6px] text-cyan-500 font-mono flex justify-between"><span>STRESS_TEST</span><span class="opacity-30">PASS</span></div>
-               <div class="text-[6px] text-cyan-500 font-mono flex justify-between"><span>BSL_III_CAP</span><span class="opacity-30">14.2%</span></div>
+               <div class="text-[6px] text-emerald-500 font-mono flex justify-between"><span>SEC_8K_FILED</span><span class="opacity-30">OK</span></div>
+               <div class="text-[6px] text-emerald-500 font-mono flex justify-between"><span>KYC_AM_PASS</span><span class="opacity-30">OK</span></div>
+               <div class="text-[6px] text-emerald-500 font-mono flex justify-between"><span>STRESS_TEST</span><span class="opacity-30">PASS</span></div>
+               <div class="text-[6px] text-emerald-500 font-mono flex justify-between"><span>BSL_III_CAP</span><span class="opacity-30">14.2%</span></div>
              </div>
            </div>
         </div>
@@ -637,23 +792,74 @@ function renderFinancials() {
   `;
 }
 
-function renderSiloIndex() {
+const COMMODITIES = [
+  { company: 'GOLD_SPOT', symbol: 'GC=F', sector: 'METALS', city: 'London' },
+  { company: 'CRUDE_OIL', symbol: 'CL=F', sector: 'ENERGY', city: 'Houston' },
+  { company: 'NATURAL_GAS', symbol: 'NG=F', sector: 'ENERGY', city: 'Stavanger' },
+  { company: 'SILVER_SPOT', symbol: 'SI=F', sector: 'METALS', city: 'Zurich' },
+  { company: 'BRENT_CRUDE', symbol: 'BZ=F', sector: 'ENERGY', city: 'Oslo' },
+  { company: 'COPPER_FUTR', symbol: 'HG=F', sector: 'METALS', city: 'Santiago' }
+];
+
+const INDEXES = [
+  { company: 'S&P 500', symbol: '^GSPC', sector: 'GENERAL', city: 'New York' },
+  { company: 'NASDAQ 100', symbol: '^NDX', sector: 'TECH', city: 'New York' },
+  { company: 'DOW JONES', symbol: '^DJI', sector: 'INDUSTRIAL', city: 'New York' },
+  { company: 'VIX_VOLATILITY', symbol: '^VIX', sector: 'RISK', city: 'Chicago' },
+  { company: 'DAX_GERMANY', symbol: '^GDAXI', sector: 'EUROPE', city: 'Frankfurt' },
+  { company: 'FTSE_100', symbol: '^FTSE', sector: 'EUROPE', city: 'London' },
+  { company: 'NIKKEI_225', symbol: '^N225', sector: 'ASIA', city: 'Tokyo' }
+];
+
+/**
+ * Registry Tab Switching
+ */
+window.switchSiloTab = (tab) => {
+  state.siloTab = tab;
+  
+  // UI Updates
+  ['TICKERS', 'COMMODITIES', 'INDEXES'].forEach(t => {
+    const btn = document.getElementById(`tab-${t}`);
+    if (btn) {
+      if (t === tab) {
+        btn.classList.add('bg-emerald-950/30', 'text-emerald-500', 'border-emerald-900');
+        btn.classList.remove('bg-black/40', 'text-gray-600', 'border-gray-800');
+      } else {
+        btn.classList.remove('bg-emerald-950/30', 'text-emerald-500', 'border-emerald-900');
+        btn.classList.add('bg-black/40', 'text-gray-600', 'border-gray-800');
+      }
+    }
+  });
+
+  renderSiloRegistry();
+  fetchRegistryPrices();
+  logToTerminal(`SILO_TAB_SHIFT :: ${tab}`, 'SYSTEM');
+};
+
+function renderSiloRegistry() {
   const el = document.getElementById('silo-index');
   if (!el) return;
 
-  // Render all global hubs
-  el.innerHTML = GLOBAL_HUBS.map(hub => {
+  let source = [];
+  if (state.siloTab === 'TICKERS') source = GLOBAL_HUBS.filter(h => h.type === 'HQ');
+  else if (state.siloTab === 'COMMODITIES') source = COMMODITIES;
+  else if (state.siloTab === 'INDEXES') source = INDEXES;
+
+  el.innerHTML = source.map(hub => {
     const isActive = state.currentTicker === hub.symbol;
+
     return `
       <div onclick="window.initTerminal('${hub.symbol}')" 
-           class="group flex items-center justify-between p-1.5 border-b border-gray-900/50 cursor-pointer transition-all hover:bg-cyan-950/30 ${isActive ? 'bg-cyan-900/20 border-l-2 border-l-cyan-500' : ''}">
+           class="group flex items-center justify-between p-1.5 border-b border-gray-900/50 cursor-pointer transition-all hover:bg-emerald-950/30 ${isActive ? 'bg-emerald-900/20 border-l-2 border-l-emerald-500' : ''}">
         <div class="flex flex-col">
-          <span class="text-[10px] font-bold ${isActive ? 'text-cyan-400' : 'text-gray-400 group-hover:text-cyan-600'} transition-colors">${hub.symbol}</span>
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] font-bold ${isActive ? 'text-emerald-400' : 'text-gray-400 group-hover:text-emerald-600'} transition-colors">${hub.symbol}</span>
+          </div>
           <span class="text-[8px] text-gray-600 group-hover:text-gray-500 truncate w-32">${hub.company}</span>
         </div>
         <div class="text-[7px] text-gray-700 font-mono text-right flex flex-col items-end">
-          <span>${hub.city}</span>
-          <span class="opacity-50">SILO_ID:${hub.symbol.slice(0,3)}</span>
+          <span class="opacity-50 uppercase">${hub.sector || 'AUTO'}</span>
+          <span>${hub.city || 'GLOBAL'}</span>
         </div>
       </div>
     `;
@@ -762,23 +968,23 @@ window.toggleNewsCycle = () => {
     
     overlay.innerHTML = `
       <div class="flex flex-col gap-1 relative">
-        <div id="sync-pulse" class="absolute -top-6 right-0 text-[7px] text-cyan-400 font-bold opacity-0 transition-opacity flex items-center gap-1">
-          <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span>
+        <div id="sync-pulse" class="absolute -top-6 right-0 text-[7px] text-emerald-400 font-bold opacity-0 transition-opacity flex items-center gap-1">
+          <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
           LIVE_INTEL_SYNC
         </div>
-        <div class="flex justify-between items-center text-[10px] font-mono text-cyan-500 uppercase font-bold">
+        <div class="flex justify-between items-center text-[10px] font-mono text-emerald-500 uppercase font-bold">
           <div class="flex items-center gap-2">
-            <span class="w-2 h-2 bg-cyan-500 rounded-full animate-ping"></span>
+            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
             <span>INTEL_STORY // ${hub.city} // ${hub.company}</span>
           </div>
-          <span class="bg-cyan-900/50 border border-cyan-800 px-2 py-0.5 text-[8px]">${(state.newsCycleIndex % newsItems.length) + 1}/${newsItems.length}</span>
+          <span class="bg-emerald-900/50 border border-emerald-800 px-2 py-0.5 text-[8px]">${(state.newsCycleIndex % newsItems.length) + 1}/${newsItems.length}</span>
         </div>
-        <div class="text-[11px] text-cyan-50 font-medium leading-relaxed tracking-tight border-l-2 border-cyan-500 pl-3 my-1">
+        <div class="text-[11px] text-emerald-50 font-medium leading-relaxed tracking-tight border-l-2 border-emerald-500 pl-3 my-1">
           ${item.description || item.title || 'NO_STORY_DATA'}
         </div>
-        <div class="flex justify-between items-center text-[8px] text-cyan-900 font-mono mt-1 pt-1 border-t border-cyan-950">
+        <div class="flex justify-between items-center text-[8px] text-emerald-900 font-mono mt-1 pt-1 border-t border-emerald-950">
           <span>SOURCE: GLOBAL_NET_TERMINAL</span>
-          <span class="text-cyan-600 font-bold uppercase">HEADLINE: ${item.title}</span>
+          <span class="text-emerald-600 font-bold uppercase">HEADLINE: ${item.title}</span>
         </div>
       </div>
     `;
@@ -855,7 +1061,7 @@ async function searchTickers(query) {
     
     if (matches && matches.length > 0) {
       dropdown.innerHTML = matches.map(m => `
-        <div onclick="window.selectTicker('${m.symbol}')" class="px-3 py-2 text-[10px] text-cyan-400 font-mono hover:bg-cyan-950 cursor-pointer border-b border-gray-900 transition-colors flex justify-between">
+        <div onclick="window.selectTicker('${m.symbol}')" class="px-3 py-2 text-[10px] text-emerald-400 font-mono hover:bg-emerald-950 cursor-pointer border-b border-gray-900 transition-colors flex justify-between">
           <span>${m.symbol} // SILO</span>
           <span class="text-gray-600 truncate ml-2">${m.name}</span>
         </div>
@@ -884,7 +1090,7 @@ window.initTerminal = (ticker, fromMapTag = false) => {
     state.targetCoords = null; // Clear if manual jump
   }
   state.currentTicker = ticker;
-  renderSiloIndex();
+  renderSiloRegistry();
   
   // Reset news cycle for new ticker
   if (state.newsCycleInterval) window.toggleNewsCycle();
@@ -893,10 +1099,50 @@ window.initTerminal = (ticker, fromMapTag = false) => {
   fetchLogistics(ticker);
 };
 
+/**
+ * Fast Price Uplink (Dedicated high-frequency sync for active ticker)
+ */
+function startFastPriceSync() {
+  if (state.priceSyncInterval) clearInterval(state.priceSyncInterval);
+  
+  state.priceSyncInterval = setInterval(async () => {
+    if (!state.currentTicker) return;
+    try {
+      const res = await fetch(`/api?service=core&symbol=${state.currentTicker}`);
+      const core = await res.json();
+      
+      if (core && core.price !== undefined) {
+        // SPY Override as requested
+        if (state.currentTicker === 'SPY') {
+          const base = 739.00;
+          const noise = (Math.random() - 0.5) * 0.5;
+          core.price = base + noise;
+          core.change = core.price - (core.previousClose || 540);
+          core.changesPercentage = (core.change / (core.previousClose || 540)) * 100;
+        }
+
+        state.core = { ...state.core, ...core };
+        renderPriceFeed();
+        
+        // Brief visual flash for sync
+        const feedLabel = document.querySelector('#price-feed-header .animate-pulse');
+        if (feedLabel) {
+           feedLabel.classList.remove('animate-pulse');
+           setTimeout(() => feedLabel.classList.add('animate-pulse'), 500);
+        }
+      }
+    } catch (e) {
+      console.warn('Fast price sync failed', e);
+    }
+  }, 15000); // 15s High-frequency price harvest
+}
+
 // Initial boot
 document.addEventListener('DOMContentLoaded', () => {
-  window.initTerminal('AAPL');
+  window.initTerminal('^GSPC');
+  fetchRegistryPrices();
   startBackgroundSync();
+  startFastPriceSync();
 
   const symbolInput = document.getElementById('symbol-input');
   
