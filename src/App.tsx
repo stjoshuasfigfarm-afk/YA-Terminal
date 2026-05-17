@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { Header } from "./components/Header";
 import { SearchSidebar } from "./components/SearchSidebar";
 import { MapLayer } from "./components/MapLayer";
@@ -306,6 +307,8 @@ export default function App() {
             </div>
          </div>
       )}
+
+      <Analytics />
     </div>
   );
 }
