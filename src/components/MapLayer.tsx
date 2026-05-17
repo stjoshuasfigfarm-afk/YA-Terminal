@@ -28,7 +28,7 @@ const createPulseIcon = (color: string) => L.divIcon({
   iconAnchor: [6, 6]
 });
 
-const defaultIcon = createPulseIcon("#22ab94");
+const defaultIcon = createPulseIcon("#ffffff");
 const activeIcon = createPulseIcon("#ffffff");
 
 // Utility to validate coordinates
@@ -100,6 +100,7 @@ interface MapLayerProps {
   intelligenceFeed?: any[];
   isIntelligenceStream?: boolean;
   toggleIntelligenceStream?: () => void;
+  activeTab?: string;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({ 
@@ -108,7 +109,8 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   onSelectNode, 
   intelligenceFeed,
   isIntelligenceStream,
-  toggleIntelligenceStream
+  toggleIntelligenceStream,
+  activeTab
 }) => {
   const activePosition = React.useMemo((): [number, number] | null => {
     try {
@@ -129,7 +131,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   // Derive partner lines
   const partnerLines = React.useMemo((): [number, number][][] => {
     const lines: [number, number][][] = [];
-    if (selectedStock && selectedStock.partners && isSafeLatLng(selectedStock.lat, selectedStock.lng)) {
+    if (activeTab === "PINNED" && selectedStock && selectedStock.partners && isSafeLatLng(selectedStock.lat, selectedStock.lng)) {
       const sLat = Number(selectedStock.lat);
       const sLng = Number(selectedStock.lng);
       
@@ -178,18 +180,18 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   }, [focusStock, selectedStock]);
 
   return (
-    <div className="flex-1 relative bg-[#050505] overflow-hidden">
+    <div className="flex-1 relative bg-[#050505] overflow-hidden map-green-hued">
       {/* Map HUD Control - Top Left */}
       <div className="absolute top-4 left-4 z-[1002] flex flex-col gap-2 pointer-events-auto">
         <button 
           onClick={toggleIntelligenceStream}
           className={cn(
             "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative",
-            isIntelligenceStream ? "bg-[#22ab94] text-black border-[#22ab94] shadow-[0_0_15px_#22ab94]" : "bg-zinc-900/90 border-zinc-800 text-[#22ab94] hover:bg-[#22ab94] hover:text-black"
+            isIntelligenceStream ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
           )}
         >
           <Newspaper className={cn("w-5 h-5 transition-transform", isIntelligenceStream ? "scale-110" : "group-hover:rotate-12")} />
-          <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-[#22ab94] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-[#22ab94] shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
+          <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
             {isIntelligenceStream ? "Neural_Stream_Enabled" : "Enable_Neural_Stream"}
           </div>
           {isIntelligenceStream && (
@@ -199,7 +201,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       </div>
       
       <div className="absolute bottom-4 left-4 z-[1000] pointer-events-none">
-        <div className="bg-zinc-900/80 p-2 border border-zinc-800 font-mono text-[9px] uppercase tracking-widest text-[#22ab94] backdrop-blur-sm shadow-xl">
+        <div className="bg-zinc-900/80 p-2 border border-zinc-800 font-mono text-[9px] uppercase tracking-widest text-white backdrop-blur-sm shadow-xl">
           LAT: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[0]).toFixed(4) : "0.0000"} | LONG: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[1]).toFixed(4) : "0.0000"} | ALT: 149M
         </div>
       </div>
@@ -213,6 +215,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
+          className="map-tile-layer"
         />
         
         <MapController selectedPosition={activePosition} />
@@ -230,7 +233,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           return (
             <React.Fragment key={company.symbol}>
               <Marker
-                ref={(el) => (markerRefs.current[company.symbol] = el)}
+                ref={(el) => { markerRefs.current[company.symbol] = el; }}
                 position={pos}
                 icon={isSelected ? activeIcon : defaultIcon}
                 eventHandlers={{
@@ -244,14 +247,14 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                 }}
               >
                 <Popup className="custom-popup" offset={[0, -10]}>
-                  <div className="bg-zinc-950 text-white p-2 border border-[#22ab94]/50 font-mono w-[180px]">
+                  <div className="bg-zinc-950 text-white p-2 border border-white/50 font-mono w-[180px]">
                     <div className="flex justify-between items-start mb-1">
-                      <div className="text-[#22ab94] font-bold text-lg leading-none">{company.symbol}</div>
-                      <div className="text-[8px] bg-[#22ab94]/20 text-[#22ab94] px-1 font-black">NODE_ACTIVE</div>
+                      <div className="text-white font-bold text-lg leading-none">{company.symbol}</div>
+                      <div className="text-[8px] bg-white/20 text-white px-1 font-black">NODE_ACTIVE</div>
                     </div>
                     <div className="text-[10px] text-zinc-500 mb-1 truncate uppercase tracking-tighter">{company.name}</div>
                     
-                    <div className="mt-2 space-y-1 border-t border-[#22ab94]/20 pt-2">
+                    <div className="mt-2 space-y-1 border-t border-white/20 pt-2">
                       <div className="flex justify-between text-[9px]">
                         <span className="text-zinc-600">SECTOR</span>
                         <span className="text-zinc-300 truncate ml-2">{company.sector}</span>
@@ -259,7 +262,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                       {company.workforce && (
                         <div className="flex justify-between text-[9px]">
                           <span className="text-zinc-600">WORKFORCE</span>
-                          <span className="text-[#22ab94] font-bold">{company.workforce}</span>
+                          <span className="text-white font-bold">{company.workforce}</span>
                         </div>
                       )}
                       {company.headquarters && (
@@ -297,9 +300,9 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                     className: "news-pin-icon",
                     html: `
                       <div class="relative group">
-                        <div class="absolute -left-2 -top-2 w-1.5 h-1.5 bg-[#22ab94] rounded-full animate-pulse"></div>
-                        <div class="bg-black/90 border border-[#22ab94]/40 p-1.5 w-32 backdrop-blur-sm shadow-2xl opacity-80 group-hover:opacity-100 transition-opacity">
-                          <div class="text-[7px] text-[#22ab94] font-mono leading-none mb-1 flex justify-between">
+                        <div class="absolute -left-2 -top-2 w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                        <div class="bg-black/90 border border-white/40 p-1.5 w-32 backdrop-blur-sm shadow-2xl opacity-80 group-hover:opacity-100 transition-opacity">
+                          <div class="text-[7px] text-white font-mono leading-none mb-1 flex justify-between">
                             <span>INTEL_B64</span>
                             <span>${timeStr}</span>
                           </div>
@@ -324,10 +327,10 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             key={idx}
             positions={line}
             pathOptions={{
-              color: "#22ab94",
+              color: "#ffffff",
               weight: 1,
               dashArray: "5, 10",
-              opacity: 0.5,
+              opacity: 0.3,
               className: "supply-chain-line"
             }}
           />

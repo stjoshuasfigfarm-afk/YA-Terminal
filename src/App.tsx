@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { GoogleGenAI } from "@google/genai";
 import { Header } from "./components/Header";
 import { SearchSidebar } from "./components/SearchSidebar";
 import { MapLayer } from "./components/MapLayer";
@@ -18,48 +17,62 @@ export default function App() {
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [focusNews, setFocusNews] = useState<any[]>([]);
+  const [briefing, setBriefing] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("INTEL");
+  const [relationships, setRelationships] = useState<{ suppliers: any[], customers: any[] }>({ suppliers: [], customers: [] });
+  const [globalYields, setGlobalYields] = useState<any>(null);
+  const [nodeYields, setNodeYields] = useState<any>(null);
 
   const enrichNews = useCallback(async (rawNews: any[]) => {
     if (!rawNews || rawNews.length === 0) return;
     
     setIsAiProcessing(true);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return;
-
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-        Analyze these news headlines/summaries.
-        Translate to professional English if needed.
-        Summarize into a concise "Neural Link" headline (max 80 chars).
-        Return JSON array: [{ "translatedTitle": string }]
-        News:
-        ${rawNews.map((n: any, i: number) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
-      `;
-
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: { responseMimeType: "application/json" }
+      const response = await fetch("/api?service=ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "enrich-news",
+          data: rawNews.slice(0, 5) // Limit to top 5 news for performance
+        })
       });
 
-      const text = result.text;
-      const processed = JSON.parse(text || "[]");
+      if (!response.ok) throw new Error("AI Uplink Failed");
+      const processed = await response.json();
+      
       const enriched = rawNews.map((item, i) => ({
         ...item,
-        intelligence: processed[i] || { translatedTitle: item.title }
+        intelligence: (processed && processed[i]) || { translatedTitle: item.title }
       }));
       setNews(enriched);
     } catch (error: any) {
       console.error("AI Enrichment failed:", error);
-      // Check for quota or not found error
-      if (error?.message?.includes("429") || error?.message?.includes("quota") || error?.status === 429) {
-        console.warn("AI Quota exhausted. Falling back to raw telemetry.");
-      } else if (error?.status === 404 || error?.message?.includes("404")) {
-        console.warn("AI Model not found or endpoint misconfiguration. Check Settings > Secrets.");
-      }
+    } finally {
+      setIsAiProcessing(false);
+    }
+  }, []);
+
+  const generateBriefing = useCallback(async (symbol: string, context: any) => {
+    setIsAiProcessing(true);
+    try {
+      const response = await fetch("/api?service=ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate-briefing",
+          symbol,
+          data: context
+        })
+      });
+
+      if (!response.ok) throw new Error("Briefing Uplink Failed");
+      const data = await response.json();
+      setBriefing(data.briefing);
+    } catch (error) {
+      console.error("Briefing Generation failed:", error);
+      setBriefing("ERR: NEURAL_LINK_TIMEOUT // Manual assessment required.");
     } finally {
       setIsAiProcessing(false);
     }
@@ -72,7 +85,10 @@ export default function App() {
     const headers = { 'Content-Type': 'application/json' };
     
     try {
-      const [q, n, p, f, h] = await Promise.all([
+      const company = COMPANIES.find(c => c.symbol === symbol);
+      const countryCode = company?.country || 'USA';
+
+      const [q, n, p, f, h, r, y] = await Promise.all([
         fetch(`/api/quote?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Quote API alert: Status ${res.status}`);
           return res.json();
@@ -96,6 +112,8 @@ export default function App() {
           if (!res.ok) console.error(`History API alert: Status ${res.status}`);
           return res.json();
         }).catch(() => ({ historical: [] })),
+        fetch(`/api?service=relationships&symbol=${symbol}`, { headers }).then(res => res.json()).catch(() => ({ relationships: { suppliers: [], customers: [] } })),
+        fetch(`/api?service=yields&country=${countryCode}`, { headers }).then(res => res.json()).catch(() => (null)),
       ]);
       
       // Data Parsing check
@@ -110,10 +128,15 @@ export default function App() {
       setProfile(p);
       setFinancials(f);
       setHistory(h?.historical || []);
+      setRelationships(r.relationships || { suppliers: [], customers: [] });
+      setNodeYields(y);
       
       if (n && n.length > 0) {
         enrichNews(n);
       }
+      
+      // Generate strategic briefing
+      generateBriefing(symbol, { news: n?.slice(0, 3), quote: q, yields: y });
     } catch (err) {
       console.error("Critical telemetry synchronization failure:", err);
     } finally {
@@ -121,10 +144,26 @@ export default function App() {
     }
   }, [enrichNews]);
 
+  // Global Yield Polling
+  useEffect(() => {
+    const fetchGlobalYields = async () => {
+      try {
+        const res = await fetch('/api?service=yields&country=USA');
+        const data = await res.json();
+        setGlobalYields(data);
+      } catch (e) {
+        console.error("Global yields uplink failed", e);
+      }
+    };
+    fetchGlobalYields();
+    const interval = setInterval(fetchGlobalYields, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Initial Load Guard
   useEffect(() => {
     if (!selectedStock && COMPANIES.length > 0) {
-      const defaultCompany = COMPANIES[0];
+      const defaultCompany = COMPANIES.find(c => c.symbol === "SPY") || COMPANIES[0];
       setSelectedStock(defaultCompany);
       fetchData(defaultCompany.symbol);
     }
@@ -208,8 +247,8 @@ export default function App() {
   }, [isAutopilot]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-black text-zinc-300 font-sans border-4 border-zinc-900 selection:bg-[#22ab94] selection:text-black">
-      <Header selectedStock={quote} />
+    <div className="flex flex-col h-screen overflow-hidden bg-black text-zinc-300 font-sans border-2 border-zinc-900 selection:bg-white selection:text-black">
+      <Header selectedStock={quote} yields={globalYields} />
       
       <main className="flex-1 flex overflow-hidden">
         <SearchSidebar 
@@ -226,6 +265,7 @@ export default function App() {
           intelligenceFeed={focusNews.length > 0 ? focusNews : news}
           isIntelligenceStream={isAutopilot}
           toggleIntelligenceStream={() => setIsAutopilot(!isAutopilot)}
+          activeTab={activeTab}
         />
 
         <IntelligenceSidebar 
@@ -236,28 +276,33 @@ export default function App() {
           profile={profile}
           history={history}
           isAiProcessing={isAiProcessing}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          relationships={relationships}
+          briefing={briefing}
+          yields={nodeYields}
         />
       </main>
 
-      <footer className="h-6 border-t border-zinc-800 bg-zinc-950 flex items-center justify-between px-3 text-[9px] font-mono text-zinc-600 z-30">
-        <div className="flex space-x-4">
-          <div className="flex items-center gap-1.5">
-             <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+      <footer className="h-5 border-t border-zinc-800 bg-zinc-950 flex items-center justify-between px-2 text-[8px] font-mono text-zinc-600 z-30">
+        <div className="flex space-x-3">
+          <div className="flex items-center gap-1">
+             <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
              <span>SYSTEM: OPTIMAL</span>
           </div>
           <span>LATENCY: 12ms</span>
           <span>NODE_ID: {selectedStock?.symbol || "HUB-01"}</span>
         </div>
-        <div className="text-[#22ab94] font-bold">
-          LAST_SYNC: {new Date().toISOString().replace('T', ' ').split('.')[0]} UTC
+        <div className="text-white font-bold">
+          SYNC: {new Date().toISOString().replace('T', ' ').split('.')[0]}
         </div>
       </footer>
 
       {isLoading && (
          <div className="fixed inset-0 z-[3000] bg-black/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
-            <div className="border border-[#22ab94] p-4 bg-black flex items-center gap-4 shadow-[0_0_30px_rgba(34,171,148,0.2)]">
-               <div className="w-8 h-8 border-2 border-[#22ab94] border-t-transparent rounded-full animate-spin" />
-               <div className="font-mono text-[#22ab94] text-[10px] font-bold animate-pulse tracking-[0.3em] uppercase">Intercepting_Data_Stream...</div>
+            <div className="border border-white p-4 bg-black flex items-center gap-4 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+               <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+               <div className="font-mono text-white text-[10px] font-bold animate-pulse tracking-[0.3em] uppercase">Intercepting_Data_Stream...</div>
             </div>
          </div>
       )}

@@ -415,31 +415,7 @@ function updateTopologyMap() {
         <span class="text-green-500">${revenue && employees ? '$' + formatLargeLocal(revenue / employees) : '---'}/EE</span>
       </div>
 
-      <!-- Relational Intelligence Silos -->
-      <div class="border-t border-gray-800 pt-1 mt-1">
-        <div class="text-[7px] text-red-500 mb-1 font-bold">STRATEGIC_SUPPLIERS [${state.relationships.suppliers.length}]</div>
-        <div class="space-y-0.5 max-h-12 overflow-y-auto pr-1">
-          ${state.relationships.suppliers.map(s => `
-            <div class="flex justify-between text-white/60">
-              <span>${s.name}</span>
-              <span class="text-red-900 font-bold">${s.symbol}</span>
-            </div>
-          `).join('') || '<div class="text-gray-700 italic">UNKNOWN_INPUT_CHANNELS</div>'}
-        </div>
-      </div>
-
-      <div class="border-t border-gray-800 pt-1">
-        <div class="text-[7px] text-blue-500 mb-1 font-bold">REVENUE_CHANNELS [${state.relationships.customers.length}]</div>
-        <div class="space-y-0.5 max-h-12 overflow-y-auto pr-1">
-          ${state.relationships.customers.map(c => `
-            <div class="flex justify-between text-white/60">
-              <span>${c.name}</span>
-              <span class="text-blue-900 font-bold">${c.symbol}</span>
-            </div>
-          `).join('') || '<div class="text-gray-700 italic">UNKNOWN_OUTPUT_NODES</div>'}
-        </div>
-      </div>
-
+      <!-- Regional Risk Exposure -->
       <div class="border-t border-cyan-900/40 pt-1.5">
           <div class="flex justify-between text-[7px] text-gray-500 mb-1">
             <span>REGIONAL_RISK_EXPOSURE</span>
@@ -506,62 +482,12 @@ function updateTopologyMap() {
     .bindPopup(activePopupHtml, { closeButton: false })
     .openPopup();
 
-  // 3. Add Supplier Nodes (Strategic Input Layer)
-  state.relationships.suppliers.forEach(sup => {
-    L.circleMarker(sup.coords, {
-      radius: 4,
-      fillColor: '#ef4444', 
-      color: '#7f1d1d',
-      weight: 1,
-      opacity: 0.8,
-      fillOpacity: 0.6
-    }).addTo(state.activeLayer)
-    .bindPopup(`
-      <div class="bg-black text-white p-2 font-mono text-[9px] border border-red-900 border-l-4">
-        <span class="text-red-500 font-bold tracking-tighter">NODE_VULNERABILITY :: STRATEGIC_SUPPLIER</span><br>
-        <div class="mt-1 flex justify-between text-white font-black">
-          <span>${sup.name}</span>
-          <span class="opacity-50">${sup.symbol}</span>
-        </div>
-        <div class="text-gray-500 text-[7px] mt-1">LOCATION: ${sup.city}</div>
-      </div>
-    `, { offset: [0, -5] });
-  });
+  // 3. Clear existing layers if necessary or handle in render
+  // (We are removing the manual rendering of supplier/customer nodes here)
 
-  // 4. Add Customer Nodes (Revenue Silos)
-  state.relationships.customers.forEach(cust => {
-    L.circleMarker(cust.coords, {
-      radius: 4,
-      fillColor: '#3b82f6', 
-      color: '#1e3a8a',
-      weight: 1,
-      opacity: 0.8,
-      fillOpacity: 0.6
-    }).addTo(state.activeLayer)
-    .bindPopup(`
-      <div class="bg-black text-white p-2 font-mono text-[9px] border border-blue-900 border-l-4">
-        <span class="text-blue-500 font-bold tracking-tighter">NODE_UPLINK :: ENTERPRISE_CUSTOMER</span><br>
-        <div class="mt-1 flex justify-between text-white font-black">
-          <span>${cust.name}</span>
-          <span class="opacity-50">${cust.symbol}</span>
-        </div>
-        <div class="text-gray-500 text-[7px] mt-1">LOCATION: ${cust.city}</div>
-      </div>
-    `, { offset: [0, -5] });
-  });
-
-  // Tactical Viewport Adjust
+  // Tactical Viewport Adjust - Simplified to only focus on active ticker
   if (!state.newsCycleInterval) {
-    const allPoints = [
-      activeCoords,
-      ...state.relationships.suppliers.map(s => s.coords),
-      ...state.relationships.customers.map(s => s.coords)
-    ];
-    if (allPoints.length > 1) {
-      state.map.fitBounds(allPoints, { padding: [100, 100], maxZoom: 6, duration: 2 });
-    } else {
-      state.map.flyTo(activeCoords, 10, { duration: 2.5 });
-    }
+    state.map.flyTo(activeCoords, 10, { duration: 2.5 });
   }
 }
 

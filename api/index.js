@@ -1,3 +1,5 @@
+import { GoogleGenAI } from "@google/genai";
+
 /**
  * API index.js - The Engine
  * Orchestrates multi-source financial telemetry with stale-while-revalidate caching.
@@ -12,11 +14,27 @@ const isKeyReady = (k) => {
   return true;
 };
 
+// Initialize Gemini
+let aiClient = null;
+const getAiClient = (key) => {
+  if (!aiClient && isKeyReady(key)) {
+    aiClient = new GoogleGenAI({ 
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiClient;
+};
+
 export default async function handler(req, res) {
   // Set SWR headers for performance
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=600');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS, POST');
   res.setHeader('Content-Type', 'application/json');
 
   if (req.method === 'OPTIONS') {
@@ -35,6 +53,9 @@ export default async function handler(req, res) {
     itick: process.env.ITIC_API_KEY,
     finnhub: process.env.FINNHUB_API_KEY,
     marketaux: process.env.MARKETAUX_API_KEY,
+    gemini: process.env.GEMINI_API_KEY,
+    tiingo: process.env.TIINGO_API_KEY,
+    massive: process.env.MASSIVE_API_KEY,
   };
 
   try {
@@ -44,6 +65,9 @@ export default async function handler(req, res) {
       case 'core':
         const core = await fetchCoreMetrics(ticker, keys);
         return res.status(200).json(core);
+      case 'ai':
+        const aiResult = await handleAiService(req, keys);
+        return res.status(200).json(aiResult);
       case 'logistics':
         const logistics = await fetchLogisticsMetrics(ticker, keys);
         return res.status(200).json(logistics);
@@ -56,6 +80,9 @@ export default async function handler(req, res) {
       case 'batch-core':
         const batch = await fetchBatchCoreMetrics(symbol, keys);
         return res.status(200).json(batch);
+      case 'yields':
+        const yields = await fetchYieldData(req.query.country || 'USA', keys);
+        return res.status(200).json(yields);
       case 'macro':
         const macro = await fetchMacroNews(ticker, keys);
         return res.status(200).json(macro);
@@ -68,6 +95,21 @@ export default async function handler(req, res) {
       case 'relationships':
         const rels = await fetchCompanyRelationships(ticker, keys);
         return res.status(200).json(rels);
+      case 'metrics':
+        const metrics = await fetchFinnhubMetrics(ticker, keys);
+        return res.status(200).json(metrics);
+      case 'fx':
+        const fx = await fetchTiingoFx(req.query.tickers || 'eurusd', keys);
+        return res.status(200).json(fx);
+      case 'tiingo-prices':
+        const tPrices = await fetchTiingoPrices(ticker, keys);
+        return res.status(200).json(tPrices);
+      case 'reference':
+        const ref = await fetchPolygonReference(ticker, keys);
+        return res.status(200).json(ref);
+      case 'orders':
+        const orders = await fetchAlpacaOrders(req.body, keys);
+        return res.status(200).json(orders);
       case 'status':
         return res.status(200).json({ 
           status: 'ONLINE', 
@@ -430,3 +472,207 @@ async function fetchRegulatoryChecks(symbol, keys) {
     riskScore: 0.24
   };
 }
+
+/**
+ * AI Service Handler
+ */
+async function handleAiService(req, keys) {
+  const { action, symbol, data } = req.query.action ? req.query : (req.body || {});
+  const ai = getAiClient(keys.gemini);
+  
+  if (!ai) {
+    throw new Error("AI_LINK_DISCONNECTED: Gemini API key missing or invalid.");
+  }
+
+  const model = "gemini-3-flash-preview";
+
+  if (action === 'enrich-news') {
+    const prompt = `
+      Analyze these news headlines/summaries.
+      Translate to professional English if needed.
+      Summarize into a concise "Neural Link" headline (max 80 chars).
+      Return JSON array: [{ "translatedTitle": string }]
+      News:
+      ${data.map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+    `;
+
+    const result = await ai.models.generateContent({
+      model,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" }
+    });
+
+    return JSON.parse(result.text || "[]");
+  }
+
+  if (action === 'generate-briefing') {
+    const prompt = `
+      You are a strategic intelligence officer for a multi-national investment firm.
+      Generate a highly concise, tactical "Intelligence Brief" for the company: ${symbol}. 
+      Use a technical, cyberpunk Terminal aesthetic (e.g., using terms like Nodes, Silos, Uplink, Vulnerabilities).
+      
+      Focus on 3 areas:
+      1. Strategic Positioning (Current market dominance or threat)
+      2. Supply Chain Integrity (Recent disruptions or key partners)
+      3. Intelligence Alpha (A non-obvious tactical insight)
+
+      Format: Keep it under 200 words total. Use short, punchy bullet points.
+      Current Context Data: ${JSON.stringify(data)}
+    `;
+
+    const result = await ai.models.generateContent({
+      model,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    return { briefing: result.text };
+  }
+
+  throw new Error("UNKNOWN_AI_ACTION");
+}
+
+/**
+ * Fetch Yield and Interest Rate Telemetry
+ */
+async function fetchYieldData(country, keys) {
+  const isUS = country.toUpperCase() === 'USA' || country.toUpperCase() === 'US';
+  
+  // US Treasuries (Primary Focus)
+  const treasuryMap = {
+    '2Y': { symbol: 'US2Y', val: 4.82 },
+    '5Y': { symbol: 'US5Y', val: 4.45 },
+    '10Y': { symbol: 'US10Y', val: 4.42 },
+    '30Y': { symbol: 'US30Y', val: 4.56 }
+  };
+
+  const results = {
+    treasuries: {},
+    interestRate: 5.50, // Default Fed Funds
+    country: country.toUpperCase(),
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    if (isKeyReady(keys.fmp)) {
+      // Parallel fetch for US Treasuries
+      const fetches = Object.keys(treasuryMap).map(async (key) => {
+        try {
+          const res = await fetch(`https://financialmodelingprep.com/api/v4/treasury?from=2024-01-01&apikey=${keys.fmp}`);
+          const data = await res.json();
+          // FMP returns a list of all treasury rates, find the latest
+          if (data && data.length > 0) {
+            const latest = data[0];
+            const fieldMap = { '2Y': 'twoYear', '5Y': 'fiveYear', '10Y': 'tenYear', '30Y': 'thirtyYear' };
+            return { key, val: latest[fieldMap[key]] };
+          }
+        } catch (e) { return { key, val: treasuryMap[key].val }; }
+      });
+      
+      const treasuryData = await Promise.all(fetches);
+      treasuryData.forEach(d => {
+        if (d) results.treasuries[d.key] = d.val;
+      });
+    } else {
+      // Simulated precision movement
+      Object.keys(treasuryMap).forEach(k => {
+        results.treasuries[k] = treasuryMap[k].val + (Math.random() - 0.5) * 0.05;
+      });
+    }
+  } catch (e) {
+    Object.keys(treasuryMap).forEach(k => {
+      results.treasuries[k] = treasuryMap[k].val;
+    });
+  }
+
+  // Global Interest Rates mapping (Simulation / Reference)
+  const ratesMap = {
+    'USA': 5.50,
+    'CHN': 3.45,
+    'JPN': 0.10,
+    'DEU': 4.50,
+    'GBR': 5.25,
+    'FRA': 4.50,
+    'CHE': 1.50,
+    'CAN': 5.00,
+    'KOR': 3.50,
+    'TWN': 2.00
+  };
+
+  results.interestRate = ratesMap[country.toUpperCase()] || 4.25;
+
+  return results;
+}
+
+/**
+ * Finnhub Advanced Metrics
+ */
+async function fetchFinnhubMetrics(symbol, keys) {
+  if (!isKeyReady(keys.finnhub)) return { error: 'FINNHUB_KEY_MISSING' };
+  try {
+    const res = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${keys.finnhub}`);
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/**
+ * Tiingo FX Telemetry
+ */
+async function fetchTiingoFx(tickers, keys) {
+  if (!isKeyReady(keys.tiingo)) return { error: 'TIINGO_KEY_MISSING' };
+  try {
+    const res = await fetch(`https://api.tiingo.com/tiingo/fx/top?tickers=${tickers}&token=${keys.tiingo}`);
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/**
+ * Tiingo Daily Prices
+ */
+async function fetchTiingoPrices(symbol, keys) {
+  if (!isKeyReady(keys.tiingo)) return { error: 'TIINGO_KEY_MISSING' };
+  try {
+    const res = await fetch(`https://api.tiingo.com/tiingo/daily/${symbol}/prices?token=${keys.tiingo}`);
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/**
+ * Polygon Reference Data (Massive)
+ */
+async function fetchPolygonReference(symbol, keys) {
+  if (!isKeyReady(keys.massive)) return { error: 'MASSIVE_KEY_MISSING' };
+  try {
+    const res = await fetch(`https://api.polygon.io/v3/reference/tickers/${symbol}?apiKey=${keys.massive}`);
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/**
+ * Alpaca Order Management (Paper Only)
+ */
+async function fetchAlpacaOrders(body, keys) {
+  if (!isKeyReady(keys.alpaca)) return { error: 'ALPACA_KEY_MISSING' };
+  try {
+    const res = await fetch('https://paper-api.alpaca.markets/v2/orders', {
+      method: 'POST',
+      headers: {
+        'APCA-API-KEY-ID': keys.alpaca,
+        'APCA-API-SECRET-KEY': keys.alpacaSecret,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body || {})
+    });
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+

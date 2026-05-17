@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
+import Markdown from "react-markdown";
 import { Company } from "../data/companies";
-import { TrendingUp, Newspaper, Activity, Zap, Globe, RefreshCcw } from "lucide-react";
+import { TrendingUp, Newspaper, Activity, Zap, Globe, RefreshCcw, Link2, Box, ShieldAlert } from "lucide-react";
 import { formatCurrency, cn } from "../lib/utils";
 
 interface IntelligenceSidebarProps {
@@ -11,6 +12,52 @@ interface IntelligenceSidebarProps {
   profile: any;
   history: any[];
   isAiProcessing: boolean;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  relationships?: { suppliers: any[], customers: any[] };
+  briefing?: string | null;
+  yields?: any;
+}
+
+const YieldAnalysis = ({ yields }: { yields: any }) => {
+  if (!yields) return null;
+  
+  return (
+    <div className="p-2 border-b border-zinc-800 bg-zinc-900/10">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[8px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
+          <TrendingUp className="w-2 h-2" /> Yield_Analysis
+        </div>
+        <div className="text-[8px] font-mono text-zinc-600 uppercase italic">
+          {yields.country}_BENCHMARK
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col">
+          <span className="text-[7px] font-mono uppercase" style={{ color: "#22ab94" }}>CB_RATE</span>
+          <span className="text-[11px] font-mono font-bold text-white tracking-widest">
+            {yields.interestRate.toFixed(2)}%
+          </span>
+        </div>
+        <div className="h-6 w-[1px] bg-zinc-800 mx-2" />
+        <div className="flex-1 flex justify-between items-end gap-1 h-6">
+          {yields.treasuries && Object.entries(yields.treasuries).map(([key, val]: [string, any]) => (
+            <div key={key} className="flex-1 flex flex-col items-center group relative">
+              <div 
+                className="w-full bg-white/40 hover:bg-white transition-all shadow-[0_0_8px_rgba(34,171,148,0.2)]" 
+                style={{ height: `${(val / 10) * 100}%`, backgroundColor: "#22ab94" }}
+              />
+              <span className="text-[6px] font-mono mt-0.5" style={{ color: "#22ab94" }}>{key}</span>
+              <div className="absolute bottom-full mb-1 bg-white text-black text-[6px] font-bold px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {val}%
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const CustomTelemetryChart = ({ data }: { data: any[] }) => {
@@ -63,10 +110,9 @@ const CustomTelemetryChart = ({ data }: { data: any[] }) => {
         <path
           d={`M ${chartData.map((d, i) => `${getX(i)} ${getY(d.close)}`).join(' L ')}`}
           fill="none"
-          stroke="#22ab94"
-          strokeWidth="1.5"
+          stroke="white"
           vectorEffect="non-scaling-stroke"
-          className="drop-shadow-[0_0_8px_rgba(34,171,148,0.5)]"
+          className="drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]"
         />
 
         {/* Highlight Last Point */}
@@ -74,14 +120,14 @@ const CustomTelemetryChart = ({ data }: { data: any[] }) => {
           cx={100} 
           cy={getY(chartData[chartData.length - 1].close)} 
           r="1" 
-          fill="#22ab94"
+          fill="white"
           className="animate-pulse"
         />
 
         <defs>
           <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#22ab94" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#22ab94" stopOpacity="0" />
+            <stop offset="0%" stopColor="white" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="white" stopOpacity="0" />
           </linearGradient>
         </defs>
       </svg>
@@ -106,19 +152,24 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   financials = [], 
   profile, 
   history = [],
-  isAiProcessing
+  isAiProcessing,
+  activeTab,
+  setActiveTab,
+  relationships = { suppliers: [], customers: [] },
+  briefing,
+  yields
 }) => {
 
   if (!selectedStock) {
     return (
-      <aside className="w-56 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
-        <div className="p-3 border-b border-zinc-800 bg-black">
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest mb-1">System_Idle</div>
-          <h2 className="font-mono text-lg text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
+      <aside className="w-44 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
+        <div className="p-2 border-b border-zinc-800 bg-black">
+          <div className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">System_Idle</div>
+          <h2 className="font-mono text-sm text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-black/20">
           <Activity className="w-12 h-12 text-zinc-900 mb-3 animate-pulse" />
-          <h3 className="font-mono text-[#22ab94] uppercase tracking-[0.2em] font-bold text-[10px]">Uplink Required</h3>
+          <h3 className="font-mono text-white uppercase tracking-[0.2em] font-bold text-[10px]">Uplink Required</h3>
           <p className="text-zinc-600 font-mono text-[8px] mt-2 leading-relaxed italic">Select a node from the global distribution network to initialize live data telemetry.</p>
         </div>
       </aside>
@@ -126,50 +177,50 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   }
 
   return (
-    <aside className="w-56 h-full border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-y-auto custom-scrollbar scroll-smooth">
+    <aside className="w-44 h-full border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-y-auto custom-scrollbar scroll-smooth">
       {/* TICKET / PROFILE HEADER */}
-      <div className="p-3 border-b border-zinc-800 bg-black sticky top-0 z-40">
-        <div className="flex justify-between items-start mb-1">
-          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-            <Globe className="w-2.5 h-2.5" /> Live_Protocol
+      <div className="p-2 border-b border-zinc-800 bg-black sticky top-0 z-40">
+        <div className="flex justify-between items-start mb-0.5">
+          <div className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+            <Globe className="w-2 h-2" /> Live_Protocol
           </div>
-          <div className="flex items-center gap-1.5">
-            {isAiProcessing && <Zap className="w-2 h-2 text-[#22ab94] animate-pulse" />}
-            <div className="text-[9px] bg-[#22ab94]/10 text-[#22ab94] px-1 py-0.5 border border-[#22ab94]/20 font-mono font-bold uppercase">LOCKED</div>
+          <div className="flex items-center gap-1">
+            {isAiProcessing && <Zap className="w-1.5 h-1.5 text-white animate-pulse" />}
+            <div className="text-[8px] bg-white/10 text-white px-1 py-0.5 border border-white/20 font-mono font-bold uppercase">LOCKED</div>
           </div>
         </div>
         <div className="flex items-end justify-between">
           <div>
-            <h2 className="font-mono text-2xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
-            <div className="text-[8px] text-zinc-600 font-mono mt-1 uppercase tracking-tight truncate max-w-[120px]">{profile?.companyName || selectedStock.name}</div>
+            <h2 className="font-mono text-lg text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
+            <div className="text-[7px] text-zinc-600 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[90px]">{profile?.companyName || selectedStock.name}</div>
           </div>
           <div className="text-right">
-            <div className="text-lg font-mono text-white font-bold leading-none tracking-tighter">
+            <div className="text-[8px] font-mono text-white font-bold leading-none tracking-tighter">
               ${quote?.price?.toFixed(2) || "---"}
             </div>
             <div className={cn(
-              "text-[9px] font-mono font-bold mt-0.5",
-              (quote?.changes || 0) >= 0 ? "text-green-500" : "text-red-500"
+              "text-[7px] font-mono font-bold mt-0.5",
+              (quote?.changes || 0) >= 0 ? "text-white" : "text-red-500"
             )}>
-              {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)} ({(quote?.changesPercentage || 0).toFixed(2)}%)
+              {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)}
             </div>
           </div>
         </div>
       </div>
 
       {/* PRICE CHART - SQUARE CONTAINER */}
-      <div className="h-56 border-b border-zinc-800 bg-black relative flex flex-col group shrink-0">
+      <div className="h-44 border-b border-zinc-800 bg-black relative flex flex-col group shrink-0">
         <div className="absolute top-4 left-3 z-10 flex items-center gap-2 pointer-events-none">
-          <div className="w-1 h-1 bg-[#22ab94] rounded-full animate-pulse shadow-[0_0_8px_#22ab94]" />
-          <span className="text-[9px] font-mono text-[#22ab94] font-bold tracking-widest uppercase opacity-40">Telemetry</span>
+          <div className="w-1 h-1 rounded-full animate-pulse shadow-[0_0_8px_#22ab94]" style={{ backgroundColor: "#22ab94" }} />
+          <span className="text-[9px] font-mono font-bold tracking-widest uppercase opacity-80" style={{ color: "#22ab94" }}>Telemetry</span>
         </div>
         
         <div className="absolute top-4 right-3 z-10 flex gap-2">
           <button 
-            className="bg-zinc-900/50 border border-zinc-800 p-1 hover:bg-[#22ab94] hover:text-black transition-all group/btn"
+            className="bg-zinc-900/50 border border-zinc-800 p-1 hover:bg-white hover:text-black transition-all group/btn"
             title="Sychronize Neural Link"
           >
-            <RefreshCcw className="w-3 h-3 text-[#22ab94] group-hover/btn:text-black" />
+            <RefreshCcw className="w-3 h-3 text-white group-hover/btn:text-black" />
           </button>
         </div>
 
@@ -178,17 +229,18 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
         </div>
       </div>
 
-      {/* QUICK STATS & CUSTOM EARNINGS */}
+      <YieldAnalysis yields={yields} />
+
       <div className="grid grid-cols-2 border-b border-zinc-800 bg-black/40">
-        <div className="p-3 border-r border-zinc-800 bg-black/20">
-          <div className="text-[9px] font-mono text-zinc-600 uppercase mb-1">Market Cap</div>
-          <div className="font-mono text-xs text-[#22ab94] font-bold">{profile?.mktCap ? formatCurrency(profile.mktCap) : "---"}</div>
-          <div className="mt-4 text-[9px] font-mono text-zinc-600 uppercase mb-1">Volume (Avg)</div>
-          <div className="font-mono text-xs text-zinc-400">{profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</div>
+        <div className="p-2 border-r border-zinc-800 bg-black/20">
+          <div className="text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Market Cap</div>
+          <div className="font-mono text-[10px] text-white font-bold">{profile?.mktCap ? formatCurrency(profile.mktCap) : "---"}</div>
+          <div className="mt-3 text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Volume (Avg)</div>
+          <div className="font-mono text-[10px] text-zinc-400">{profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</div>
         </div>
-        <div className="p-3 flex flex-col">
-          <div className="text-[9px] font-mono text-zinc-600 uppercase mb-3">Profit_Velocity</div>
-          <div className="flex-1 flex items-end gap-1 px-1 h-12">
+        <div className="p-2 flex flex-col">
+          <div className="text-[8px] font-mono text-zinc-600 uppercase mb-2">Profit_Velocity</div>
+          <div className="flex-1 flex items-end gap-0.5 px-0.5 h-10">
             {financials && financials.length > 0 ? (
               (() => {
                 const maxVal = Math.max(...financials.map(f => Math.abs(f.netIncome || 0)), 1);
@@ -199,7 +251,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                       key={i}
                       className={cn(
                         "flex-1 transition-all duration-500",
-                        (f.netIncome || 0) >= 0 ? "bg-[#22ab94]/60 hover:bg-[#22ab94]" : "bg-red-900/60 hover:bg-red-600"
+                        (f.netIncome || 0) >= 0 ? "bg-white/60 hover:bg-white" : "bg-red-900/60 hover:bg-red-600"
                       )}
                       style={{ height: `${height}%` }}
                       title={`Period: ${f.date}, Var: ${f.netIncome}`}
@@ -211,50 +263,206 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
               [1,2,3,4,5,6].map(i => <div key={i} className="flex-1 bg-zinc-900 h-2 animate-pulse" />)
             )}
           </div>
-          <div className="mt-2 text-[8px] font-mono text-zinc-700 flex justify-between uppercase">
+          <div className="mt-1 text-[7px] font-mono text-zinc-700 flex justify-between uppercase">
             <span>Past_6Q</span>
             <span>Delta_Net</span>
           </div>
         </div>
       </div>
 
-      {/* INTELLIGENCE FEED */}
-      <div className="flex flex-col bg-black border-t border-zinc-800">
-        <div className="p-3 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-            <Newspaper className="w-3 h-3" /> Intelligence_Sync
-          </span>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          {news && news.length > 0 ? (
-            news.map((item, idx) => (
-              <div key={idx} className="group border-b border-zinc-900 pb-3 last:border-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[9px] font-mono text-zinc-700">
-                    {new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <div className="h-[1px] flex-1 bg-zinc-900 group-hover:bg-[#22ab94]/20" />
+      {/* TAB NAVIGATION */}
+      <div className="flex border-b border-zinc-800 bg-black shrink-0">
+        <button 
+          onClick={() => setActiveTab("INTEL")}
+          className={cn(
+            "flex-1 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.2em] transition-all",
+            activeTab === "INTEL" ? "text-white bg-white/5 border-b-2 border-white" : "text-zinc-600 hover:text-zinc-400"
+          )}
+        >
+          Intelligence
+        </button>
+        <button 
+          onClick={() => setActiveTab("PINNED")}
+          className={cn(
+            "flex-1 py-1 text-[8px] font-mono font-bold uppercase tracking-wider transition-all",
+            activeTab === "PINNED" ? "text-white bg-white/5 border-b-2 border-white" : "text-zinc-600 hover:text-zinc-400"
+          )}
+        >
+          Pinned
+        </button>
+        <button 
+          onClick={() => setActiveTab("BRIEF")}
+          className={cn(
+            "flex-1 py-1 text-[8px] font-mono font-bold uppercase tracking-wider transition-all",
+            activeTab === "BRIEF" ? "text-white bg-white/5 border-b-2 border-white" : "text-zinc-600 hover:text-zinc-400"
+          )}
+        >
+          Brief
+        </button>
+      </div>
+
+      {/* CONTENT AREA */}
+      <div className="flex-1 flex flex-col min-h-0 bg-black">
+        {activeTab === "INTEL" ? (
+          <div className="flex flex-col h-full">
+            <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
+              <span className="text-[9px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
+                <Newspaper className="w-2.5 h-2.5" /> Intelligence_Sync
+              </span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+              {news && news.length > 0 ? (
+                news.map((item, idx) => (
+                  <div key={idx} className="group border-b border-zinc-900 pb-2 last:border-0">
+                    <div className="flex items-center gap-1.5 mb-0.5" />
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[8px] font-mono text-zinc-700">
+                        {new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <div className="h-[1px] flex-1 bg-zinc-900 group-hover:bg-white/20" />
+                    </div>
+                    <h4 className="text-[10px] font-bold text-zinc-400 leading-tight group-hover:text-white transition-colors line-clamp-3">
+                      {item.intelligence?.translatedTitle || item.title}
+                    </h4>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center opacity-20">
+                  <Activity className="w-8 h-8 text-white mx-auto mb-2 animate-pulse" />
+                  <div className="text-[10px] font-mono uppercase">Scanning_Neural_Feed...</div>
                 </div>
-                <h4 className="text-[11px] font-bold text-zinc-400 leading-snug group-hover:text-[#22ab94] transition-colors line-clamp-2">
-                  {item.intelligence?.translatedTitle || item.title}
-                </h4>
+              )}
+              
+              {isAiProcessing && (
+                <div className="py-2 flex items-center gap-2 border-t border-white/10">
+                  <div className="w-1 h-1 bg-white rounded-full animate-ping" style={{ backgroundColor: "#22ab94" }} />
+                  <span className="text-[8px] font-mono uppercase tracking-tighter" style={{ color: "#22ab94" }}>Gemini_Enrichment_Active</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === "PINNED" ? (
+          <div className="flex flex-col h-full animate-in fade-in duration-500">
+            <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
+              <span className="text-[9px] font-mono text-white uppercase tracking-widest flex items-center gap-1">
+                <Link2 className="w-2.5 h-2.5" /> Supply_Chain_Map
+              </span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
+              {/* Suppliers */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="text-[8px] font-mono text-red-500/70 uppercase tracking-widest">Strategic_Suppliers</div>
+                  <div className="h-[1px] flex-1 bg-red-900/20" />
+                </div>
+                
+                <div className="space-y-2">
+                  {relationships.suppliers && relationships.suppliers.length > 0 ? (
+                    relationships.suppliers.map((sup) => (
+                      <div key={sup.symbol} className="group flex items-center justify-between p-1.5 bg-zinc-900/40 border border-zinc-800/50 hover:border-red-900/40 transition-all cursor-default">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 flex items-center justify-center bg-black border border-red-900/30 text-[9px] font-bold text-red-500 font-mono">
+                            {sup.symbol.slice(0, 2)}
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-bold text-zinc-300 font-mono tracking-tight group-hover:text-red-400 transition-colors truncate max-w-[80px]">{sup.name}</div>
+                          </div>
+                        </div>
+                        <div className="text-[6px] font-mono text-red-900 group-hover:text-red-700 transition-colors uppercase">Input</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-2 border border-dashed border-zinc-900">
+                      <div className="text-[7px] font-mono text-zinc-800 uppercase">No_Data</div>
+                    </div>
+                  )}
+                </div>
               </div>
-            ))
-          ) : (
-            <div className="py-8 text-center opacity-20">
-              <Activity className="w-8 h-8 text-white mx-auto mb-2 animate-pulse" />
-              <div className="text-[10px] font-mono uppercase">Scanning_Neural_Feed...</div>
+
+              {/* Customers */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="text-[8px] font-mono text-blue-500/70 uppercase tracking-widest">Revenue_Channels</div>
+                  <div className="h-[1px] flex-1 bg-blue-900/20" />
+                </div>
+                
+                <div className="space-y-2">
+                  {relationships.customers && relationships.customers.length > 0 ? (
+                    relationships.customers.map((cust) => (
+                      <div key={cust.symbol} className="group flex items-center justify-between p-1.5 bg-zinc-900/40 border border-zinc-800/50 hover:border-blue-900/40 transition-all cursor-default">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 flex items-center justify-center bg-black border border-blue-900/30 text-[9px] font-bold text-blue-500 font-mono">
+                            {cust.symbol.slice(0, 2)}
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-bold text-zinc-300 font-mono tracking-tight group-hover:text-blue-400 transition-colors truncate max-w-[80px]">{cust.name}</div>
+                          </div>
+                        </div>
+                        <div className="text-[6px] font-mono text-blue-900 group-hover:text-blue-700 transition-colors uppercase">Output</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-2 border border-dashed border-zinc-900">
+                      <div className="text-[7px] font-mono text-zinc-800 uppercase">No_Data</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* General Partners */}
+              {selectedStock.partners && selectedStock.partners.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="text-[9px] font-mono text-white/70 uppercase tracking-widest">Network_Partners</div>
+                    <div className="h-[1px] flex-1 bg-white/20" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedStock.partners.map(p => (
+                      <div key={p} className="px-2 py-1 bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-white hover:border-white/50 transition-all cursor-default">
+                        {p}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-          
-          {isAiProcessing && (
-            <div className="py-2 flex items-center gap-2 border-t border-[#22ab94]/10">
-              <div className="w-1 h-1 bg-[#22ab94] rounded-full animate-ping" />
-              <span className="text-[8px] font-mono text-[#22ab94] uppercase tracking-tighter">Gemini_Enrichment_Active</span>
+          </div>
+        ) : (
+          <div className="flex flex-col h-full animate-in fade-in duration-500">
+            <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
+              <span className="text-[9px] font-mono text-white uppercase tracking-widest flex items-center gap-1">
+                <ShieldAlert className="w-2.5 h-2.5" /> Operations_Order
+              </span>
             </div>
-          )}
-        </div>
+            
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-sm mb-4">
+                <div className="text-[8px] font-mono text-white uppercase mb-2 border-b border-white/10 pb-1 flex justify-between">
+                  <span>STRAT_BRIEFING_v4.2</span>
+                  <span className="animate-pulse">ONLINE</span>
+                </div>
+                
+                {briefing ? (
+                  <div className="markdown-body font-mono text-[9px] text-zinc-400 leading-relaxed space-y-2">
+                    <Markdown>{briefing}</Markdown>
+                  </div>
+                ) : (
+                   <div className="flex flex-col items-center justify-center py-8 opacity-20">
+                    <Zap className="w-6 h-6 text-white mb-2 animate-bounce" />
+                    <div className="text-[8px] font-mono uppercase text-center">Awaiting_Neural_Synthesis...</div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-2 border border-zinc-900 text-[8px] font-mono text-zinc-700 italic">
+                DISCLAIMER: AI-generated assessments are tactical hypotheses. 
+                Execute with discretion.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
