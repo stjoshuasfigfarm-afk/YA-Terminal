@@ -10,11 +10,12 @@ dotenv.config();
 import handler from "./api/index.js";
 
 const app = express();
+app.use(express.json());
 export default app;
 const PORT = 3000;
 
 // API Routes
-app.get("/api", async (req, res) => {
+app.all("/api", async (req, res) => {
   // Wrap the serverless handler
   try {
     // Vercel handlers are (req, res) => void | Promise<void>
@@ -88,15 +89,21 @@ app.get("/api/quote/:symbol?", async (req, res) => {
     });
   } catch (err) {
     const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
-    const price = 150 + Math.random() * 50;
+    let base = 150.00;
+    if (symbol === 'SPY') base = 739.00;
+    if (symbol === 'CL') base = 78.45;
+    
+    // Add jitter to simulate live market data even in mock mode
+    const jitter = (Math.random() - 0.5) * 0.1;
+    const price = base + jitter;
     res.json({
-      price: price,
-      changes: (Math.random() - 0.5) * 5,
-      changesPercentage: (Math.random() - 0.5) * 2,
-      high: price + 2,
-      low: price - 2,
-      open: price,
-      previousClose: price - 1,
+      price: Number(price.toFixed(2)),
+      changes: Number(((Math.random() - 0.5) * 4.5).toFixed(2)),
+      changesPercentage: Number(((Math.random() - 0.5) * 1.8).toFixed(2)),
+      high: Number((price + Math.random() * 2).toFixed(2)),
+      low: Number((price - Math.random() * 2).toFixed(2)),
+      open: Number((price + (Math.random() - 0.5)).toFixed(2)),
+      previousClose: Number((price - (Math.random() - 0.5)).toFixed(2)),
       symbol: symbol,
       mock: true,
       error: err.message
@@ -121,12 +128,17 @@ app.get("/api/profile/:symbol?", async (req, res) => {
     });
   } catch (err) {
     const symbol = (req.params.symbol || req.query.symbol as string || "AAPL").toUpperCase();
+    const company = COMPANIES.find(c => c.symbol === symbol);
     res.json({
-      mktCap: 1500000000000 + Math.random() * 1000000000,
-      companyName: COMPANIES.find(c => c.symbol === symbol)?.name || symbol,
-      industry: "Technology",
-      website: "https://example.com",
+      mktCap: (symbol === 'SPY' ? 500e9 : 150e9) + Math.random() * 10e9,
+      companyName: company?.name || symbol,
+      industry: company?.sector || "Technology",
+      website: "https://terminal.nexus",
       currency: "USD",
+      dividend: 0.45 + (Math.random() * 0.5),
+      volAvg: 50000000 + Math.floor(Math.random() * 10000000),
+      lastAnnualEarnings: 80e9 + Math.random() * 5e9,
+      fullTimeEmployees: 154000 + Math.floor(Math.random() * 5000),
       mock: true
     });
   }
@@ -175,24 +187,26 @@ app.get("/api/financials/:symbol?", async (req, res) => {
     res.json(mapped);
   } catch (err) {
     res.json([
-      { date: "2023-Q4", netIncome: 1.2 },
-      { date: "2023-Q3", netIncome: 0.8 },
-      { date: "2023-Q2", netIncome: 1.5 },
-      { date: "2023-Q1", netIncome: -0.4 }
+      { date: "2024-Q1", netIncome: 34.5e9 + (Math.random() * 2e9) },
+      { date: "2023-Q4", netIncome: 32.1e9 + (Math.random() * 2e9) },
+      { date: "2023-Q3", netIncome: 28.7e9 + (Math.random() * 2e9) },
+      { date: "2023-Q2", netIncome: 25.4e9 + (Math.random() * 2e9) },
+      { date: "2023-Q1", netIncome: 18.2e9 + (Math.random() * 2e9) },
+      { date: "2022-Q4", netIncome: -2.4e9 - (Math.random() * 1e9) }
     ]);
   }
 });
 
 app.get("/api/history/:symbol?", async (req, res) => {
   try {
-    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
-    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
     
     if (!FINNHUB_KEY) {
       // Return mock historical data if no key
       const mockHistorical = [];
       const now = Date.now();
-      let lastPrice = Math.random() * 100 + 150;
+      const base = symbol === 'SPY' ? 739.00 : 150.00;
+      let lastPrice = base + Math.random() * 10;
       for (let i = 60; i >= 0; i--) {
         const date = new Date(now - i * 24 * 60 * 60 * 1000);
         const open = lastPrice;
@@ -235,18 +249,20 @@ app.get("/api/history/:symbol?", async (req, res) => {
       throw new Error("Finnhub error");
     }
   } catch (err) {
+    const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
     const mockHistorical = [];
     const now = Date.now();
-    let lastPrice = 150 + Math.random() * 50;
+    const base = symbol === 'SPY' ? 739.00 : 150.00;
+    let lastPrice = base + (Math.random() - 0.5) * 2;
     for (let i = 60; i >= 0; i--) {
       const date = new Date(now - i * 24 * 60 * 60 * 1000);
       const open = lastPrice;
-      const close = open + (Math.random() - 0.5) * 20;
+      const close = open + (Math.random() - 0.5) * 2;
       mockHistorical.push({
         time: Math.floor(date.getTime() / 1000) as any,
         open,
-        high: Math.max(open, close) + 5,
-        low: Math.min(open, close) - 5,
+        high: Math.max(open, close) + 0.5,
+        low: Math.min(open, close) - 0.5,
         close,
         volume: Math.floor(Math.random() * 1000000)
       });

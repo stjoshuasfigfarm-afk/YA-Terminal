@@ -1,95 +1,34 @@
-import React, { useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap, Polyline, Tooltip, Marker } from "react-leaflet";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+// Add L.Icon.Default.imagePath to fix leaflet marker icon issue
+L.Icon.Default.imagePath = "https://unpkg.com/leaflet@1.9.4/dist/images/";
 import { COMPANIES, Company } from "../data/companies";
-import { TrendingUp, MessageSquare, Cpu, Newspaper } from "lucide-react";
+import { Newspaper, Crosshair, Maximize2 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { SupplyChainGlobe } from "./SupplyChainGlobe";
 
-// Fix leaflet icon issue
-// @ts-ignore
-import icon from 'leaflet/dist/images/marker-icon.png';
-// @ts-ignore
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
-// Custom Marker Creator
-const createPulseIcon = (color: string) => L.divIcon({
-  className: "custom-pulsing-icon",
-  html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px ${color}; animation: pulse 2s infinite;"></div>`,
-  iconSize: [12, 12],
-  iconAnchor: [6, 6]
-});
-
-const defaultIcon = createPulseIcon("#ffffff");
-const activeIcon = createPulseIcon("#ffffff");
-
-// Utility to validate coordinates
-const isValidCoord = (val: any): val is number => 
-  typeof val === 'number' && !isNaN(val) && Number.isFinite(val);
-
-const isSafeLatLng = (lat: any, lng: any): boolean => {
-  try {
-    if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
-    
-    // Check if it's already a number or can be converted
-    const nLat = typeof lat === 'number' ? lat : parseFloat(String(lat));
-    const nLng = typeof lng === 'number' ? lng : parseFloat(String(lng));
-    
-    // Explicit checks for NaN and Infinity using the most robust methods
-    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) {
-      return false;
-    }
-    
-    // Valid coordinate ranges for Earth
-    return nLat >= -90 && nLat <= 90 && nLng >= -180 && nLng <= 180;
-  } catch {
-    return false;
-  }
-};
-
-// Safety wrapper for L.latLng to prevent crashes
-const safeLatLng = (lat: any, lng: any): L.LatLng | null => {
-  if (isSafeLatLng(lat, lng)) {
-    try {
-      return L.latLng(Number(lat), Number(lng));
-    } catch {
-      return null;
-    }
-  }
-  return null;
-};
-
-// Controller component to handle fly-to
-const MapController = ({ selectedPosition }: { selectedPosition: [number, number] | null }) => {
+// Helper component to control Leaflet map view
+const MapController = ({ target, activeNewsStory }: { target: Company | null; activeNewsStory: any | null }) => {
   const map = useMap();
-
   useEffect(() => {
-    if (selectedPosition && Array.isArray(selectedPosition)) {
-      const lat = selectedPosition[0];
-      const lng = selectedPosition[1];
-      
-      const pos = safeLatLng(lat, lng);
-      if (pos) {
-        try {
-          map.flyTo(pos, 6, {
-            duration: 1.5,
-            easeLinearity: 0.25
-          });
-        } catch (err) {
-          console.error("Map flyTo critically failed:", err, pos);
-        }
-      }
-    }
-  }, [selectedPosition, map]);
+    // Focus on news story location if active, otherwise fallback to target
+    const targetLocation = activeNewsStory && COMPANIES.find(c => c.symbol === activeNewsStory.symbol) 
+      ? COMPANIES.find(c => c.symbol === activeNewsStory.symbol) 
+      : target;
 
+    if (targetLocation) {
+      // Zoom out to global view first to emphasize the move
+      map.flyTo([targetLocation.lat, targetLocation.lng], 2, { duration: 0.5 });
+      
+      // After a short delay, zoom in to the target
+      const timer = setTimeout(() => {
+        map.flyTo([targetLocation.lat, targetLocation.lng], 5, { duration: 1.5 });
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [target, activeNewsStory, map]);
   return null;
 };
 
@@ -98,9 +37,12 @@ interface MapLayerProps {
   focusStock?: Company | null;
   onSelectNode: (c: Company) => void;
   intelligenceFeed?: any[];
-  isIntelligenceStream?: boolean;
-  toggleIntelligenceStream?: () => void;
+  isNewsCycling: boolean;
+  toggleNewsCycling: () => void;
   activeTab?: string;
+  news: any[];
+  activeNewsStory?: any | null;
+  setActiveNewsStory: (story: any | null) => void;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({ 
@@ -108,235 +50,235 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   focusStock,
   onSelectNode, 
   intelligenceFeed,
-  isIntelligenceStream,
-  toggleIntelligenceStream,
-  activeTab
+  isNewsCycling,
+  toggleNewsCycling,
+  activeTab,
+  news,
+  activeNewsStory,
+  setActiveNewsStory
 }) => {
-  const activePosition = React.useMemo((): [number, number] | null => {
-    try {
-      const target = focusStock || selectedStock;
-      if (target && isSafeLatLng(target.lat, target.lng)) {
-        const lat = Number(target.lat);
-        const lng = Number(target.lng);
-        if (Number.isFinite(lat) && Number.isFinite(lng)) {
-          return [lat, lng];
-        }
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  }, [focusStock, selectedStock]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Derive partner lines
-  const partnerLines = React.useMemo((): [number, number][][] => {
-    const lines: [number, number][][] = [];
-    if (activeTab === "PINNED" && selectedStock && selectedStock.partners && isSafeLatLng(selectedStock.lat, selectedStock.lng)) {
-      const sLat = Number(selectedStock.lat);
-      const sLng = Number(selectedStock.lng);
-      
-      selectedStock.partners.forEach(pSymbol => {
-        const partner = COMPANIES.find(c => c.symbol === pSymbol);
-        if (partner && isSafeLatLng(partner.lat, partner.lng)) {
-          const pLat = Number(partner.lat);
-          const pLng = Number(partner.lng);
-          if (Number.isFinite(pLat) && Number.isFinite(pLng)) {
-            lines.push([
-              [sLat, sLng],
-              [pLat, pLng]
-            ]);
-          }
-        }
-      });
-    }
-    return lines;
-  }, [selectedStock]);
-
-  // Ref to store markers for programmatic popup opening
-  const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
+  const [dynamicNews, setDynamicNews] = useState<any[]>([]);
+  const [newsAlert, setNewsAlert] = useState<any>(null);
 
   useEffect(() => {
-    try {
-      const target = focusStock || selectedStock;
-      if (target && markerRefs.current[target.symbol]) {
-        const marker = markerRefs.current[target.symbol];
-        if (marker) {
-          // Delay to allow flyTo to progress
-          const timer = setTimeout(() => {
-            try {
-              if (marker && typeof marker.openPopup === 'function') {
-                marker.openPopup();
-              }
-            } catch (err) {
-              console.warn("Could not open popup for marker", target.symbol, err);
-            }
-          }, 1200);
-          return () => clearTimeout(timer);
-        }
-      }
-    } catch (err) {
-      console.warn("Popup effect failed gracefully", err);
+    if (!isNewsCycling) return;
+
+    // Simulate "Live" updates
+      const liveUpdateInterval = setInterval(() => {
+        const randomCompany = COMPANIES[Math.floor(Math.random() * COMPANIES.length)];
+        const alerts = [
+          { title: `Neural Link Uplink: ${randomCompany.symbol}`, summary: `Tactical telemetry detected at ${randomCompany.name} node. Market sentiment recalibrating.` },
+          { title: `Silo Breach Detected: ${randomCompany.symbol}`, summary: `Cyber-intelligence reports significant resource shift at ${randomCompany.name} regional headquarters.` },
+          { title: `Node Activation: ${randomCompany.symbol}`, summary: `Strategic partnership re-initialization detected for ${randomCompany.name}. Analyzing downstream impact.` },
+          { title: `Volume Flux: ${randomCompany.symbol}`, summary: `Sudden volatility surge in ${randomCompany.symbol} neural stream. Potential institutional repositioning.` }
+        ];
+        const newStory = {
+          ...alerts[Math.floor(Math.random() * alerts.length)],
+          symbol: randomCompany.symbol,
+          date: new Date().toISOString()
+        };
+        setDynamicNews(prev => [...prev, newStory].slice(-10)); // Keep last 10 live stories
+        
+        // Trigger Alert
+        setNewsAlert(newStory);
+        setTimeout(() => setNewsAlert(null), 5000);
+        
+      }, 30000); // 30s cycle for live news updates on map
+
+    return () => clearInterval(liveUpdateInterval);
+  }, [isNewsCycling]);
+
+  useEffect(() => {
+    if (!isNewsCycling) {
+      setActiveNewsStory(null);
+      return;
     }
-  }, [focusStock, selectedStock]);
+  }, [isNewsCycling, setActiveNewsStory]);
+
+  useEffect(() => {
+    if (isNewsCycling && selectedStock && selectedStock.news && selectedStock.news.length > 0) {
+      setActiveNewsStory({ ...selectedStock.news[0], symbol: selectedStock.symbol });
+    }
+  }, [selectedStock, isNewsCycling, setActiveNewsStory]);
+
+  const arcsData = useMemo(() => {
+    if (activeTab !== "PINNED" || !selectedStock || !selectedStock.partners) return [];
+    return selectedStock.partners.map(pSymbol => {
+      const partner = COMPANIES.find(c => c.symbol === pSymbol);
+      if (!partner) return null;
+      return {
+        startLat: partner.lat,
+        startLng: partner.lng,
+        endLat: selectedStock.lat,
+        endLng: selectedStock.lng,
+        color: ["#ff8800", "#22ab94"]
+      };
+    }).filter(Boolean);
+  }, [selectedStock, activeTab]);
 
   return (
-    <div className="flex-1 relative bg-[#050505] overflow-hidden map-green-hued">
+    <div ref={containerRef} className="flex-1 relative bg-[#050505] overflow-hidden map-green-hued">
+      {/* 2D PRIMARY MAP (Leaflet) */}
+      <div className="absolute inset-0 z-0">
+        <MapContainer 
+          center={[20, 0]} 
+          zoom={3} 
+          scrollWheelZoom={true} 
+          className="h-full w-full bg-zinc-950"
+          zoomControl={false}
+          attributionControl={false}
+        >
+          <TileLayer
+            
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
+          <MapController target={selectedStock} activeNewsStory={activeNewsStory} />
+          
+
+          {COMPANIES.filter(c => !isNewsCycling || (activeNewsStory && c.symbol === activeNewsStory.symbol)).map(company => (
+            <CircleMarker
+              key={company.symbol}
+              center={[company.lat, company.lng]}
+              radius={selectedStock?.symbol === company.symbol ? 8 : (isNewsCycling ? 4 : 6)}
+              pathOptions={{
+                color: selectedStock?.symbol === company.symbol ? '#22ab94' : (isNewsCycling ? '#555' : '#888'),
+                fillColor: selectedStock?.symbol === company.symbol ? '#22ab94' : (isNewsCycling ? '#222' : '#444'),
+                fillOpacity: isNewsCycling ? 0.8 : 0.9,
+                weight: isNewsCycling ? 1 : 2
+              }}
+              eventHandlers={{
+                click: () => onSelectNode(company)
+              }}
+            >
+              <Tooltip sticky>{company.symbol}</Tooltip>
+              <Popup className="tactical-popup">
+                <div className="bg-zinc-950 border border-zinc-800 p-2 font-mono text-[10px] text-white">
+                  <div className="text-emerald-500 font-bold mb-1">{company.symbol} // {company.name}</div>
+                  <div className="text-[8px] text-zinc-500 uppercase tracking-widest">Sector: {company.sector}</div>
+                </div>
+              </Popup>
+            </CircleMarker>
+          ))}
+
+          {/* Supply Chain Lines on 2D Map */}
+          {arcsData.map((arc: any, idx) => (
+             <Polyline 
+              key={idx}
+              positions={[[arc.startLat, arc.startLng], [arc.endLat, arc.endLng]]}
+              pathOptions={{ color: '#ff8800', weight: 1, opacity: 0.4, dashArray: '4, 4' }}
+             />
+          ))}
+          {/* Intelligence BRIEF - All news stories mapped to their nodes */}
+          {news && news.map((story, i) => {
+            const company = COMPANIES.find(c => c.symbol === story.symbol);
+            if (!company) return null;
+            
+            const isActive = activeNewsStory && 
+              (story.intelligence?.translatedTitle || story.title) === (activeNewsStory.intelligence?.translatedTitle || activeNewsStory.title);
+            
+            return (
+              <Marker 
+                key={`${story.symbol}-${i}-${isActive}`}
+                position={[company.lat, company.lng]}
+                icon={L.divIcon({
+                  className: 'custom-div-icon',
+                  html: `<div class="relative ${isActive ? 'z-[2000]' : 'z-[500]'}">
+                    ${isActive ? `
+                      <div class="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap bg-emerald-500 text-black px-2 py-1 font-mono font-black text-[10px] uppercase tracking-tighter border border-white shadow-[0_0_20px_rgba(16,185,129,0.8)] animate-in zoom-in duration-300">
+                        ${(story.intelligence?.translatedTitle || story.title).slice(0, 50)}${(story.intelligence?.translatedTitle || story.title).length > 50 ? '...' : ''}
+                      </div>
+                      <div class="w-5 h-5 rounded-full bg-white animate-ping opacity-75"></div>
+                      <div class="w-4 h-4 absolute top-0.5 left-0.5 rounded-full bg-emerald-400 border-2 border-black shadow-[0_0_15px_white]"></div>
+                    ` : `
+                      <div class="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/80 text-emerald-500/80 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-widest border border-emerald-900/50 backdrop-blur-sm opacity-60 group-hover:opacity-100 transition-opacity">
+                        ${(story.intelligence?.translatedTitle || story.title).slice(0, 25)}...
+                      </div>
+                      <div class="w-2 h-2 absolute top-1.5 left-1.5 rounded-full bg-emerald-900 border border-emerald-500/30"></div>
+                    `}
+                  </div>`,
+                  iconSize: [24, 24],
+                  iconAnchor: [12, 12]
+                })}
+              />
+            );
+          })}
+
+          {/* New News Alert */}
+          {newsAlert && COMPANIES.find(c => c.symbol === newsAlert.symbol) && (
+            <Marker position={[COMPANIES.find(c => c.symbol === newsAlert.symbol)!.lat, COMPANIES.find(c => c.symbol === newsAlert.symbol)!.lng]} zIndexOffset={3000}>
+              <Tooltip permanent direction="bottom" offset={[0, 15]} className="!bg-red-600 !border-white !text-white !font-mono !text-[10px] !font-black !uppercase !tracking-widest !shadow-[0_0_20px_red]">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-white animate-ping" />
+                  PRIORITY_ALERT: {newsAlert.title}
+                </div>
+              </Tooltip>
+            </Marker>
+          )}
+          
+        </MapContainer>
+      </div>
+
+      {/* News Summary Overlay - Briefing Pop Up - MOVED TO BOTTOM */}
+      {isNewsCycling && activeNewsStory && (
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1002] w-[400px] max-w-[90vw] bg-black/95 border-t-2 border-emerald-500 p-4 font-mono text-white backdrop-blur-xl shadow-[0_-20px_50px_rgba(16,185,129,0.2)] animate-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center justify-between mb-3 border-b border-emerald-900/30 pb-2">
+            <div className="text-emerald-400 font-black text-[10px] uppercase tracking-[0.3em] flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-emerald-500 animate-pulse" />
+              Strategic_Briefing // Node_{activeNewsStory.symbol}
+            </div>
+            <div className="text-[7px] text-emerald-900 font-bold uppercase tracking-widest">Neural_Uplink_v4.2</div>
+          </div>
+          
+          <div className="mb-2">
+            <h3 className="text-[14px] font-bold text-white uppercase leading-tight mb-2 tracking-tight">
+              {activeNewsStory.intelligence?.translatedTitle || activeNewsStory.title}
+            </h3>
+            <p className="text-[11px] text-zinc-400 leading-relaxed italic border-l-2 border-emerald-500/20 pl-3">
+              {activeNewsStory.intelligence?.intelligenceSummary || activeNewsStory.summary || activeNewsStory.description}
+            </p>
+          </div>
+
+          <div className="flex justify-between items-center mt-4 pt-2 border-t border-zinc-900/50">
+            <div className="text-[7px] text-zinc-700 uppercase tracking-widest flex items-center gap-1">
+              <div className="w-1 h-1 rounded-full bg-emerald-500" />
+              Signal_Verified
+            </div>
+            <div className="text-[7px] text-emerald-500/50 font-bold">BYPASS_STILL_ENCRYPTED</div>
+          </div>
+        </div>
+      )}
+
+      {/* Mini Progress bar for cycle */}
+      {isNewsCycling && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 z-[1005] bg-zinc-900">
+          <div className="h-full bg-emerald-500 animate-[progress_30s_linear_infinite]" />
+        </div>
+      )}
+
       {/* Map HUD Control - Top Left */}
       <div className="absolute top-4 left-4 z-[1002] flex flex-col gap-2 pointer-events-auto">
         <button 
-          onClick={toggleIntelligenceStream}
+          onClick={toggleNewsCycling}
           className={cn(
-            "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative",
-            isIntelligenceStream ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
+            "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative rounded-lg",
+            isNewsCycling ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
           )}
         >
-          <Newspaper className={cn("w-5 h-5 transition-transform", isIntelligenceStream ? "scale-110" : "group-hover:rotate-12")} />
-          <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
-            {isIntelligenceStream ? "Neural_Stream_Enabled" : "Enable_Neural_Stream"}
-          </div>
-          {isIntelligenceStream && (
+          <Newspaper className={cn("w-5 h-5 transition-transform", isNewsCycling ? "scale-110" : "group-hover:rotate-12")} />
+          {isNewsCycling && (
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full border-2 border-black animate-pulse" />
           )}
         </button>
       </div>
-      
-      <div className="absolute bottom-4 left-4 z-[1000] pointer-events-none">
-        <div className="bg-zinc-900/80 p-2 border border-zinc-800 font-mono text-[9px] uppercase tracking-widest text-white backdrop-blur-sm shadow-xl">
-          LAT: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[0]).toFixed(4) : "0.0000"} | LONG: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[1]).toFixed(4) : "0.0000"} | ALT: 149M
-        </div>
+
+      {/* Supply Chain Globe - Top Right */}
+      <div className="absolute top-4 right-4 z-[1002]">
+        <SupplyChainGlobe selectedStock={selectedStock} />
       </div>
 
-      <MapContainer
-        center={[20, 0]}
-        zoom={3}
-        className="w-full h-full bg-black"
-        zoomControl={false}
-        attributionControl={false}
-      >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
-          className="map-tile-layer"
-        />
-        
-        <MapController selectedPosition={activePosition} />
-
-        {COMPANIES.map((company) => {
-          if (!isSafeLatLng(company.lat, company.lng)) return null;
-          
-          const isSelected = selectedStock?.symbol === company.symbol;
-          const isFocus = focusStock?.symbol === company.symbol;
-          const hasNews = isFocus && intelligenceFeed && intelligenceFeed.length > 0;
-          
-          const pos = safeLatLng(company.lat, company.lng);
-          if (!pos) return null;
-          
-          return (
-            <React.Fragment key={company.symbol}>
-              <Marker
-                ref={(el) => { markerRefs.current[company.symbol] = el; }}
-                position={pos}
-                icon={isSelected ? activeIcon : defaultIcon}
-                eventHandlers={{
-                  click: (e) => {
-                    onSelectNode(company);
-                    e.target.openPopup();
-                  },
-                  mouseover: (e) => {
-                    e.target.openPopup();
-                  },
-                }}
-              >
-                <Popup className="custom-popup" offset={[0, -10]}>
-                  <div className="bg-zinc-950 text-white p-2 border border-white/50 font-mono w-[180px]">
-                    <div className="flex justify-between items-start mb-1">
-                      <div className="text-white font-bold text-lg leading-none">{company.symbol}</div>
-                      <div className="text-[8px] bg-white/20 text-white px-1 font-black">NODE_ACTIVE</div>
-                    </div>
-                    <div className="text-[10px] text-zinc-500 mb-1 truncate uppercase tracking-tighter">{company.name}</div>
-                    
-                    <div className="mt-2 space-y-1 border-t border-white/20 pt-2">
-                      <div className="flex justify-between text-[9px]">
-                        <span className="text-zinc-600">SECTOR</span>
-                        <span className="text-zinc-300 truncate ml-2">{company.sector}</span>
-                      </div>
-                      {company.workforce && (
-                        <div className="flex justify-between text-[9px]">
-                          <span className="text-zinc-600">WORKFORCE</span>
-                          <span className="text-white font-bold">{company.workforce}</span>
-                        </div>
-                      )}
-                      {company.headquarters && (
-                        <div className="flex justify-between text-[9px]">
-                          <span className="text-zinc-600">HQ</span>
-                          <span className="text-zinc-400 truncate ml-2">{company.headquarters}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-
-              {/* Smaller pinned news stories */}
-              {hasNews && intelligenceFeed!.slice(0, 2).map((item, nIdx) => {
-                const baseLat = typeof company.lat === 'number' ? company.lat : Number(company.lat);
-                const baseLng = typeof company.lng === 'number' ? company.lng : Number(company.lng);
-                
-                const pinLat = baseLat + (0.8 + nIdx * 1.5);
-                const pinLng = baseLng + (1.2 + nIdx * 0.5);
-                
-                const pinPos = safeLatLng(pinLat, pinLng);
-                if (!pinPos) return null;
-                
-                const publishedAt = item.published_at ? new Date(item.published_at) : null;
-                const timeStr = publishedAt && !isNaN(publishedAt.getTime()) 
-                  ? publishedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : "--:--";
-                
-                return (
-                  <Marker
-                    key={`${company.symbol}-news-${nIdx}`}
-                    position={pinPos}
-                    icon={L.divIcon({
-                    className: "news-pin-icon",
-                    html: `
-                      <div class="relative group">
-                        <div class="absolute -left-2 -top-2 w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                        <div class="bg-black/90 border border-white/40 p-1.5 w-32 backdrop-blur-sm shadow-2xl opacity-80 group-hover:opacity-100 transition-opacity">
-                          <div class="text-[7px] text-white font-mono leading-none mb-1 flex justify-between">
-                            <span>INTEL_B64</span>
-                            <span>${timeStr}</span>
-                          </div>
-                          <div class="text-[9px] text-white font-bold leading-tight line-clamp-2 uppercase">
-                            ${item.intelligence?.translatedTitle || item.title || "TELEMETRY_DATA_INCOMPLETE"}
-                          </div>
-                        </div>
-                      </div>
-                    `,
-                    iconSize: [128, 40],
-                    iconAnchor: [0, 40]
-                  })}
-                  />
-                );
-              })}
-            </React.Fragment>
-          );
-        })}
-
-        {partnerLines.map((line, idx) => (
-          <Polyline
-            key={idx}
-            positions={line}
-            pathOptions={{
-              color: "#ffffff",
-              weight: 1,
-              dashArray: "5, 10",
-              opacity: 0.3,
-              className: "supply-chain-line"
-            }}
-          />
-        ))}
-      </MapContainer>
-
+      
       {/* Scanline Overlay */}
       <div className="absolute inset-0 pointer-events-none opacity-5 mix-blend-overlay z-[1001]" style={{ 
         backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))',
@@ -345,3 +287,4 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     </div>
   );
 };
+

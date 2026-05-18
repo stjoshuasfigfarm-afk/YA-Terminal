@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useRef } from "react";
+import * as echarts from "echarts";
 import Markdown from "react-markdown";
 import { Company } from "../data/companies";
 import { TrendingUp, Newspaper, Activity, Zap, Globe, RefreshCcw, Link2, Box, ShieldAlert } from "lucide-react";
@@ -17,133 +18,250 @@ interface IntelligenceSidebarProps {
   relationships?: { suppliers: any[], customers: any[] };
   briefing?: string | null;
   yields?: any;
+  onSelectNews: (story: any) => void;
 }
 
-const YieldAnalysis = ({ yields }: { yields: any }) => {
-  if (!yields) return null;
-  
-  return (
-    <div className="p-2 border-b border-zinc-800 bg-zinc-900/10">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-[8px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
-          <TrendingUp className="w-2 h-2" /> Yield_Analysis
-        </div>
-        <div className="text-[8px] font-mono text-zinc-600 uppercase italic">
-          {yields.country}_BENCHMARK
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex flex-col">
-          <span className="text-[7px] font-mono uppercase" style={{ color: "#22ab94" }}>CB_RATE</span>
-          <span className="text-[11px] font-mono font-bold text-white tracking-widest">
-            {yields.interestRate.toFixed(2)}%
-          </span>
-        </div>
-        <div className="h-6 w-[1px] bg-zinc-800 mx-2" />
-        <div className="flex-1 flex justify-between items-end gap-1 h-6">
-          {yields.treasuries && Object.entries(yields.treasuries).map(([key, val]: [string, any]) => (
-            <div key={key} className="flex-1 flex flex-col items-center group relative">
-              <div 
-                className="w-full bg-white/40 hover:bg-white transition-all shadow-[0_0_8px_rgba(34,171,148,0.2)]" 
-                style={{ height: `${(val / 10) * 100}%`, backgroundColor: "#22ab94" }}
-              />
-              <span className="text-[6px] font-mono mt-0.5" style={{ color: "#22ab94" }}>{key}</span>
-              <div className="absolute bottom-full mb-1 bg-white text-black text-[6px] font-bold px-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {val}%
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 const CustomTelemetryChart = ({ data }: { data: any[] }) => {
-  const chartData = useMemo(() => {
-    if (!data || data.length < 2) return [];
-    // Sort and take last 50 points for the narrow sidebar
-    return [...data].sort((a, b) => a.time - b.time).slice(-50);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  // Initialize ECharts
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    chartInstance.current = echarts.init(chartRef.current, undefined, {
+      renderer: "canvas",
+    });
+
+    const handleResize = () => {
+      chartInstance.current?.resize();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartInstance.current?.dispose();
+    };
+  }, []);
+
+  // Update Data
+  useEffect(() => {
+    if (!chartInstance.current || !data || data.length < 2) return;
+
+    const sortedData = [...data].sort((a, b) => a.time - b.time).slice(-60);
+    
+    const dates = sortedData.map(d => {
+      const date = new Date(d.time);
+      return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+    });
+
+    const values = sortedData.map(d => d.close);
+    const volumes = sortedData.map((d, i) => [i, d.volume, d.open > d.close ? -1 : 1]);
+
+    const option: echarts.EChartsOption = {
+      backgroundColor: "transparent",
+      animation: false,
+      tooltip: {
+        trigger: "axis",
+        axisPointer: {
+          type: "cross",
+          label: {
+            backgroundColor: "#1e293b",
+            color: "#fff",
+            fontSize: 8,
+          }
+        },
+        backgroundColor: "#0f172a",
+        borderColor: "#1e293b",
+        textStyle: { color: "#fff", fontSize: 9, fontFamily: "monospace" },
+        formatter: (params: any) => {
+          let res = `<div style="font-size: 8px; color: #666;">${params[0].name}</div>`;
+          params.forEach((p: any) => {
+            if (p.seriesName === "Price") {
+              res += `
+                <div style="font-size: 10px; color: #10b981; font-weight: bold;">
+                  $${Number(p.data).toFixed(2)}
+                </div>
+              `;
+            }
+          });
+          return res;
+        }
+      },
+      grid: [
+        { left: "8%", right: "8%", top: "5%", height: "60%" },
+        { left: "8%", right: "8%", top: "75%", height: "15%" }
+      ],
+      xAxis: [
+        {
+          type: "category",
+          data: dates,
+          boundaryGap: true,
+          axisLine: { lineStyle: { color: "#1e293b" } },
+          axisLabel: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false }
+        },
+        {
+          type: "category",
+          gridIndex: 1,
+          data: dates,
+          boundaryGap: true,
+          axisLine: { lineStyle: { color: "#1e293b" } },
+          axisLabel: { 
+            show: true,
+            color: "#475569", 
+            fontSize: 7, 
+            fontFamily: "monospace",
+            interval: 11
+          },
+          axisTick: { show: false },
+          splitLine: { show: false }
+        }
+      ],
+      yAxis: [
+        {
+          scale: true,
+          axisLine: { lineStyle: { color: "#1e293b" } },
+          axisLabel: { color: "#475569", fontSize: 8, fontFamily: "monospace" },
+          splitLine: { lineStyle: { color: "#1e293b", type: "dashed" } }
+        },
+        {
+          scale: true,
+          gridIndex: 1,
+          splitNumber: 2,
+          axisLabel: { show: false },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false }
+        }
+      ],
+      series: [
+        {
+          name: "Price",
+          type: "line",
+          data: values,
+          smooth: true,
+          symbol: "none",
+          lineStyle: {
+            color: "#10b981",
+            width: 2,
+            shadowBlur: 10,
+            shadowColor: "rgba(16, 185, 129, 0.5)"
+          },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: "rgba(16, 185, 129, 0.2)" },
+              { offset: 1, color: "rgba(16, 185, 129, 0)" }
+            ])
+          }
+        },
+        {
+          name: "Volume",
+          type: "bar",
+          xAxisIndex: 1,
+          yAxisIndex: 1,
+          data: volumes,
+          itemStyle: {
+            color: (params: any) => {
+              return params.data[2] === 1 ? "#10b98188" : "#f43f5e88";
+            }
+          }
+        }
+      ]
+    };
+
+    chartInstance.current.setOption(option);
   }, [data]);
 
-  if (chartData.length < 2) return (
-    <div className="flex-1 flex items-center justify-center font-mono text-[10px] text-zinc-800 uppercase tracking-widest">
-      Establishing_Link...
-    </div>
-  );
-
-  const minPrice = Math.min(...chartData.map(d => d.low));
-  const maxPrice = Math.max(...chartData.map(d => d.high));
-  const priceRange = maxPrice - minPrice;
-  const padding = priceRange * 0.1;
-
-  const getY = (price: number) => {
-    return 100 - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * 100;
-  };
-
-  const getX = (index: number) => {
-    return (index / (chartData.length - 1)) * 100;
-  };
-
   return (
-    <div className="flex-1 w-full h-full relative overflow-hidden px-1">
-      <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {/* Horizontal Grids */}
-        {[0, 25, 50, 75, 100].map(level => (
-          <line 
-            key={level} 
-            x1="0" y1={level} x2="100" y2={level} 
-            stroke="#ffffff08" 
-            strokeWidth="0.5" 
-          />
-        ))}
-        
-        {/* Price Action Path (Area) */}
-        <path
-          d={`M 0 100 ${chartData.map((d, i) => `L ${getX(i)} ${getY(d.close)}`).join(' ')} L 100 100 Z`}
-          fill="url(#chartGradient)"
-          className="opacity-20"
-        />
-        
-        {/* Main Price Line */}
-        <path
-          d={`M ${chartData.map((d, i) => `${getX(i)} ${getY(d.close)}`).join(' L ')}`}
-          fill="none"
-          stroke="white"
-          vectorEffect="non-scaling-stroke"
-          className="drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]"
-        />
-
-        {/* Highlight Last Point */}
-        <circle 
-          cx={100} 
-          cy={getY(chartData[chartData.length - 1].close)} 
-          r="1" 
-          fill="white"
-          className="animate-pulse"
-        />
-
-        <defs>
-          <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="white" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="white" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-      </svg>
+    <div id="main-chart-container" className="grow w-full bg-black relative">
+      <div 
+        ref={chartRef} 
+        className="w-full h-full"
+      />
       
-      {/* Absolute Overlays for Data Precision */}
-      <div className="absolute top-2 right-2 font-mono text-[8px] text-zinc-700 flex flex-col items-end uppercase pointer-events-none">
-        <span>MAX: {maxPrice.toFixed(2)}</span>
-        <span>MIN: {minPrice.toFixed(2)}</span>
-      </div>
-      
-      <div className="absolute bottom-2 left-2 font-mono text-[8px] text-zinc-700 uppercase pointer-events-none">
-        SMPL_SIZE: {chartData.length}_TICKS
-      </div>
+      {!data || data.length < 2 ? (
+        <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] text-zinc-800 uppercase tracking-widest bg-black/40 backdrop-blur-sm z-10">
+          Establishing_Telemetry_Link...
+        </div>
+      ) : null}
     </div>
   );
 };
+
+const NeuralVolatilityChart = ({ data }: { data: any[] }) => {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartInstance.current = echarts.init(chartRef.current);
+    const handleResize = () => chartInstance.current?.resize();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chartInstance.current?.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartInstance.current || !data || data.length < 2) return;
+
+    const sortedData = [...data].sort((a, b) => a.time - b.time).slice(-40);
+    const volData = sortedData.map((d, i) => {
+      const range = d.high - d.low;
+      return range;
+    });
+
+    const option: echarts.EChartsOption = {
+      backgroundColor: "transparent",
+      animation: true,
+      grid: { left: "10%", right: "5%", top: "15%", bottom: "15%" },
+      xAxis: {
+        type: "category",
+        show: false,
+        data: sortedData.map(d => d.time)
+      },
+      yAxis: {
+        type: "value",
+        show: false,
+        scale: true
+      },
+      series: [
+        {
+          data: volData,
+          type: "line",
+          smooth: true,
+          symbol: "none",
+          lineStyle: {
+            color: "#22ab94",
+            width: 1,
+            shadowBlur: 5,
+            shadowColor: "#22ab94"
+          },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: "rgba(34, 171, 148, 0.4)" },
+              { offset: 1, color: "rgba(34, 171, 148, 0)" }
+            ])
+          }
+        }
+      ]
+    };
+    chartInstance.current.setOption(option);
+  }, [data]);
+
+  return (
+    <div className="w-full h-full bg-black">
+      <div ref={chartRef} className="w-full h-full" />
+    </div>
+  );
+};
+
 
 export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({ 
   selectedStock, 
@@ -157,15 +275,16 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   setActiveTab,
   relationships = { suppliers: [], customers: [] },
   briefing,
-  yields
+  yields,
+  onSelectNews
 }) => {
 
   if (!selectedStock) {
     return (
-      <aside className="w-44 border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
-        <div className="p-2 border-b border-zinc-800 bg-black">
-          <div className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">System_Idle</div>
-          <h2 className="font-mono text-sm text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
+      <aside className="w-[240px] border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
+        <div className="p-3 border-b border-zinc-800 bg-black">
+          <div className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest mb-1">System_Idle</div>
+          <h2 className="font-mono text-xl text-zinc-800 font-black tracking-tighter uppercase leading-none">Awaiting_Target</h2>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-black/20">
           <Activity className="w-12 h-12 text-zinc-900 mb-3 animate-pulse" />
@@ -177,70 +296,98 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   }
 
   return (
-    <aside className="w-44 h-full border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-y-auto custom-scrollbar scroll-smooth">
-      {/* TICKET / PROFILE HEADER */}
-      <div className="p-2 border-b border-zinc-800 bg-black sticky top-0 z-40">
-        <div className="flex justify-between items-start mb-0.5">
-          <div className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-            <Globe className="w-2 h-2" /> Live_Protocol
-          </div>
-          <div className="flex items-center gap-1">
-            {isAiProcessing && <Zap className="w-1.5 h-1.5 text-white animate-pulse" />}
-            <div className="text-[8px] bg-white/10 text-white px-1 py-0.5 border border-white/20 font-mono font-bold uppercase">LOCKED</div>
-          </div>
-        </div>
-        <div className="flex items-end justify-between">
-          <div>
-            <h2 className="font-mono text-lg text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
-            <div className="text-[7px] text-zinc-600 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[90px]">{profile?.companyName || selectedStock.name}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-[8px] font-mono text-white font-bold leading-none tracking-tighter">
-              ${quote?.price?.toFixed(2) || "---"}
+    <aside className="w-[300px] h-full border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-y-auto custom-scrollbar scroll-smooth relative">
+      {/* TICKET / PROFILE HEADER - Robust Sticky Implementation */}
+      <div className="p-4 border-b border-zinc-800 bg-black sticky top-0 z-[100] flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.9)] backdrop-blur-sm">
+        <div className="absolute inset-0 pointer-events-none opacity-10 scanline"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <div className="text-[9px] font-mono text-zinc-500 uppercase tracking-[0.3em] mb-1">Asset_Protocol</div>
+              <h2 className="font-mono text-2xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
             </div>
-            <div className={cn(
-              "text-[7px] font-mono font-bold mt-0.5",
-              (quote?.changes || 0) >= 0 ? "text-white" : "text-red-500"
-            )}>
-              {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)}
+            <div className="flex flex-col items-end">
+              <div className="flex items-center gap-2 mb-1">
+                {isAiProcessing && <Zap className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />}
+                <div className="text-[8px] bg-white/5 text-white/40 px-1 py-0.5 border border-white/10 font-mono font-bold uppercase tracking-tighter cursor-help">FEED_SECURE</div>
+              </div>
+              {yields?.interestRate !== undefined && (
+                <div className="text-[8px] font-mono text-emerald-500 uppercase tracking-widest">CB_RATE: {Number(yields.interestRate).toFixed(2)}%</div>
+              )}
+              {profile?.dividend !== undefined && (
+                <div className="text-[8px] font-mono text-emerald-500 uppercase tracking-widest">DIV: ${Number(profile.dividend).toFixed(2)}</div>
+              )}
+              <div className="text-[7px] font-mono text-zinc-700 uppercase tracking-widest truncate max-w-[120px]">{selectedStock.name}</div>
+            </div>
+          </div>
+
+          <div className="flex items-end justify-between mt-2">
+            <div className="flex flex-col">
+              <div className="text-[16px] font-mono text-white font-black leading-none tracking-tighter drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
+                {quote?.price !== undefined ? `$${Number(quote.price).toFixed(2)}` : "---"}
+              </div>
+              <div className={cn(
+                "text-[7px] font-mono font-bold mt-1 px-1 py-0.5 inline-block w-fit",
+                Number(quote?.changes || 0) >= 0 ? "text-emerald-400 bg-emerald-950/20" : "text-rose-400 bg-rose-950/20"
+              )}>
+                {Number(quote?.changes || 0) >= 0 ? "▲" : "▼"} {Math.abs(Number(quote?.changes || 0)).toFixed(2)} ({Number(quote?.changesPercentage || 0).toFixed(2)}%)
+              </div>
+            </div>
+            <div className="pb-1">
+               <div className="text-[7px] font-mono text-zinc-600 uppercase text-right leading-tight">Live_Link<br/>Node_Silo_{selectedStock.symbol}</div>
             </div>
           </div>
         </div>
       </div>
+      
 
-      {/* PRICE CHART - SQUARE CONTAINER */}
-      <div className="h-44 border-b border-zinc-800 bg-black relative flex flex-col group shrink-0">
-        <div className="absolute top-4 left-3 z-10 flex items-center gap-2 pointer-events-none">
-          <div className="w-1 h-1 rounded-full animate-pulse shadow-[0_0_8px_#22ab94]" style={{ backgroundColor: "#22ab94" }} />
-          <span className="text-[9px] font-mono font-bold tracking-widest uppercase opacity-80" style={{ color: "#22ab94" }}>Telemetry</span>
-        </div>
-        
-        <div className="absolute top-4 right-3 z-10 flex gap-2">
+      {/* PRICE CHART - Defined Height and Spacing */}
+      <div className="h-56 border-b border-zinc-800 bg-black relative flex flex-col group shrink-0 z-10 pt-8">
+        <div className="absolute top-3 right-4 z-20 flex gap-2 child-pointer-events-auto">
           <button 
-            className="bg-zinc-900/50 border border-zinc-800 p-1 hover:bg-white hover:text-black transition-all group/btn"
-            title="Sychronize Neural Link"
+            className="bg-zinc-900 border border-zinc-800 p-2 hover:bg-emerald-500 hover:text-black transition-all group/btn shadow-xl pointer-events-auto"
+            title="Refresh Feed"
           >
-            <RefreshCcw className="w-3 h-3 text-white group-hover/btn:text-black" />
+            <RefreshCcw className="w-3.5 h-3.5 text-zinc-500 group-hover/btn:text-black transition-colors" />
           </button>
         </div>
 
-        <div className="flex-1 w-full mt-2 flex flex-col">
+        <div className="flex-1 w-full flex flex-col px-2">
           <CustomTelemetryChart data={history} />
         </div>
       </div>
 
-      <YieldAnalysis yields={yields} />
+      {/* NEURAL FLUX / VOLATILITY - Reduced Height */}
+      <div className="h-24 border-b border-zinc-800 bg-black relative flex flex-col shrink-0 overflow-hidden">
+        <div className="px-4 py-2 flex justify-between items-center bg-emerald-950/5">
+          <div className="text-[8px] font-mono uppercase tracking-[0.2em] flex items-center gap-1.5" style={{ color: "#22ab94" }}>
+            <Activity className="w-3 h-3" /> System_Flux // Volatility
+          </div>
+          <div className="text-[7px] font-mono text-zinc-700 tracking-tighter uppercase whitespace-nowrap">Neural_Link_v2.0</div>
+        </div>
+        <div className="flex-1">
+          <NeuralVolatilityChart data={history} />
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 border-b border-zinc-800 bg-black/40">
         <div className="p-2 border-r border-zinc-800 bg-black/20">
           <div className="text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Market Cap</div>
           <div className="font-mono text-[10px] text-white font-bold">{profile?.mktCap ? formatCurrency(profile.mktCap) : "---"}</div>
-          <div className="mt-3 text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Volume (Avg)</div>
-          <div className="font-mono text-[10px] text-zinc-400">{profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</div>
+          <div className="mt-3 text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Workforce</div>
+          <div className="font-mono text-[10px] text-white font-bold">{profile?.fullTimeEmployees ? profile.fullTimeEmployees.toLocaleString() : "---"}</div>
         </div>
-        <div className="p-2 flex flex-col">
+        <div className="p-2 border-zinc-800 bg-black/20">
+          <div className="text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Volume (Avg)</div>
+          <div className="font-mono text-[10px] text-zinc-400">{profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</div>
+          <div className="mt-3 text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Earnings</div>
+          <div className="font-mono text-[10px] text-zinc-400">{profile?.lastAnnualEarnings ? formatCurrency(profile.lastAnnualEarnings) : "---"}</div>
+        </div>
+      </div>
+
+      <div className="p-2 border-b border-zinc-800 bg-black/40">
           <div className="text-[8px] font-mono text-zinc-600 uppercase mb-2">Profit_Velocity</div>
-          <div className="flex-1 flex items-end gap-0.5 px-0.5 h-10">
+          <div className="flex items-end gap-0.5 px-0.5 h-10">
             {financials && financials.length > 0 ? (
               (() => {
                 const maxVal = Math.max(...financials.map(f => Math.abs(f.netIncome || 0)), 1);
@@ -267,7 +414,6 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             <span>Past_6Q</span>
             <span>Delta_Net</span>
           </div>
-        </div>
       </div>
 
       {/* TAB NAVIGATION */}
@@ -305,39 +451,87 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
       <div className="flex-1 flex flex-col min-h-0 bg-black">
         {activeTab === "INTEL" ? (
           <div className="flex flex-col h-full">
-            <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
-              <span className="text-[9px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
-                <Newspaper className="w-2.5 h-2.5" /> Intelligence_Sync
+            <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/10">
+              <span className="text-[9px] font-mono uppercase tracking-[.2em] flex items-center gap-1.5" style={{ color: "#22ab94" }}>
+                <Newspaper className="w-3 h-3" /> Intel_Nexus
               </span>
+              <div className="text-[7px] font-mono text-zinc-700 animate-pulse">LIVE_SYNC</div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
-              {news && news.length > 0 ? (
-                news.map((item, idx) => (
-                  <div key={idx} className="group border-b border-zinc-900 pb-2 last:border-0">
-                    <div className="flex items-center gap-1.5 mb-0.5" />
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[8px] font-mono text-zinc-700">
-                        {new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      <div className="h-[1px] flex-1 bg-zinc-900 group-hover:bg-white/20" />
+            <div className="flex-1 overflow-y-auto p-0 custom-scrollbar">
+              {/* PRIMARY ENRICHED NEWS */}
+              <div className="p-3 space-y-4">
+                {news && news.length > 0 ? (
+                  <>
+                    {news.filter(n => {
+                      const title = n.intelligence?.translatedTitle || n.title;
+                      const summary = n.intelligence?.intelligenceSummary || n.summary || n.description;
+                      
+                      const isGenericTitle = !title || 
+                                           title.includes("SIGNAL_INTERFERENCE") || 
+                                           title.trim() === "";
+                                           
+                      const isGenericSummary = !summary || 
+                                       summary.includes("Pending analysis") || 
+                                       summary.includes("TACTICAL_INTEL_UNAVAILABLE") ||
+                                       summary.trim() === "";
+                      return !isGenericTitle && !isGenericSummary;
+                    }).map((item, idx) => (
+                      <div key={idx} onClick={() => onSelectNews(item)} className="group relative pl-3 border-l border-zinc-800 hover:border-emerald-500/50 transition-all cursor-pointer pb-2">
+                        <div className="absolute left-[-1px] top-0 w-[1px] h-2 bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[7px] font-mono text-zinc-600 bg-white/5 px-1 uppercase tracking-tighter">
+                            {new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-[7px] font-mono text-emerald-950 font-black uppercase tracking-[0.2em] bg-emerald-500/10 px-1">
+                            {item.source ? item.source.slice(0, 12) : 'UPLINK'}
+                          </span>
+                        </div>
+                        
+                        <h4 className="text-[10px] font-bold text-zinc-300 group-hover:text-white transition-colors leading-snug tracking-tight mb-1">
+                          {item.intelligence?.translatedTitle || item.title}
+                        </h4>
+                        
+                        <p className="text-[9px] text-zinc-600 line-clamp-2 italic font-mono uppercase leading-tight group-hover:text-zinc-400 transition-colors">
+                          {item.intelligence?.intelligenceSummary || item.summary || item.description}
+                        </p>
+                      </div>
+                    ))}
+
+                    {/* DEEP SIGNAL FEED (Lesser News) */}
+                    <div className="mt-8 pt-4 border-t border-zinc-900">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="text-[8px] font-mono text-zinc-700 uppercase tracking-[0.3em]">Deep_Scan_Feed</div>
+                        <div className="h-[1px] flex-1 bg-zinc-900" />
+                      </div>
+                      <div className="space-y-3 opacity-50 hover:opacity-100 transition-opacity">
+                        {news.slice(12).map((item, idx) => (
+                          <div key={`deep-${idx}`} onClick={() => onSelectNews(item)} className="group cursor-pointer hover:bg-white/5 p-1 transition-all rounded-sm border border-transparent hover:border-zinc-800">
+                            <div className="text-[7px] font-mono text-zinc-800 mb-1 flex justify-between">
+                              <span>SIGNAL_{idx + 100}</span>
+                              <span>{new Date(item.published_at).toLocaleDateString()}</span>
+                            </div>
+                            <div className="text-[8px] font-bold text-zinc-500 group-hover:text-zinc-300 leading-none truncate">
+                              {item.title}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <h4 className="text-[10px] font-bold text-zinc-400 leading-tight group-hover:text-white transition-colors line-clamp-3">
-                      {item.intelligence?.translatedTitle || item.title}
-                    </h4>
+                  </>
+                ) : (
+                  <div className="py-12 text-center opacity-20">
+                    <Activity className="w-10 h-10 text-white mx-auto mb-3 animate-pulse" />
+                    <div className="text-[10px] font-mono uppercase tracking-[0.5em]">Establishing_Uplink...</div>
                   </div>
-                ))
-              ) : (
-                <div className="py-8 text-center opacity-20">
-                  <Activity className="w-8 h-8 text-white mx-auto mb-2 animate-pulse" />
-                  <div className="text-[10px] font-mono uppercase">Scanning_Neural_Feed...</div>
-                </div>
-              )}
+                )}
+              </div>
               
               {isAiProcessing && (
-                <div className="py-2 flex items-center gap-2 border-t border-white/10">
-                  <div className="w-1 h-1 bg-white rounded-full animate-ping" style={{ backgroundColor: "#22ab94" }} />
-                  <span className="text-[8px] font-mono uppercase tracking-tighter" style={{ color: "#22ab94" }}>Gemini_Enrichment_Active</span>
+                <div className="px-3 py-4 flex items-center gap-2 border-t border-white/5 bg-emerald-950/5 sticky bottom-0">
+                  <RefreshCcw className="w-2.5 h-2.5 text-emerald-400 animate-spin" />
+                  <span className="text-[8px] font-mono uppercase tracking-[0.2em]" style={{ color: "#22ab94" }}>Neural_Synthesis_In_Progress</span>
                 </div>
               )}
             </div>

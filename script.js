@@ -19,6 +19,7 @@ const state = {
   registryPrices: {},
   priceSyncInterval: null,
   relationships: { suppliers: [], customers: [] },
+  chart: null,
 };
 
 /**
@@ -99,6 +100,14 @@ export async function fetchTerminalCore(ticker) {
     }
     
     renderPriceFeed();
+    
+    // Fetch and update chart data
+    const historyRes = await fetch(`/api?service=history&symbol=${ticker}`);
+    const historyData = await historyRes.json();
+    if (historyData && historyData.data) {
+      updateChartData(historyData.data);
+    }
+    
     return data;
   } catch (err) {
     logToTerminal(`UPLINK_FAILURE :: ${err.message}`, 'ERROR');
@@ -260,6 +269,15 @@ const GLOBAL_HUBS = [
   { city: 'Dublin', country: 'IE', coords: [53.3498, -6.2603], company: 'META_EMEA', symbol: 'META', sector: 'TECH', employees: 5000, type: 'HUB' },
   { city: 'Dubai', country: 'AE', coords: [25.2048, 55.2708], company: 'EMIRATES', symbol: 'UAE', sector: 'AERO', employees: 105000, type: 'HQ' },
   { city: 'Perth', country: 'AU', coords: [-31.9505, 115.8605], company: 'RIO_TINTO', symbol: 'RIO', sector: 'MINING', employees: 52000, type: 'HQ' },
+  { city: 'Copenhagen', country: 'DK', coords: [55.6761, 12.5683], company: 'MAERSK', symbol: 'MAERSK', sector: 'LOGISTICS', employees: 100000, type: 'HQ' },
+  { city: 'Hamburg', country: 'DE', coords: [53.5511, 9.9937], company: 'HAPAG-LLOYD', symbol: 'HLAG.DE', sector: 'LOGISTICS', employees: 14000, type: 'HQ' },
+  { city: 'Haifa', country: 'IL', coords: [32.7940, 34.9896], company: 'ZIM', symbol: 'ZIM', sector: 'LOGISTICS', employees: 6000, type: 'HQ' },
+  { city: 'Hedehusene', country: 'DK', coords: [55.6558, 12.1332], company: 'DSV', symbol: 'DSV.CO', sector: 'LOGISTICS', employees: 75000, type: 'HQ' },
+  { city: 'Bethesda', country: 'USA', coords: [39.0204, -77.1775], company: 'LOCKHEED', symbol: 'LMT', sector: 'DEFENSE', employees: 116000, type: 'HQ' },
+  { city: 'Arlington', country: 'USA', coords: [38.8462, -77.1127], company: 'GEN_DYNAMICS', symbol: 'GD', sector: 'DEFENSE', employees: 103000, type: 'HQ' },
+  { city: 'Bozeman', country: 'USA', coords: [45.6770, -111.0429], company: 'SNOWFLAKE', symbol: 'SNOW', sector: 'CLOUD', employees: 6000, type: 'HQ' },
+  { city: 'New York', country: 'USA', coords: [40.7128, -74.0060], company: 'DATADOG', symbol: 'DDOG', sector: 'CLOUD', employees: 5000, type: 'HQ' },
+  { city: 'San Francisco', country: 'USA', coords: [37.7749, -122.4194], company: 'CLOUDFLARE', symbol: 'NET', sector: 'CLOUD', employees: 3000, type: 'HQ' },
   // Operational hubs (Simulated Logistics nodes)
   { city: 'Chicago', country: 'USA', coords: [41.8781, -87.6298], company: 'AMZN_LOGISTICS', symbol: 'AMZN', type: 'HUB', employees: 85000 },
   { city: 'Shanghai', country: 'CN', coords: [31.2304, 121.4737], company: 'AAPL_MFG', symbol: 'AAPL', type: 'HUB', employees: 350000 },
@@ -269,225 +287,166 @@ const GLOBAL_HUBS = [
   { city: 'Eindhoven', country: 'NL', coords: [51.4416, 5.4697], company: 'ASML_R&D', symbol: 'ASML', type: 'HUB', employees: 22000 }
 ];
 
+/**
+ * Neural Volatility Chart (ECharts implementation)
+ */
+function initTerminalChart() {
+  const chartDom = document.getElementById('main-chart-container');
+  if (!chartDom) return;
+  
+  if (!state.chart) {
+    state.chart = echarts.init(chartDom, 'dark');
+    window.addEventListener('resize', () => state.chart.resize());
+  }
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'cross', lineStyle: { color: '#1e293b', width: 1 } },
+      backgroundColor: 'rgba(15, 23, 42, 0.9)',
+      borderColor: '#334155',
+      textStyle: { color: '#e2e8f0', fontSize: 10, fontFamily: 'JetBrains Mono' }
+    },
+    grid: [
+      { left: '10%', right: '5%', height: '60%', top: '10%' },
+      { left: '10%', right: '5%', top: '75%', height: '15%' }
+    ],
+    xAxis: [
+      { type: 'category', gridIndex: 0, scale: true, boundaryGap: false, axisLine: { lineStyle: { color: '#334155' } }, splitLine: { show: false } },
+      { type: 'category', gridIndex: 1, scale: true, boundaryGap: false, axisLine: { lineStyle: { color: '#334155' } }, axisLabel: { show: false }, splitLine: { show: false } }
+    ],
+    yAxis: [
+      { scale: true, gridIndex: 0, axisLine: { lineStyle: { color: '#334155' } }, splitLine: { lineStyle: { color: '#1e293b' } } },
+      { scale: true, gridIndex: 1, axisLabel: { show: false }, axisLine: { show: false }, splitLine: { show: false } }
+    ],
+    series: [
+      {
+        name: 'Price',
+        type: 'candlestick',
+        itemStyle: { color: '#10b981', color0: '#f43f5e', borderColor: '#10b981', borderColor0: '#f43f5e' }
+      },
+      {
+        name: 'Volume',
+        type: 'bar',
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        itemStyle: { color: '#334155' }
+      }
+    ]
+  };
+
+  state.chart.setOption(option);
+}
+
+function updateChartData(historicalData) {
+  if (!state.chart) initTerminalChart();
+  
+  const dates = historicalData.map(d => d.date || d.time);
+  const values = historicalData.map(d => [d.open, d.close, d.low, d.high]);
+  const volumes = historicalData.map((d, i) => [i, d.volume, d.close > d.open ? 1 : -1]);
+
+  state.chart.setOption({
+    xAxis: [{ data: dates }, { data: dates }],
+    series: [
+      { data: values },
+      {
+        data: volumes.map(v => ({
+          value: v[1],
+          itemStyle: { color: v[2] === 1 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(244, 63, 94, 0.4)' }
+        }))
+      }
+    ]
+  });
+}
+
 function updateTopologyMap() {
   const mapEl = document.getElementById('topology-map');
   if (!mapEl) return;
   
   if (!state.map) {
-    state.map = L.map('topology-map', {
-      zoomControl: false,
-      attributionControl: false
-    }).setView([20, 0], 2);
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-    }).addTo(state.map);
-
-    state.markerLayer = L.layerGroup().addTo(state.map);
-    state.hubsLayer = L.layerGroup().addTo(state.map);
-    state.activeLayer = L.layerGroup().addTo(state.map);
-    state.linesLayer = L.layerGroup().addTo(state.map);
-    
-    if (!document.getElementById('leaflet-custom-style')) {
-      const style = document.createElement('style');
-      style.id = 'leaflet-custom-style';
-      style.innerHTML = `
-        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-          background: rgba(0,0,0,0.98) !important;
-          border: 1px solid #06b6d4 !important;
-          color: #06b6d4 !important;
-          border-radius: 0 !important;
-          box-shadow: 0 0 25px rgba(6,182,212,0.4) !important;
-        }
-        .leaflet-popup-content {
-          margin: 0 !important;
-          padding: 10px !important;
-          background: linear-gradient(180deg, rgba(6,182,212,0.08) 0%, rgba(0,0,0,0.1) 100%) !important;
-          max-width: 450px !important;
-          width: auto !important;
-        }
-        .targeting-icon {
-          background: transparent;
-          border: none;
-          width: 0 !important;
-          height: 0 !important;
-        }
-        @keyframes pulse-cyan {
-          0% { transform: scale(1); opacity: 0.8; }
-          50% { transform: scale(1.4); opacity: 0.3; }
-          100% { transform: scale(1); opacity: 0.8; }
-        }
-        .active-hq-pulse {
-          animation: pulse-cyan 3s infinite ease-in-out;
-        }
-        .trade-line {
-          stroke-dasharray: 4;
-          animation: dash-animation 60s linear infinite;
-        }
-        @keyframes dash-animation {
-          from { stroke-dashoffset: 1000; }
-          to { stroke-dashoffset: 0; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }
-
-  // Helper for large numbers
-  const formatLargeLocal = (num) => {
-    if (typeof num !== 'number' || num === 0) return '---';
-    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
-    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(0) + 'K';
-    return num.toLocaleString();
-  };
-
-  // Only render hubs if not already present
-  if (state.hubsLayer.getLayers().length === 0) {
-    GLOBAL_HUBS.forEach(hub => {
-      const radius = Math.max(3, Math.sqrt(hub.employees || 5000) / 40);
-      const isHQ = hub.type === 'HQ';
-      
-      const popupHtml = `
-        <div class="font-mono text-[8px] uppercase space-y-1.5 min-w-[200px]">
-          <div class="flex justify-between border-b border-cyan-900/50 pb-1">
-            <span class="${isHQ ? 'text-cyan-400 font-black' : 'text-cyan-700 font-bold'}">${hub.company}</span>
-            <span class="text-white opacity-40">${hub.type || 'NODE'}</span>
-          </div>
-          <div class="grid grid-cols-2 gap-x-2">
-            <span class="text-gray-500">CITY:</span>
-            <span class="text-white truncate">${hub.city}</span>
-            <span class="text-gray-500">STAFF:</span>
-            <span class="text-white font-bold">${formatLargeLocal(hub.employees)}</span>
-          </div>
-          <div class="text-[7px] text-cyan-800 border-t border-cyan-950/50 pt-1">
-            NODE_STATE: <span class="text-green-500">OPERATIONAL</span>
-          </div>
-        </div>
-      `;
-
-      const marker = L.circleMarker(hub.coords, {
-        radius: radius,
-        fillColor: isHQ ? "#164e63" : "#083344",
-        color: isHQ ? "#06b6d4" : "#155e75",
-        weight: 1,
-        opacity: 0.8,
-        fillOpacity: 0.5
-      }).addTo(state.hubsLayer)
-        .bindPopup(popupHtml, { closeButton: false });
-      
-      marker.on('click', () => {
-        state.targetCoords = hub.coords;
-        window.initTerminal(hub.symbol, true);
+    // Initial Globe Setup
+    state.map = Globe()
+      (mapEl)
+      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-dark.jpg')
+      .backgroundColor('#050505')
+      .atmosphereColor('#22ab94')
+      .atmosphereAltitude(0.15)
+      .onPointClick(point => {
+        state.targetCoords = [point.lat, point.lng];
+        window.initTerminal(point.symbol, true);
       });
+
+    // Auto-rotation
+    state.map.controls().autoRotate = true;
+    state.map.controls().autoRotateSpeed = 0.5;
+
+    // Handle Resize
+    const resizeObserver = new ResizeObserver(() => {
+      state.map.width(mapEl.offsetWidth);
+      state.map.height(mapEl.offsetHeight);
     });
+    resizeObserver.observe(mapEl);
   }
 
-  const { city, country, employees, revenue, ppe, headcountGrowth, regionalDist } = state.logistics || {};
-  const { price, changes, dcf, industry } = state.logistics || {};
-  
-  const isUp = changes >= 0;
-  const overvalued = dcf && price ? (price > dcf) : false;
+  // Update Points (Hubs)
+  const pointsData = GLOBAL_HUBS.map(hub => ({
+    lat: hub.coords[0],
+    lng: hub.coords[1],
+    size: hub.symbol === state.currentTicker ? 1.0 : 0.4,
+    color: hub.symbol === state.currentTicker ? '#22ab94' : (hub.type === 'HQ' ? '#155e75' : '#083344'),
+    label: `${hub.company} [${hub.symbol}]`,
+    symbol: hub.symbol
+  }));
 
+  state.map
+    .pointsData(pointsData)
+    .pointAltitude(d => d.size * 0.1)
+    .pointColor(d => d.color)
+    .pointRadius(d => d.size)
+    .pointLabel(d => d.label);
+
+  // Focus Logic
   const hubsMap = {};
   GLOBAL_HUBS.forEach(h => { hubsMap[h.symbol] = h.coords; hubsMap[h.city] = h.coords; });
-  const activeCoords = state.targetCoords || hubsMap[state.currentTicker] || hubsMap[city] || [34.0522, -118.2437];
+  const activeCoords = state.targetCoords || hubsMap[state.currentTicker] || [20, 0];
 
-  const activePopupHtml = `
-    <div class="font-mono text-[9px] uppercase space-y-2 min-w-[280px]">
-      <div class="flex justify-between border-b border-cyan-500/40 pb-1">
-        <span class="text-cyan-400 font-black animate-pulse flex items-center gap-1">
-          <span class="w-1 h-1 bg-cyan-400 rounded-full"></span>
-          CENTRAL_CONTROL
-        </span>
-        <span class="text-white opacity-60">${state.currentTicker}</span>
-      </div>
-      
-      <div class="grid grid-cols-2 gap-x-2 gap-y-1">
-        <span class="text-gray-500">WORKFORCE:</span>
-        <span class="text-white font-bold">${formatLargeLocal(employees)}</span>
-        
-        <span class="text-gray-500">ASSETS (PPE):</span>
-        <span class="text-cyan-300">${formatLargeLocal(ppe)}</span>
-        
-        <span class="text-gray-500">EFFICIENCY:</span>
-        <span class="text-green-500">${revenue && employees ? '$' + formatLargeLocal(revenue / employees) : '---'}/EE</span>
-      </div>
-
-      <!-- Regional Risk Exposure -->
-      <div class="border-t border-cyan-900/40 pt-1.5">
-          <div class="flex justify-between text-[7px] text-gray-500 mb-1">
-            <span>REGIONAL_RISK_EXPOSURE</span>
-            <span class="${headcountGrowth >= 0 ? 'text-green-500' : 'text-red-500'}">${headcountGrowth ? (headcountGrowth > 0 ? '+' : '') + headcountGrowth.toFixed(1) + '%' : '0.0%'}</span>
-          </div>
-          <div class="flex gap-[1px] h-1.5 bg-black/40">
-             <div class="bg-cyan-500 h-full" style="width: ${regionalDist?.NA || 33}%" title="NA"></div>
-             <div class="bg-cyan-700 h-full" style="width: ${regionalDist?.APAC || 33}%" title="APAC"></div>
-             <div class="bg-cyan-900 h-full" style="width: ${regionalDist?.EMEA || 34}%" title="EMEA"></div>
-          </div>
-          <div class="flex justify-between text-[6px] text-gray-700 mt-0.5">
-             <span>NA:${(regionalDist?.NA || 33).toFixed(0)}%</span>
-             <span>APAC:${(regionalDist?.APAC || 33).toFixed(0)}%</span>
-             <span>EMEA:${(regionalDist?.EMEA || 34).toFixed(0)}%</span>
-          </div>
-      </div>
-    </div>
-  `;
-
-  // Always refresh active marker and lines
-  state.activeLayer.clearLayers();
-  state.linesLayer.clearLayers();
-
-  // Draw lines to other hubs of the same company
-  if (state.currentTicker) {
-    const companyHubs = GLOBAL_HUBS.filter(h => h.symbol === state.currentTicker && h.coords.toString() !== activeCoords.toString());
-    companyHubs.forEach(hub => {
-      L.polyline([activeCoords, hub.coords], {
-        color: '#06b6d4',
-        weight: 1,
-        opacity: 0.3,
-        className: 'trade-line'
-      }).addTo(state.linesLayer);
-    });
+  if (state.currentTicker && activeCoords) {
+    state.map.pointOfView({
+      lat: activeCoords[0],
+      lng: activeCoords[1],
+      altitude: 1.8
+    }, 1500);
+    state.map.controls().autoRotate = false;
   }
 
-  if (!state.newsCycleInterval) {
-    state.map.flyTo(activeCoords, 10, { duration: 2.5 });
-    
-    const targetingIcon = L.divIcon({
-      className: 'targeting-icon',
-      html: `
-        <div class="relative flex items-center justify-center pointer-events-none active-hq-pulse">
-          <div class="absolute w-20 h-20 border border-cyan-500/20 rounded-full"></div>
-          <div class="absolute w-32 h-32 border border-cyan-500/10 rounded-full"></div>
-          <div class="crosshair-v absolute pointer-events-none" style="height: 1000px; width: 1px; margin-top: -500px; background: rgba(6,182,212,0.1);"></div>
-          <div class="crosshair-h absolute pointer-events-none" style="width: 2000px; height: 1px; margin-left: -1000px; background: rgba(6,182,212,0.1);"></div>
-        </div>
-      `,
-      iconSize: [0, 0],
-      iconAnchor: [0, 0]
-    });
-    L.marker(activeCoords, { icon: targetingIcon }).addTo(state.activeLayer);
-  }
+  // Supply Chain Arcs (If relationships exist)
+  const { suppliers, customers } = state.relationships || { suppliers: [], customers: [] };
+  const allPartners = [...suppliers, ...customers];
+  
+  if (allPartners.length > 0 && state.currentTicker) {
+    const origin = activeCoords;
+    const arcsData = allPartners.map(p => {
+      const pCoords = hubsMap[p.symbol] || hubsMap[p.name];
+      if (!pCoords) return null;
+      return {
+        startLat: pCoords[0],
+        startLng: pCoords[1],
+        endLat: origin[0],
+        endLng: origin[1],
+        color: ['#ff8800', '#22ab94']
+      };
+    }).filter(Boolean);
 
-  L.circleMarker(activeCoords, {
-    radius: 8,
-    fillColor: "#06b6d4",
-    color: "#06b6d4",
-    weight: 2,
-    opacity: 0.8,
-    fillOpacity: 0.6
-  }).addTo(state.activeLayer)
-    .bindPopup(activePopupHtml, { closeButton: false })
-    .openPopup();
-
-  // 3. Clear existing layers if necessary or handle in render
-  // (We are removing the manual rendering of supplier/customer nodes here)
-
-  // Tactical Viewport Adjust - Simplified to only focus on active ticker
-  if (!state.newsCycleInterval) {
-    state.map.flyTo(activeCoords, 10, { duration: 2.5 });
+    state.map
+      .arcsData(arcsData)
+      .arcColor(d => d.color)
+      .arcDashLength(0.4)
+      .arcDashGap(0.2)
+      .arcDashAnimateTime(2000)
+      .arcStroke(0.5);
+  } else {
+    state.map.arcsData([]);
   }
 }
 
@@ -872,7 +831,6 @@ window.toggleNewsCycle = () => {
     state.newsCycleInterval = null;
     overlay.classList.add('hidden');
     indicator.classList.add('hidden');
-    if (state.markerLayer) state.markerLayer.clearLayers();
     logToTerminal('NEWS_CYCLE_TERMINATED', 'WARN');
     // Snap back to current ticker HQ
     updateTopologyMap();
@@ -916,52 +874,27 @@ window.toggleNewsCycle = () => {
     `;
 
     if (state.map) {
-      state.map.flyTo(hub.coords, 8, { 
-        duration: 4,
-        easeLinearity: 0.25 
-      });
+      state.map.pointOfView({
+        lat: hub.coords[0],
+        lng: hub.coords[1],
+        altitude: 2.0
+      }, 4000);
       
-      state.markerLayer.clearLayers();
-      
-      // Targeting effect at the new location
-      const targetingIcon = L.divIcon({
-        className: 'targeting-icon',
-        html: `
-          <div class="relative flex items-center justify-center pointer-events-none active-hq-pulse">
-            <div class="absolute w-24 h-24 border-2 border-cyan-500/30 rounded-full animate-ping"></div>
-            <div class="absolute w-40 h-40 border border-cyan-500/10 rounded-full"></div>
-            <div class="crosshair-v absolute pointer-events-none" style="height: 1000px; width: 1px; margin-top: -500px; background: rgba(6,182,212,0.2);"></div>
-            <div class="crosshair-h absolute pointer-events-none" style="width: 2000px; height: 1px; margin-left: -1000px; background: rgba(6,182,212,0.2);"></div>
-          </div>
-        `,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0]
-      });
-      L.marker(hub.coords, { icon: targetingIcon }).addTo(state.markerLayer);
+      // Update points to show targeting on the globe
+      const pointsData = GLOBAL_HUBS.map(h => ({
+        lat: h.coords[0],
+        lng: h.coords[1],
+        size: h.symbol === hub.symbol ? 1.5 : 0.4,
+        color: h.symbol === hub.symbol ? '#10b981' : '#155e75',
+        label: h.symbol === hub.symbol ? `TARGET_LOCKED :: ${h.company}` : `${h.company} [${h.symbol}]`
+      }));
 
-      L.circleMarker(hub.coords, {
-        radius: 15,
-        fillColor: "#06b6d4",
-        color: "#06b6d4",
-        weight: 1,
-        opacity: 0.8,
-        fillOpacity: 0.3
-      }).addTo(state.markerLayer)
-        .bindPopup(`
-          <div class="font-mono text-[10px] w-64 uppercase">
-            <div class="text-cyan-400 font-black mb-1 border-b border-cyan-900 pb-1 flex justify-between">
-              <span>${hub.city} NODAL_POINT</span>
-              <span class="text-[8px] opacity-40">${hub.sector}</span>
-            </div>
-            <div class="text-white font-bold my-2 leading-none border-l-2 border-cyan-500 pl-2">${item.title}</div>
-            <div class="flex justify-between items-center mt-3 pt-1 border-t border-cyan-950 text-[7px] text-cyan-800">
-               <span>LAT: ${hub.coords[0].toFixed(4)}</span>
-               <span>LNG: ${hub.coords[1].toFixed(4)}</span>
-               <span>STAFF: ${hub.employees.toLocaleString()}</span>
-            </div>
-          </div>
-        `, { closeButton: false, offset: [0, -10] })
-        .openPopup();
+      state.map
+        .pointsData(pointsData)
+        .pointAltitude(d => d.size * 0.1)
+        .pointColor(d => d.color)
+        .pointRadius(d => d.size)
+        .pointLabel(d => d.label);
     }
 
     state.newsCycleIndex = (state.newsCycleIndex + 1);

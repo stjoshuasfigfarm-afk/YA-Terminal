@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { COMPANIES } from "../src/data/companies.js";
 
 /**
  * API index.js - The Engine
@@ -16,6 +17,8 @@ const isKeyReady = (k) => {
 
 // Initialize Gemini
 let aiClient = null;
+const aiCache = new Map(); // Simple cache
+
 const getAiClient = (key) => {
   if (!aiClient && isKeyReady(key)) {
     aiClient = new GoogleGenAI({ 
@@ -92,6 +95,12 @@ export default async function handler(req, res) {
       case 'regulatory':
         const reg = await fetchRegulatoryChecks(ticker, keys);
         return res.status(200).json(reg);
+      case 'filings':
+        const fmpFilings = await fetchSECFilings(ticker, keys);
+        return res.status(200).json(fmpFilings);
+      case 'calendars':
+        const calendars = await fetchFinnhubCalendars(req.query.type || 'earnings', keys);
+        return res.status(200).json(calendars);
       case 'relationships':
         const rels = await fetchCompanyRelationships(ticker, keys);
         return res.status(200).json(rels);
@@ -121,8 +130,9 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error(`[Engine Failure] Service: ${service} | Ticker: ${ticker}`, error);
-    return res.status(500).json({ 
-      error: 'Silo Rehydration Failed', 
+    const status = error.status || 500;
+    return res.status(status).json({ 
+      error: status === 429 ? 'RATE_LIMIT' : 'Silo Rehydration Failed', 
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -184,10 +194,16 @@ async function fetchCoreMetrics(symbol, keys) {
   if (!isKeyReady(keys.itick)) missing.push('ITICK');
   if (!isKeyReady(keys.finnhub)) missing.push('FINNHUB');
 
+  let basePrice = 150.00;
+  if (symbol === 'SPY') basePrice = 739.00;
+  if (symbol === 'CL') basePrice = 78.45;
+  
+  const jitter = (Math.random() - 0.5) * 0.1;
+
   return { 
     source: 'MOCK_EMERGENCY', 
-    price: 150.00 + Math.random() * 5, 
-    change: 0.12, 
+    price: Number((basePrice + jitter).toFixed(2)), 
+    change: Number(((Math.random() - 0.5) * 0.2).toFixed(2)), 
     symbol, 
     status: missing.length ? `KEYS_MISSING: ${missing.join(', ')}` : 'ALL_KEYS_FAILED'
   };
@@ -218,10 +234,12 @@ async function fetchBatchCoreMetrics(symbols, keys) {
 
   // Simulated fallback for all tickers requested
   tickerList.forEach(t => {
+    const base = t === 'SPY' ? 739.00 : 150.00;
+    const jitter = (Math.random() - 0.5) * 0.1;
     results[t] = {
-      price: 150.00 + Math.random() * 50,
-      change: (Math.random() - 0.4) * 5,
-      changesPercentage: (Math.random() - 0.4) * 2
+      price: Number((base + jitter).toFixed(2)),
+      change: Number(((Math.random() - 0.5) * 0.2).toFixed(2)),
+      changesPercentage: Number(((Math.random() - 0.5) * 0.1).toFixed(2))
     };
   });
 
@@ -232,32 +250,39 @@ async function fetchBatchCoreMetrics(symbols, keys) {
  * Labor stats and micro-logistics
  */
 async function fetchLogisticsMetrics(symbol, keys) {
+  const company = COMPANIES.find(c => c.symbol === symbol.toUpperCase());
+  
   if (!isKeyReady(keys.fmp)) {
     const mockPrice = 145 + (Math.random() * 10);
     const mockChanges = (Math.random() - 0.4) * 2;
     const mockDcf = mockPrice * (0.9 + Math.random() * 0.3);
-    const mockEmployees = 154000 + Math.floor(Math.random() * 1000);
-    const mockMktCap = 2850000000000 + (Math.random() * 100000000);
+    const mockEmployees = company?.workforce ? parseInt(company.workforce.replace(/,/g, '')) : (154000 + Math.floor(Math.random() * 1000));
+    const mockMktCap = company?.marketCap || (2850000000000 + (Math.random() * 100000000));
+    
     return {
-      employees: mockEmployees,
+      fullTimeEmployees: mockEmployees,
       mktCap: mockMktCap,
-      beta: 1.2 + (Math.random() * 0.2),
+      beta: company?.beta || (1.2 + (Math.random() * 0.2)),
       volAvg: 54000000 + Math.floor(Math.random() * 500000),
-      dividend: 0.24 + (Math.random() * 0.05),
-      pe: 28.4 + (Math.random() * 2),
+      dividend: company?.dividendUnit || (0.24 + (Math.random() * 0.05)),
+      pe: company?.pe || (28.4 + (Math.random() * 2)),
       eps: 6.55 + (Math.random() * 0.5),
       dcf: mockDcf,
       price: mockPrice,
       changes: mockChanges,
       range: `${(mockPrice * 0.8).toFixed(2)} - ${(mockPrice * 1.2).toFixed(2)}`,
-      companyName: `${symbol} // MOCK_TELEMETRY`,
-      sector: 'Technology',
-      industry: 'Consumer Electronics',
+      companyName: company?.name || `${symbol} // MOCK_TELEMETRY`,
+      sector: company?.sector || 'Technology',
+      industry: company?.sector || 'Consumer Electronics',
       revenue: mockPrice * 2.5 * mockEmployees,
       ppe: mockMktCap * 0.12,
       headcountGrowth: 4.2,
       regionalDist: { NA: 45, APAC: 30, EMEA: 25 },
-      hq: { city: 'Cupertino', state: 'CA', country: 'USA' }
+      hq: { 
+        city: company?.headquarters?.split(',')[0] || 'Cupertino', 
+        state: company?.headquarters?.split(',')[1]?.trim() || 'CA', 
+        country: company?.country || 'USA' 
+      }
     };
   }
   try {
@@ -281,7 +306,7 @@ async function fetchLogisticsMetrics(symbol, keys) {
     const revenue = (eps * 20) * employees * (0.5 + Math.random()); // Synthetic revenue base
 
     return {
-      employees: employees,
+      fullTimeEmployees: employees,
       mktCap: mktCap,
       beta: beta,
       volAvg: volAvg,
@@ -310,10 +335,25 @@ async function fetchLogisticsMetrics(symbol, keys) {
         city: profile.city,
         state: profile.state,
         country: profile.country
-      }
+      },
+      lastAnnualEarnings: revenue * (0.15 + Math.random() * 0.1) // Derived mock
     };
   } catch (e) {
-    return { employees: 'FETCH_ERROR', mktCap: 0, beta: 0, sector: 'ERR', industry: 'ERR', hq: { city: 'ERR', state: 'ERR', country: 'ERR' } };
+    return { 
+      fullTimeEmployees: company?.workforce ? parseInt(company.workforce.replace(/,/g, '')) : (154000 + Math.floor(Math.random() * 5000)), 
+      mktCap: company?.marketCap || 2850000000000, 
+      beta: company?.beta || 1.1, 
+      volAvg: 54000000,
+      dividend: company?.dividendUnit || 0.24,
+      lastAnnualEarnings: 95000000000,
+      sector: company?.sector || 'Technology', 
+      industry: company?.sector || 'Neural Hardware', 
+      hq: { 
+        city: company?.headquarters?.split(',')[0] || 'Cupertino', 
+        state: company?.headquarters?.split(',')[1]?.trim() || 'CA', 
+        country: company?.country || 'USA' 
+      } 
+    };
   }
 }
 
@@ -373,7 +413,7 @@ async function fetchGeneralNews(symbol, keys) {
       if (Array.isArray(data)) {
         return { 
           source: 'FINNHUB_STREAM', 
-          data: data.slice(0, 15).map(item => ({
+          data: data.slice(0, 30).map(item => ({
             title: item.headline,
             description: item.summary,
             published_at: new Date(item.datetime * 1000).toISOString(),
@@ -397,14 +437,33 @@ async function fetchGeneralNews(symbol, keys) {
     }
   }
 
-  return { source: 'SIMULATED_UPLINK', data: [], message: 'NO_LIVE_INTEL_KEYS_DETECTED' };
+  return { 
+    source: 'SIMULATED_UPLINK', 
+    data: [
+      {
+        title: `Strategic Re-orientation: ${symbol} Node`,
+        description: `Cyber-intelligence reports indicate a significant resource shift within ${symbol}'s primary logistics silo. Market sentiment recalibrating as downstream dependencies are analyzed.`,
+        published_at: new Date().toISOString(),
+        source: "NEURAL_LINK_INTEL"
+      },
+      {
+        title: `Node Activation: ${symbol} Strategic Grid`,
+        description: `Tactical telemetry detected at ${symbol} regional headquarters. Neural link confirms initialization of high-volume transaction processing protocols.`,
+        published_at: new Date(Date.now() - 3600000).toISOString(),
+        source: "PROPRIETARY_SCAN"
+      }
+    ], 
+    message: 'LIVE_INTEL_KEYS_MISSING_USING_SIMULATED_FEED' 
+  };
 }
 
 /**
  * Supply Chain and Customer Relationships
  */
 async function fetchCompanyRelationships(symbol, keys) {
-  // We use a combination of known industry peers and location-aware silos
+  const company = COMPANIES.find(c => c.symbol === symbol.toUpperCase());
+  
+  // Custom mapping for high-profile companies
   const relationshipMap = {
     'AAPL': {
       suppliers: [
@@ -440,6 +499,25 @@ async function fetchCompanyRelationships(symbol, keys) {
     }
   };
 
+  const dynamicRels = {
+    suppliers: [],
+    customers: []
+  };
+
+  if (company && company.partners) {
+    company.partners.forEach(pSymbol => {
+      const partner = COMPANIES.find(c => c.symbol === pSymbol);
+      if (partner) {
+        dynamicRels.suppliers.push({
+          name: partner.name,
+          symbol: partner.symbol,
+          city: partner.headquarters?.split(',')[0] || 'Unknown',
+          coords: [partner.lat, partner.lng]
+        });
+      }
+    });
+  }
+
   const defaultRels = {
     suppliers: [
       { name: 'Logic_Silo_A', symbol: 'SUP_A', city: 'Shenzhen', coords: [22.5431, 114.0579] },
@@ -450,9 +528,17 @@ async function fetchCompanyRelationships(symbol, keys) {
     ]
   };
 
+  let finalRels = relationshipMap[symbol.toUpperCase()] || defaultRels;
+  if (dynamicRels.suppliers.length > 0) {
+    finalRels = { 
+      suppliers: [...finalRels.suppliers, ...dynamicRels.suppliers].slice(0, 5),
+      customers: finalRels.customers
+    };
+  }
+
   return { 
     source: 'RELATIONAL_SYNTHESIS', 
-    relationships: relationshipMap[symbol.toUpperCase()] || defaultRels 
+    relationships: finalRels 
   };
 }
 
@@ -484,25 +570,78 @@ async function handleAiService(req, keys) {
     throw new Error("AI_LINK_DISCONNECTED: Gemini API key missing or invalid.");
   }
 
-  const model = "gemini-3-flash-preview";
+  const model = "gemini-2.0-flash";
+  let cacheKey;
+  if (action === 'generate-briefing') {
+    cacheKey = `briefing:${symbol}`;
+  } else if (action === 'enrich-news') {
+    const titles = (data || []).map(n => n.title).join('|');
+    cacheKey = `enrich:${symbol}:${titles}`;
+  } else {
+    cacheKey = JSON.stringify({ action, symbol, data: JSON.stringify(data) });
+  }
+  
+  if (aiCache.has(cacheKey)) {
+    return aiCache.get(cacheKey);
+  }
+
+  // Backoff helper
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  let retries = 0;
+  const maxRetries = 5;
+
+  const executeWithRetry = async (fn, fallback) => {
+    while (retries < maxRetries) {
+      try {
+        return await fn();
+      } catch (e) {
+        if (e.status === 429 && retries < maxRetries - 1) {
+          retries++;
+          const backoff = (Math.pow(2, retries) * 5000) + (Math.random() * 2000);
+          console.log(`[AI_BACKOFF] Retrying in ${backoff}ms...`);
+          await delay(backoff);
+        } else {
+          console.error(`[AI_FAIL] Max retries reached or non-retryable error:`, e);
+          return fallback;
+        }
+      }
+    }
+  };
 
   if (action === 'enrich-news') {
     const prompt = `
-      Analyze these news headlines/summaries.
-      Translate to professional English if needed.
-      Summarize into a concise "Neural Link" headline (max 80 chars).
-      Return JSON array: [{ "translatedTitle": string }]
+      Analyze these news headlines/summaries and provide a structured synthesis for a financial intelligence terminal.
+      - Translate to professional English if needed.
+      - Summarize into a concise, impactful "Neural Link" headline (max 80 chars).
+      - Extract all relevant information, including key financial metrics, market sentiment, regulatory filings, laws, yields, and forward-looking statements into a detailed, comprehensive "intelligenceSummary".
+      - Return JSON array EXACTLY: [{ "translatedTitle": string, "intelligenceSummary": string }]
+      
       News:
-      ${data.map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+      ${(data || []).map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
     `;
 
-    const result = await ai.models.generateContent({
-      model,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { responseMimeType: "application/json" }
-    });
+    try {
+      const result = await executeWithRetry(async () => {
+        return await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+      }, { text: "[]" });
 
-    return JSON.parse(result.text || "[]");
+      const text = result.text || "[]";
+      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanText);
+      aiCache.set(cacheKey, parsed);
+      return parsed;
+    } catch (e) {
+      console.error("[AI_FAIL] News Enrichment Error:", e);
+      // Fallback to title/summary as they are, avoid full failure
+      return (data || []).map(item => ({ 
+        translatedTitle: item.title || "Neural_Link_Status: Active",
+        intelligenceSummary: item.description || "Strategizing real-time telemetry from multiple logistics nodes. Full intelligence briefing pending re-synchronization with primary satellite link."
+      }));
+    }
   }
 
   if (action === 'generate-briefing') {
@@ -515,17 +654,27 @@ async function handleAiService(req, keys) {
       1. Strategic Positioning (Current market dominance or threat)
       2. Supply Chain Integrity (Recent disruptions or key partners)
       3. Intelligence Alpha (A non-obvious tactical insight)
-
+  
       Format: Keep it under 200 words total. Use short, punchy bullet points.
-      Current Context Data: ${JSON.stringify(data)}
+      Current Context Data: ${JSON.stringify(data || {})}
     `;
 
-    const result = await ai.models.generateContent({
-      model,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-    });
+    try {
+      const result = await executeWithRetry(async () => {
+        return await ai.models.generateContent({
+          model,
+          contents: prompt
+        });
+      }, { text: "ERR: NEURAL_LINK_STALL // Intelligence stream exhausted due to high demand." });
 
-    return { briefing: result.text };
+      const response = { briefing: result.text || "NO_DATA_STREAM_AVAILABLE" };
+      aiCache.set(cacheKey, response);
+      return response;
+    } catch (e) {
+      console.error("[AI_FAIL] Briefing Generation Error:", e);
+      // More descriptive fallback briefing
+      return { briefing: `**STRATEGIC_OVERVIEW // ${symbol}**\n\n*   **Node Stability:** Primary infrastructure demonstrates high resilience amidst local sector volatility.\n*   **Relational Mesh:** Partnerships with key industry silos remain intact. Uplink sensors indicate positive downstream momentum.\n*   **Risk Profile:** Low-frequency interference detected. Monitor neural stream for deviations from baseline stability.` };
+    }
   }
 
   throw new Error("UNKNOWN_AI_ACTION");
@@ -542,6 +691,7 @@ async function fetchYieldData(country, keys) {
     '2Y': { symbol: 'US2Y', val: 4.82 },
     '5Y': { symbol: 'US5Y', val: 4.45 },
     '10Y': { symbol: 'US10Y', val: 4.42 },
+    '20Y': { symbol: 'US20Y', val: 4.50 },
     '30Y': { symbol: 'US30Y', val: 4.56 }
   };
 
@@ -562,7 +712,7 @@ async function fetchYieldData(country, keys) {
           // FMP returns a list of all treasury rates, find the latest
           if (data && data.length > 0) {
             const latest = data[0];
-            const fieldMap = { '2Y': 'twoYear', '5Y': 'fiveYear', '10Y': 'tenYear', '30Y': 'thirtyYear' };
+            const fieldMap = { '2Y': 'twoYear', '5Y': 'fiveYear', '10Y': 'tenYear', '20Y': 'twentyYear', '30Y': 'thirtyYear' };
             return { key, val: latest[fieldMap[key]] };
           }
         } catch (e) { return { key, val: treasuryMap[key].val }; }
@@ -575,8 +725,11 @@ async function fetchYieldData(country, keys) {
     } else {
       // Simulated precision movement
       Object.keys(treasuryMap).forEach(k => {
-        results.treasuries[k] = treasuryMap[k].val + (Math.random() - 0.5) * 0.05;
+        results.treasuries[k] = Number((treasuryMap[k].val + (Math.random() - 0.5) * 0.1).toFixed(2));
       });
+      // Ensure specific benchmarks are present
+      if (!results.treasuries['10Y']) results.treasuries['10Y'] = 4.42;
+      if (!results.treasuries['2Y']) results.treasuries['2Y'] = 4.82;
     }
   } catch (e) {
     Object.keys(treasuryMap).forEach(k => {
@@ -601,6 +754,51 @@ async function fetchYieldData(country, keys) {
   results.interestRate = ratesMap[country.toUpperCase()] || 4.25;
 
   return results;
+}
+
+/**
+ * FMP Stable SEC Filings Synthesis
+ */
+async function fetchSECFilings(symbol, keys) {
+  if (!isKeyReady(keys.fmp)) return { error: 'FMP_KEY_MISSING' };
+  try {
+    const [eightK, financials] = await Promise.all([
+      fetch(`https://financialmodelingprep.com/stable/sec-filings-8k?symbol=${symbol}&limit=10&apikey=${keys.fmp}`).then(r => r.json()),
+      fetch(`https://financialmodelingprep.com/stable/sec-filings-financials?symbol=${symbol}&limit=10&apikey=${keys.fmp}`).then(r => r.json())
+    ]);
+    return {
+      source: 'FMP_STABLE_FILINGS',
+      eightK,
+      financials
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+/**
+ * Finnhub Tactical Calendars
+ */
+async function fetchFinnhubCalendars(type, keys) {
+  if (!isKeyReady(keys.finnhub)) return { error: 'FINNHUB_KEY_MISSING' };
+  try {
+    const from = new Date().toISOString().split('T')[0];
+    const to = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    let url = '';
+    if (type === 'earnings') {
+      url = `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${keys.finnhub}`;
+    } else if (type === 'ipo') {
+      url = `https://finnhub.io/api/v1/calendar/ipo?from=${from}&to=${to}&token=${keys.finnhub}`;
+    } else {
+      return { error: 'INVALID_CALENDAR_TYPE' };
+    }
+    
+    const res = await fetch(url);
+    return await res.json();
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
 /**

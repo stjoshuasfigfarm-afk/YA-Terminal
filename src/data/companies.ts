@@ -8,18 +8,25 @@ export interface Company {
   partners?: string[]; // symbols for supply chain links
   workforce?: string;
   headquarters?: string;
+  news?: { title: string; summary: string; date: string }[];
+  marketCap?: number;
+  beta?: number;
+  pe?: number;
+  dividendUnit?: number;
 }
 
 // Registry of 150+ global company nodes
 export const COMPANIES: Company[] = [
   
+  { symbol: "SPY", name: "S&P 500 ETF", sector: "ETF", lat: 40.7128, lng: -74.0060, country: "USA", partners: ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL"], workforce: "N/A", headquarters: "New York, NY", marketCap: 500e9, beta: 1.0 },
+  
   // TECH / SEMI (US/ASIA)
-  { symbol: "AAPL", name: "Apple Inc.", sector: "Technology", lat: 37.3349, lng: -122.0091, country: "USA", partners: ["TSM", "FOXCONN", "MSFT"], workforce: "164,000", headquarters: "Cupertino, CA" },
-  { symbol: "MSFT", name: "Microsoft", sector: "Technology", lat: 47.6396, lng: -122.1283, country: "USA", partners: ["NVDA", "ORCL", "AMD"], workforce: "221,000", headquarters: "Redmond, WA" },
-  { symbol: "NVDA", name: "Nvidia", sector: "Semiconductors", lat: 37.3712, lng: -121.9663, country: "USA", partners: ["TSM", "ARM", "SMC"], workforce: "26,000", headquarters: "Santa Clara, CA" },
-  { symbol: "TSM", name: "TSMC", sector: "Semiconductors", lat: 24.7816, lng: 121.0153, country: "TWN", partners: ["AAPL", "NVDA", "ASML"], workforce: "73,000", headquarters: "Hsinchu, Taiwan" },
-  { symbol: "ASML", name: "ASML Holding", sector: "Semiconductors", lat: 51.4035, lng: 5.4081, country: "NLD", partners: ["TSM", "INTC", "AMAT"], workforce: "39,000", headquarters: "Veldhoven, Netherlands" },
-  { symbol: "SMC", name: "Super Micro", sector: "Technology", lat: 37.3794, lng: -121.9407, country: "USA", partners: ["NVDA", "INTC"], workforce: "5,000", headquarters: "San Jose, CA" },
+  { symbol: "AAPL", name: "Apple Inc.", sector: "Technology", lat: 37.3349, lng: -122.0091, country: "USA", partners: ["TSM", "FOXCONN", "MSFT"], workforce: "164,000", headquarters: "Cupertino, CA", marketCap: 2.8e12, beta: 1.2, pe: 28.5, dividendUnit: 0.24, news: [{ title: "New Neural Chip Announced", summary: "Apple reveals next-gen AI processing chip.", date: "2026-05-18" }] },
+  { symbol: "MSFT", name: "Microsoft", sector: "Technology", lat: 47.6396, lng: -122.1283, country: "USA", partners: ["NVDA", "ORCL", "AMD"], workforce: "221,000", headquarters: "Redmond, WA", marketCap: 3.1e12, beta: 0.9, pe: 35.2 },
+  { symbol: "NVDA", name: "Nvidia", sector: "Semiconductors", lat: 37.3712, lng: -121.9663, country: "USA", partners: ["TSM", "ARM", "SMC"], workforce: "26,000", headquarters: "Santa Clara, CA", marketCap: 2.2e12, beta: 1.7, pe: 74.3 },
+  { symbol: "TSM", name: "TSMC", sector: "Semiconductors", lat: 24.7816, lng: 121.0153, country: "TWN", partners: ["AAPL", "NVDA", "ASML"], workforce: "73,000", headquarters: "Hsinchu, Taiwan", marketCap: 700e9, beta: 1.2, pe: 21.0, news: [{ title: "Expansion in Arizona", summary: "TSMC accelerates construction on US fab.", date: "2026-05-18" }] },
+  { symbol: "ASML", name: "ASML Holding", sector: "Semiconductors", lat: 51.4035, lng: 5.4081, country: "NLD", partners: ["TSM", "INTC", "AMAT"], workforce: "39,000", headquarters: "Veldhoven, Netherlands", marketCap: 380e9, beta: 1.3, news: [{ title: "New Lithography Breakthrough", summary: "ASML unveils latest EUV machine capabilities.", date: "2026-05-18" }] },
+  { symbol: "SMC", name: "Super Micro", sector: "Technology", lat: 37.3794, lng: -121.9407, country: "USA", partners: ["NVDA", "INTC"], workforce: "5,000", headquarters: "San Jose, CA", marketCap: 50e9, beta: 2.0 },
   
   // FINANCE (US/EU)
   { symbol: "JPM", name: "JPMorgan Chase", sector: "Financial Services", lat: 40.7559, lng: -73.9749, country: "USA", partners: ["GS", "MS"] },
@@ -28,16 +35,16 @@ export const COMPANIES: Company[] = [
   { symbol: "DB", name: "Deutsche Bank", sector: "Financial Services", lat: 50.1136, lng: 8.6690, country: "DEU", partners: ["HSBC"] },
   
   // ENERGY / AUTO
-  { symbol: "TSLA", name: "Tesla Inc.", sector: "Automotive", lat: 30.2241, lng: -97.6258, country: "USA", partners: ["CATL", "PANASONIC", "PARK"] },
-  { symbol: "TM", name: "Toyota Motor", sector: "Automotive", lat: 35.0838, lng: 137.1557, country: "JPN", partners: ["PANASONIC", "DENSO"] },
-  { symbol: "XOM", name: "ExxonMobil", sector: "Energy", lat: 32.8925, lng: -96.9452, country: "USA", partners: ["CVX", "SHEL"] },
-  { symbol: "SHEL", name: "Shell PLC", sector: "Energy", lat: 52.3702, lng: 4.8952, country: "GBR", partners: ["XOM", "TOT"] },
-  { symbol: "ARAMCO", name: "Saudi Aramco", sector: "Energy", lat: 26.3861, lng: 50.1264, country: "SAU", partners: ["TOT", "XOM"] },
+  { symbol: "TSLA", name: "Tesla Inc.", sector: "Automotive", lat: 30.2241, lng: -97.6258, country: "USA", partners: ["CATL", "PANASONIC", "PARK"], marketCap: 600e9, beta: 1.5, pe: 45.0 },
+  { symbol: "TM", name: "Toyota Motor", sector: "Automotive", lat: 35.0838, lng: 137.1557, country: "JPN", partners: ["PANASONIC", "DENSO"], marketCap: 300e9, beta: 0.8 },
+  { symbol: "XOM", name: "ExxonMobil", sector: "Energy", lat: 32.8925, lng: -96.9452, country: "USA", partners: ["CVX", "SHEL"], marketCap: 480e9, beta: 0.6, dividendUnit: 0.95 },
+  { symbol: "SHEL", name: "Shell PLC", sector: "Energy", lat: 52.3702, lng: 4.8952, country: "GBR", partners: ["XOM", "TOT"], marketCap: 210e9 },
+  { symbol: "ARAMCO", name: "Saudi Aramco", sector: "Energy", lat: 26.3861, lng: 50.1264, country: "SAU", partners: ["TOT", "XOM"], marketCap: 2.1e12 },
   
   // CONSUMER / RETAIL
   { symbol: "AMZN", name: "Amazon.com", sector: "Consumer Cyclical", lat: 47.6092, lng: -122.3331, country: "USA", partners: ["UPS", "FDX", "RIVN"] },
   { symbol: "LVMH", name: "LVMH", sector: "Consumer Cyclical", lat: 48.8718, lng: 2.3015, country: "FRA", partners: ["RMS"] },
-  { symbol: "NKE", name: "Nike Inc.", sector: "Consumer Cyclical", lat: 45.4907, lng: -122.8276, country: "USA", partners: ["ADDYY"] },
+  { symbol: "NKE", name: "Nike Inc.", sector: "Consumer Cyclical", lat: 45.4907, lng: -122.8276, country: "USA", partners: ["ADDYY"], news: [{ title: "Eco-Friendly Material", summary: "Nike introduces 100% recycled running shoe line.", date: "2026-05-18" }] },
   { symbol: "ADDYY", name: "Adidas", sector: "Consumer Cyclical", lat: 49.5815, lng: 10.8841, country: "DEU", partners: ["NKE"] },
 
   // ASIA SPECIAL NODES
@@ -47,20 +54,20 @@ export const COMPANIES: Company[] = [
   
   // LATAM
   { symbol: "MELI", name: "MercadoLibre", sector: "Consumer Cyclical", lat: -34.5495, lng: -58.4556, country: "ARG", partners: ["AMZN", "SHOP"] },
-  { symbol: "VALE", name: "Vale S.A.", sector: "Basic Materials", lat: -22.9068, lng: -43.1729, country: "BRA", partners: ["RIO", "BHP"] },
+  { symbol: "VALE", name: "Vale S.A.", sector: "Basic Materials", lat: -22.9068, lng: -43.1729, country: "BRA", partners: ["RIO", "BHP"], news: [{ title: "Resource Discovery", summary: "New iron ore reserves identified in Brazil.", date: "2026-05-18" }] },
 
   // Adding more nodes to reach 150+ (abbreviated list, adding procedurally or more manual entries)
   { symbol: "META", name: "Meta Platforms", sector: "Technology", lat: 37.4851, lng: -122.1483, country: "USA" },
-  { symbol: "GOOGL", name: "Alphabet Inc.", sector: "Technology", lat: 37.4221, lng: -122.0841, country: "USA" },
+  { symbol: "GOOGL", name: "Alphabet Inc.", sector: "Technology", lat: 37.4221, lng: -122.0841, country: "USA", news: [{ title: "AI Search Revamp", summary: "Google rolls out new generative AI search features globally.", date: "2026-05-18" }] },
   { symbol: "ORCL", name: "Oracle Corp.", sector: "Technology", lat: 40.5284, lng: -111.8906, country: "USA" },
   { symbol: "CSCO", name: "Cisco Systems", sector: "Technology", lat: 37.4087, lng: -121.9540, country: "USA" },
-  { symbol: "SAP", name: "SAP SE", sector: "Technology", lat: 49.2934, lng: 8.6419, country: "DEU" },
+  { symbol: "SAP", name: "SAP SE", sector: "Technology", lat: 49.2934, lng: 8.6419, country: "DEU", news: [{ title: "Enterprise Cloud Growth", summary: "SAP reports record growth in cloud revenue.", date: "2026-05-18" }] },
   { symbol: "INTC", name: "Intel Corp.", sector: "Technology", lat: 37.3875, lng: -121.9634, country: "USA" },
   { symbol: "AMD", name: "AMD", sector: "Technology", lat: 37.3842, lng: -121.9790, country: "USA" },
   { symbol: "QCOM", name: "Qualcomm", sector: "Technology", lat: 32.8955, lng: -117.1970, country: "USA" },
   { symbol: "TXN", name: "Texas Instruments", sector: "Technology", lat: 32.9126, lng: -96.7610, country: "USA" },
   { symbol: "AVGO", name: "Broadcom", sector: "Technology", lat: 37.3995, lng: -121.9213, country: "USA" },
-  { symbol: "SONY", name: "Sony Group", sector: "Technology", lat: 35.6324, lng: 139.7441, country: "JPN" },
+  { symbol: "SONY", name: "Sony Group", sector: "Technology", lat: 35.6324, lng: 139.7441, country: "JPN", news: [{ title: "New Gaming Console", summary: "Sony unveils next-gen gaming hardware prototype.", date: "2026-05-18" }] },
   { symbol: "CRM", name: "Salesforce", sector: "Technology", lat: 37.7897, lng: -122.3972, country: "USA" },
   { symbol: "ADBE", name: "Adobe Inc.", sector: "Technology", lat: 37.3307, lng: -121.8938, country: "USA" },
   { symbol: "PYPL", name: "PayPal", sector: "Technology", lat: 37.3005, lng: -121.9062, country: "USA" },
@@ -189,5 +196,44 @@ export const COMPANIES: Company[] = [
   { symbol: "BK", name: "BNY Mellon", sector: "Financial Services", lat: 40.7128, lng: -74.0060, country: "USA" },
   { symbol: "STX", name: "Seagate", sector: "Technology", lat: 37.3541, lng: -121.9552, country: "USA" },
   { symbol: "WDC", name: "Western Digital", sector: "Technology", lat: 37.3541, lng: -121.9552, country: "USA" },
-  { symbol: "MU", name: "Micron", sector: "Semiconductors", lat: 43.6150, lng: -116.2023, country: "USA" }
+  { symbol: "MU", name: "Micron", sector: "Semiconductors", lat: 43.6150, lng: -116.2023, country: "USA" },
+
+  // NEW ADDITIONS: GLOBAL LOGISTICS & SHIPPING
+  { symbol: "MAERSK", name: "A.P. Moller - Maersk", sector: "Industrials", lat: 55.6761, lng: 12.5683, country: "DNK", partners: ["AAPL", "AMZN", "WMT"] },
+  { symbol: "HLAG.DE", name: "Hapag-Lloyd", sector: "Industrials", lat: 53.5511, lng: 9.9937, country: "DEU", partners: ["BAS.DE", "VWAGY"] },
+  { symbol: "ZIM", name: "ZIM Integrated Shipping", sector: "Industrials", lat: 32.7940, lng: 34.9896, country: "ISR" },
+  { symbol: "DSV.CO", name: "DSV A/S", sector: "Industrials", lat: 55.6558, lng: 12.1332, country: "DNK" },
+
+  // NEW ADDITIONS: ENERGY & RAW MATERIALS
+  { symbol: "GLEN.L", name: "Glencore plc", sector: "Basic Materials", lat: 47.1662, lng: 8.5155, country: "CHE", partners: ["TSLA", "AAPL", "VALE"] },
+  { symbol: "OXY", name: "Occidental Petroleum", sector: "Energy", lat: 29.7604, lng: -95.3698, country: "USA" },
+  { symbol: "COP", name: "ConocoPhillips", sector: "Energy", lat: 29.7604, lng: -95.3698, country: "USA" },
+  { symbol: "BAS.DE", name: "BASF SE", sector: "Basic Materials", lat: 49.4875, lng: 8.4660, country: "DEU" },
+  { symbol: "RIO.L", name: "Rio Tinto Group", sector: "Basic Materials", lat: 51.5074, lng: -0.1278, country: "GBR" },
+
+  // NEW ADDITIONS: EMERGING MARKETS (INDIA, SE ASIA, LATAM)
+  { symbol: "RELIANCE.NS", name: "Reliance Industries", sector: "Energy", lat: 19.0760, lng: 72.8777, country: "IND", partners: ["GOOGL", "META", "AMZN"], news: [{ title: "Green Hydrogen Pact", summary: "India's Reliance signs deal for green energy.", date: "2026-05-18" }] },
+  { symbol: "TCS.NS", name: "Tata Consultancy", sector: "Technology", lat: 19.0760, lng: 72.8777, country: "IND", partners: ["MSFT", "ORCL"] },
+  { symbol: "HDB", name: "HDFC Bank", sector: "Financial Services", lat: 19.0760, lng: 72.8777, country: "IND" },
+  { symbol: "GRAB", name: "Grab Holdings", sector: "Technology", lat: 1.3521, lng: 103.8198, country: "SGP", partners: ["SOFTBY", "DIDI"] },
+  { symbol: "SE", name: "Sea Limited (Shopee)", sector: "Technology", lat: 1.3521, lng: 103.8198, country: "SGP", partners: ["700"] },
+  { symbol: "CPNG", name: "Coupang", sector: "Consumer Cyclical", lat: 37.5665, lng: 126.9780, country: "KOR" },
+
+  // NEW ADDITIONS: DEFENSE & AEROSPACE
+  { symbol: "LMT", name: "Lockheed Martin", sector: "Industrials", lat: 39.0204, lng: -77.1775, country: "USA", partners: ["RTX", "BA"] },
+  { symbol: "RTX", name: "Raytheon Technologies", sector: "Industrials", lat: 42.1673, lng: -71.2662, country: "USA", partners: ["AIR"] },
+  { symbol: "GD", name: "General Dynamics", sector: "Industrials", lat: 38.8462, lng: -77.1127, country: "USA" },
+
+  // NEW ADDITIONS: CLOUD & SAAS
+  { symbol: "SNOW", name: "Snowflake Inc.", sector: "Technology", lat: 33.5244, lng: -117.7025, country: "USA", partners: ["AMZN", "MSFT", "GOOGL"] },
+  { symbol: "DDOG", name: "Datadog", sector: "Technology", lat: 40.7128, lng: -74.0060, country: "USA" },
+  { symbol: "NET", name: "Cloudflare", sector: "Technology", lat: 37.7749, lng: -122.4194, country: "USA" },
+  { symbol: "CRWD", name: "CrowdStrike", sector: "Technology", lat: 30.2672, lng: -97.7431, country: "USA" },
+  { symbol: "MDB", name: "MongoDB", sector: "Technology", lat: 40.7128, lng: -74.0060, country: "USA" },
+
+  // ADDITIONAL CHINA TECH
+  { symbol: "BIDU", name: "Bidu", sector: "Technology", lat: 39.9042, lng: 116.4074, country: "CHN" },
+  { symbol: "PDD", name: "Pinduoduo / Temu", sector: "Consumer Cyclical", lat: 31.2304, lng: 121.4737, country: "CHN" },
+  { symbol: "JD", name: "JD.com", sector: "Consumer Cyclical", lat: 39.9042, lng: 116.4074, country: "CHN" },
+  { symbol: "NTES", name: "NetEase", sector: "Communication Services", lat: 30.2741, lng: 120.1551, country: "CHN" }
 ];
