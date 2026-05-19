@@ -31,6 +31,9 @@ interface IntelligenceSidebarProps {
   sentiment?: any;
   yields?: any;
   logs?: string[];
+  quotaExhausted: boolean;
+  onEnrichNews: () => void;
+  onGenerateBriefing: () => void;
 }
 
 const YieldAnalysis = ({ yields }: { yields: any }) => {
@@ -139,7 +142,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   briefing,
   sentiment,
   yields,
-  logs = []
+  logs = [],
+  quotaExhausted,
+  onEnrichNews,
+  onGenerateBriefing
 }) => {
 
   if (!selectedStock) {
@@ -337,6 +343,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 <span className="text-[9px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
                   <Newspaper className="w-2.5 h-2.5" /> Intelligence_Sync
                 </span>
+                {!quotaExhausted && !isAiProcessing && (
+                   <button onClick={onEnrichNews} className="text-[7px] bg-emerald-500/20 px-1 py-0.5 border border-emerald-500/30 text-emerald-500 font-mono uppercase hover:bg-emerald-500 hover:text-black ml-2">Enrich</button>
+                )}
+                {quotaExhausted && <span className="text-[7px] text-red-500 font-mono uppercase">Quota_Exhausted</span>}
               </div>
               
               <div className="p-3 space-y-3">
@@ -463,6 +473,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 <span className="text-[9px] font-mono text-white uppercase tracking-widest flex items-center gap-1">
                   <ShieldAlert className="w-2.5 h-2.5" /> Operations_Order
                 </span>
+                {!quotaExhausted && !isAiProcessing && (
+                   <button onClick={onGenerateBriefing} className="text-[7px] bg-blue-500/20 px-1 py-0.5 border border-blue-500/30 text-blue-500 font-mono uppercase hover:bg-blue-500 hover:text-black">Generate_Brief</button>
+                )}
+                {quotaExhausted && <span className="text-[7px] text-red-500 font-mono uppercase">Quota_Exhausted</span>}
               </div>
               
               <div className="p-3 bg-white/5 border border-white/10 rounded-sm mb-4">

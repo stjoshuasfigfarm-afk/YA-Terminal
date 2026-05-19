@@ -67,6 +67,9 @@ export default async function handler(req, res) {
         return res.status(200).json(core);
       case 'ai':
         const aiResult = await handleAiService(req, keys);
+        if (aiResult.error) {
+          return res.status(aiResult.error === 'AI_QUOTA_EXHAUSTED' ? 429 : 500).json(aiResult);
+        }
         return res.status(200).json(aiResult);
       case 'logistics':
         const logistics = await fetchLogisticsMetrics(ticker, keys);
@@ -486,27 +489,57 @@ async function withRetry(fn, maxRetries = 5, initialDelay = 2000) {
       lastError = error;
       
       const status = error.status || error.code || (error.response && error.response.status);
-      const message = (error.message || "").toLowerCase();
-      const isRateLimit = status === 429 || message.includes('429') || message.includes('quota') || message.includes('rate limit');
-      const isServerOverload = status === 503 || message.includes('503') || message.includes('overloaded') || message.includes('busy');
-      const isTransient = isRateLimit || isServerOverload || status === 500 || status === 504 || message.includes('timeout') || message.includes('unavailable');
       
-      if (isTransient && i < maxRetries - 1) {
-        let delay;
-        if (isRateLimit) {
-          // If the error message mentions a specific retry time (e.g., "retry in 20s"), use it
-          const retryMatch = message.match(/retry in ([\d.]+)s/);
-          const suggestedSeconds = retryMatch ? parseFloat(retryMatch[1]) : 0;
-          
-          // Wait at least 20 seconds for rate limits, OR 5s if it's the second+ attempt hitting 429
-          delay = Math.max(suggestedSeconds * 1000 + 1000, 21000);
-          console.warn(`[AI_RATE_LIMIT] Attempt ${i + 1} hit quota. Waiting ${Math.round(delay/1000)}s before retry...`);
-        } else {
-          // Standard exponential backoff: 2s, 4s, 8s... + jitter
-          delay = (initialDelay * Math.pow(2, i)) + (Math.random() * 2000);
-          console.warn(`[AI_RETRY] Attempt ${i + 1} failed with ${status || 'transient error'}. Retrying in ${Math.round(delay)}ms...`);
+      // Attempt to get the actual error message from the object structure
+      let errorMessage = error.message || "";
+      if (typeof error === 'object' && error.error && typeof error.error === 'string') {
+        errorMessage = error.error;
+      }
+      // If error is stringified JSON, try to parse it
+      const errorString = error.toString().toLowerCase();
+      
+      const message = (errorMessage || errorString).toLowerCase();
+      
+      // Determine retry delay from structured details or message
+      let delay = 0;
+      let isRateLimit = status === 429 || message.includes('429');
+      
+      if (isRateLimit) {
+        // Try to find RetryInfo in details
+        if (error.details && Array.isArray(error.details)) {
+          const retryInfo = error.details.find(d => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
+          if (retryInfo && retryInfo.retryDelay) {
+            // Parse "23s" -> 23000ms
+            delay = parseInt(retryInfo.retryDelay) * 1000;
+          }
         }
         
+        // Fallback to regex
+        if (delay === 0) {
+          const retryMatch = message.match(/retry in ([\d.]+)s/);
+          delay = retryMatch ? parseFloat(retryMatch[1]) * 1000 : 21000;
+        }
+        
+        // Ensure at least 60s cooldown if just generic rate limit without specific info
+        delay = Math.max(delay, 60000);
+        console.warn(`[AI_RATE_LIMIT] Attempt ${i + 1} hit quota. Waiting ${Math.round(delay/1000)}s before retry...`);
+      } else {
+        // Standard exponential backoff: 2s, 4s, 8s... + jitter
+        delay = (initialDelay * Math.pow(2, i)) + (Math.random() * 2000);
+        console.warn(`[AI_RETRY] Attempt ${i + 1} failed with ${status || 'transient error'}. Retrying in ${Math.round(delay)}ms...`);
+      }
+
+      const isQuotaExhausted = message.includes('quota') || message.includes('resource_exhausted') || message.includes('day') || status === 429;
+      const isServerOverload = status === 503 || message.includes('503') || message.includes('overloaded') || message.includes('busy');
+      const isTransient = (isRateLimit && !isQuotaExhausted) || isServerOverload || status === 500 || status === 504 || message.includes('timeout') || message.includes('unavailable');
+      
+      // If quota exhausted, DO NOT retry
+      if (isQuotaExhausted) {
+        console.error(`[AI_QUOTA_EXHAUSTED] Stopping retries.`);
+        throw error;
+      }
+
+      if (isTransient && i < maxRetries - 1) {
         await sleep(delay);
         continue;
       }
@@ -516,34 +549,36 @@ async function withRetry(fn, maxRetries = 5, initialDelay = 2000) {
   throw lastError;
 }
 
+let lastQuotaExhaustedTime = 0;
+const QUOTA_BLOCK_TIME = 60 * 1000; // 60 seconds
+
 /**
  * AI Service Handler
  */
 async function handleAiService(req, keys) {
+  if (lastQuotaExhaustedTime > 0 && Date.now() - lastQuotaExhaustedTime < QUOTA_BLOCK_TIME) {
+    return { error: "AI_QUOTA_EXHAUSTED", message: "Quota exhausted. Please wait 60 seconds." };
+  }
+  
   const { action, symbol, data } = req.query.action ? req.query : (req.body || {});
   const ai = getAiClient(keys.gemini);
   
   if (!ai) {
-    throw new Error("AI_LINK_DISCONNECTED: Gemini API key missing or invalid.");
+    return { error: "AI_LINK_DISCONNECTED", message: "Gemini API key missing or invalid." };
   }
 
-  // Use stable models: gemini-1.5-flash as primary, gemini-1.5-flash-8b as secondary fallback
+  // Use stable models: gemini-flash-latest as primary, with fallbacks
   const getModelForAttempt = (attempt) => {
-    if (attempt === 0) return "gemini-1.5-flash";
-    if (attempt === 1) return "gemini-1.5-flash-8b";
-    if (attempt === 2) return "gemini-1.5-flash-latest";
-    return "gemini-3-flash-preview"; // Last resort
+    if (attempt === 0) return "gemini-flash-latest";
+    if (attempt === 1) return "gemini-3-flash-preview";
+    if (attempt === 2) return "gemini-flash-latest"; // Redundant but safe
+    return "gemini-3-flash-preview"; 
   };
 
   try {
     if (action === 'enrich-news') {
       return await withRetry(async (attempt) => {
         const modelName = getModelForAttempt(attempt);
-        const genModel = ai.getGenerativeModel({ 
-          model: modelName,
-          generationConfig: { responseMimeType: "application/json" }
-        });
-
         const prompt = `
           Analyze these news headlines/summaries.
           Translate to professional English if needed.
@@ -553,9 +588,13 @@ async function handleAiService(req, keys) {
           ${data.map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
         `;
 
-        const result = await genModel.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const result = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+
+        const text = result.text;
 
         if (!text) {
           throw new Error("AI_RESPONSE_EMPTY: Model returned no text.");
@@ -568,10 +607,6 @@ async function handleAiService(req, keys) {
     if (action === 'analyze-sentiment') {
       return await withRetry(async (attempt) => {
         const modelName = getModelForAttempt(attempt);
-        const genModel = ai.getGenerativeModel({ 
-          model: modelName,
-          generationConfig: { responseMimeType: "application/json" }
-        });
 
         const prompt = `
           Analyze the overall market sentiment for ${symbol} based on this data: ${JSON.stringify(data)}.
@@ -581,9 +616,13 @@ async function handleAiService(req, keys) {
           - reason: string (max 10 words)
         `;
 
-        const result = await genModel.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const result = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: { responseMimeType: "application/json" }
+        });
+
+        const text = result.text;
 
         if (!text) {
           throw new Error("SENTIMENT_RESPONSE_EMPTY: Model returned no text.");
@@ -596,7 +635,6 @@ async function handleAiService(req, keys) {
     if (action === 'generate-briefing') {
       return await withRetry(async (attempt) => {
         const modelName = getModelForAttempt(attempt);
-        const genModel = ai.getGenerativeModel({ model: modelName });
 
         const prompt = `
           You are a strategic intelligence officer for a multi-national investment firm.
@@ -612,9 +650,12 @@ async function handleAiService(req, keys) {
           Current Context Data: ${JSON.stringify(data)}
         `;
 
-        const result = await genModel.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const result = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt
+        });
+
+        const text = result.text;
 
         if (!text) {
           throw new Error("BRIEFING_RESPONSE_EMPTY: Model returned no text.");
@@ -623,12 +664,19 @@ async function handleAiService(req, keys) {
         return { briefing: text };
       }, 5, 2000);
     }
+    return { error: "UNKNOWN_AI_ACTION", message: "Invalid action requested" };
   } catch (error) {
     console.error(`[AI_SERVICE_ERROR] Action: ${action} | Symbol: ${symbol}`, error);
-    throw error;
+    
+    // Check for quota exhaustion
+    const msg = (error.message || "").toString().toLowerCase();
+    if (msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted')) {
+      lastQuotaExhaustedTime = Date.now();
+      return { error: "AI_QUOTA_EXHAUSTED", message: "Quota exhausted. Please wait." };
+    }
+    
+    return { error: "AI_SERVICE_ERROR", message: error.message };
   }
-
-  throw new Error("UNKNOWN_AI_ACTION");
 }
 
 /**

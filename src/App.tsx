@@ -26,6 +26,7 @@ export default function App() {
   const [sentiment, setSentiment] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [quotaExhausted, setQuotaExhausted] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("INTEL");
   const [logs, setLogs] = useState<string[]>(["SYSTEM_BOOT_SEQUENCE_COMPLETE", "UPLINK_ESTABLISHED"]);
 
@@ -38,7 +39,7 @@ export default function App() {
   const [nodeYields, setNodeYields] = useState<any>(null);
 
   const enrichNews = useCallback(async (rawNews: any[]) => {
-    if (!rawNews || rawNews.length === 0) return;
+    if (!rawNews || rawNews.length === 0 || quotaExhausted) return;
     
     setIsAiProcessing(true);
     try {
@@ -52,6 +53,7 @@ export default function App() {
       });
 
       if (!response.ok) {
+        if (response.status === 429) setQuotaExhausted(true);
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || `AI Uplink Failed: ${response.status}`);
       }
@@ -77,6 +79,7 @@ export default function App() {
   }, []);
 
   const generateBriefing = useCallback(async (symbol: string, context: any) => {
+    if (quotaExhausted) return;
     setIsAiProcessing(true);
     setBriefing(null);
     setSentiment(null);
@@ -92,6 +95,8 @@ export default function App() {
         })
       });
 
+      if (briefingResponse.status === 429) setQuotaExhausted(true);
+      
       if (briefingResponse.ok) {
         const data = await briefingResponse.json();
         setBriefing(data.briefing);
@@ -107,6 +112,8 @@ export default function App() {
           data: context
         })
       });
+
+      if (sentimentResponse.status === 429) setQuotaExhausted(true);
 
       if (sentimentResponse.ok) {
         const data = await sentimentResponse.json();
@@ -176,21 +183,12 @@ export default function App() {
       setRelationships(r.relationships || { suppliers: [], customers: [] });
       setNodeYields(y);
       
-      if (n && n.length > 0) {
-        enrichNews(n);
-      }
-      
-      // Generate strategic briefing if not already processing
-      if (!isAiProcessing) {
-        addLog(`REQUESTING_STRATEGIC_SYNTHESIS: ${symbol}`);
-        generateBriefing(symbol, { news: n?.slice(0, 3), quote: q, yields: y });
-      }
     } catch (err) {
       console.error("Critical telemetry synchronization failure:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [enrichNews]);
+  }, []);
 
   // Global Key Listeners
   useEffect(() => {
@@ -394,6 +392,9 @@ export default function App() {
           sentiment={sentiment}
           yields={nodeYields}
           logs={logs}
+          quotaExhausted={quotaExhausted}
+          onEnrichNews={() => enrichNews(news)}
+          onGenerateBriefing={() => generateBriefing(selectedStock.symbol, { news: news?.slice(0, 3), quote: quote, yields: nodeYields })}
         />
       </main>
 

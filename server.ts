@@ -198,12 +198,24 @@ app.get("/api/news/:symbol?", async (req, res) => {
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     const fromDate = lastMonth.toISOString().split('T')[0];
     
+    if (!FINNHUB_KEY || FINNHUB_KEY.includes('YOUR_')) {
+      return res.json([]);
+    }
+
     const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
     const response = await fetch(url);
+    if (!response.ok) {
+        if (response.status === 403) {
+            console.warn("News fetch API: Access forbidden (403). Check Finnhub API key permissions.");
+        } else {
+            console.error("News fetch API error:", response.status, await response.text());
+        }
+        return res.json([]);
+    }
     const data = await response.json();
     
     // Map Finnhub news to existing structure: [{ title, description, published_at }]
-    const mappedNews = (data || []).slice(0, 5).map((n: any) => ({
+    const mappedNews = (Array.isArray(data) ? data : []).slice(0, 5).map((n: any) => ({
       title: n.headline,
       description: n.summary,
       published_at: new Date(n.datetime * 1000).toISOString(),
@@ -213,7 +225,8 @@ app.get("/api/news/:symbol?", async (req, res) => {
     
     res.json(mappedNews);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch news" });
+    console.error("News fetch error:", err);
+    res.json([]);
   }
 });
 
