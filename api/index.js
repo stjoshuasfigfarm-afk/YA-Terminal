@@ -9,9 +9,10 @@ import { COMPANIES } from "../src/data/companies";
 // Helper to validate keys are not empty or placeholders
 const isKeyReady = (k) => {
   if (!k) return false;
-  if (typeof k !== 'string') return false;
-  if (k.length < 5) return false;
-  if (k.includes('YOUR_')) return false;
+  const s = String(k).trim();
+  if (s.length < 5) return false;
+  if (s.includes('YOUR_')) return false;
+  if (s.includes('API_KEY_HERE')) return false;
   return true;
 };
 
@@ -48,6 +49,8 @@ export default async function handler(req, res) {
   
   // Path-based service detection for Vercel/Express routes
   const urlPath = req.url ? req.url.split('?')[0] : '';
+  const fullUrl = req.url || '';
+  
   if (!service) {
     if (urlPath.includes('quote')) service = 'core';
     else if (urlPath.includes('profile')) service = 'logistics';
@@ -55,6 +58,7 @@ export default async function handler(req, res) {
     else if (urlPath.includes('history')) service = 'history';
     else if (urlPath.includes('financials')) service = 'financials';
     else if (urlPath.includes('search')) service = 'search';
+    else if (urlPath.includes('status') || fullUrl.includes('service=status')) service = 'status';
   }
 
   const ticker = (symbol || 'AAPL').toUpperCase();
@@ -145,10 +149,12 @@ export default async function handler(req, res) {
         const fins = await fetchFinancials(ticker, keys);
         return res.status(200).json(fins);
       case 'status':
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         return res.status(200).json({ 
           status: 'ONLINE', 
           uptime: process.uptime(),
-          keys_detected: Object.keys(keys).filter(k => isKeyReady(keys[k]))
+          keys_detected: Object.keys(keys).filter(k => isKeyReady(keys[k])),
+          environment: process.env.NODE_ENV || 'development'
         });
       default:
         return res.status(400).json({ error: 'Service invalid', requested: service });
@@ -198,6 +204,31 @@ async function fetchCoreMetrics(symbol, keys) {
     }
   } catch (e) { 
     console.warn('[SILO_FAIL] ITICK Secondary Telemetry bypassed.', e.message); 
+  }
+
+  // Secondary Source: Alpaca (if configured and FMP/others fail)
+  try {
+    if (isKeyReady(keys.alpaca)) {
+      const alpacaRes = await fetch(`https://data.alpaca.markets/v2/stocks/${symbol}/quotes/latest`, {
+        headers: {
+          'APCA-API-KEY-ID': keys.alpaca,
+          'APCA-API-SECRET-KEY': keys.alpacaSecret
+        }
+      });
+      if (alpacaRes.ok) {
+        const data = await alpacaRes.json();
+        if (data && data.quote) {
+          return { 
+            source: 'ALPACA_LATENCY_LOW', 
+            price: data.quote.ap, // Ask price as proxy
+            change: 0, // Alpaca quote doesn't provide daily change directly in this endpoint
+            symbol 
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[SILO_FAIL] Alpaca Telemetry bypassed.', e.message);
   }
 
   // Deep Fallback: Finnhub (Last Resort)
