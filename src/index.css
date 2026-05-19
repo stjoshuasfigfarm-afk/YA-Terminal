@@ -93,3 +93,20 @@
   from { width: 0% }
   to { width: 100% }
 }
+
+/* Leaflet Popup Styling Overrides */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  display: none !important;
+}

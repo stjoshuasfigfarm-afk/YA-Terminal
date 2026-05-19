@@ -1,12 +1,10 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import dotenv from "dotenv";
 import { COMPANIES } from "./src/data/companies";
-
-dotenv.config();
-
-
 import handler from "./api/index.js";
 
 const app = express();
@@ -14,29 +12,26 @@ app.use(express.json());
 export default app;
 const PORT = 3000;
 
-// API Routes
-app.all("/api", async (req, res) => {
-  // Wrap the serverless handler
-  try {
-    // Vercel handlers are (req, res) => void | Promise<void>
-    // but they expect a slightly different res object if it's purely serverless.
-    // However, for Express compatibility in dev, this usually works or needs slight mapping.
-    await handler(req, res);
-  } catch (err) {
-    console.error("API Proxy Error:", err);
-    res.status(500).json({ error: "Silo Engine Fault", details: err.message });
-  }
-});
-
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
 
+const isKeyReady = (k: string) => {
+  if (!k) return false;
+  if (k.length < 5) return false;
+  if (k.includes('YOUR_')) return false;
+  return true;
+};
+
+if (!isKeyReady(FMP_KEY)) console.warn(">>> [DEPLOYMENT_WARN] FMP_API_KEY not configured. Falling back to simulations.");
+if (!isKeyReady(FINNHUB_KEY)) console.warn(">>> [DEPLOYMENT_WARN] FINNHUB_API_KEY not configured. Falling back to simulations.");
+
+// API Routes - Priority handlers
 app.get("/api/search", async (req, res) => {
   try {
     const query = (req.query.q as string || "").toUpperCase();
     if (!query) return res.json([]);
     
-    if (FMP_KEY && FMP_KEY.length > 5 && !FMP_KEY.includes('YOUR_')) {
+    if (isKeyReady(FMP_KEY)) {
       const response = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${query}&limit=10&apikey=${FMP_KEY}`);
       const data = await response.json();
       return res.json(data.map((item: any) => ({
@@ -65,7 +60,7 @@ app.get("/api/quote/:symbol?", async (req, res) => {
     if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     
     let data: any = {};
-    if (FMP_KEY && FMP_KEY.length > 5 && !FMP_KEY.includes('YOUR_')) {
+    if (isKeyReady(FMP_KEY)) {
       const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`);
       const fmpData = await response.json();
       if (fmpData && fmpData[0]) {
@@ -93,7 +88,6 @@ app.get("/api/quote/:symbol?", async (req, res) => {
     if (symbol === 'SPY') base = 739.00;
     if (symbol === 'CL') base = 78.45;
     
-    // Add jitter to simulate live market data even in mock mode
     const jitter = (Math.random() - 0.5) * 0.1;
     const price = base + jitter;
     res.json({
@@ -115,7 +109,7 @@ app.get("/api/profile/:symbol?", async (req, res) => {
   try {
     const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
     if (!symbol) return res.status(400).json({ error: "Missing symbol" });
-    if (!FINNHUB_KEY) throw new Error("No Key");
+    if (!isKeyReady(FINNHUB_KEY)) throw new Error("No Key");
     const response = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_KEY}`);
     const data = await response.json();
     res.json({
@@ -148,6 +142,7 @@ app.get("/api/news/:symbol?", async (req, res) => {
   try {
     const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
     if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    if (!isKeyReady(FINNHUB_KEY)) throw new Error("No Key");
     const today = new Date().toISOString().split('T')[0];
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
@@ -157,7 +152,6 @@ app.get("/api/news/:symbol?", async (req, res) => {
     const response = await fetch(url);
     const data = await response.json();
     
-    // Map Finnhub news to existing structure: [{ title, description, published_at }]
     const mappedNews = (data || []).slice(0, 5).map((n: any) => ({
       title: n.headline,
       description: n.summary,
@@ -168,7 +162,7 @@ app.get("/api/news/:symbol?", async (req, res) => {
     
     res.json(mappedNews);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch news" });
+    res.json([]);
   }
 });
 
@@ -176,13 +170,12 @@ app.get("/api/financials/:symbol?", async (req, res) => {
   try {
     const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
     if (!symbol) return res.status(400).json({ error: "Missing symbol" });
-    if (!FINNHUB_KEY) throw new Error("No Key");
+    if (!isKeyReady(FINNHUB_KEY)) throw new Error("No Key");
     const response = await fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${symbol}&token=${FINNHUB_KEY}`);
     const data = await response.json();
-    // Map to { date, netIncome } for the histogram
     const mapped = (data || []).map((e: any) => ({
       date: e.period,
-      netIncome: e.actual - e.estimate // Using surprise as a proxy for visual
+      netIncome: e.actual - e.estimate
     }));
     res.json(mapped);
   } catch (err) {
@@ -201,27 +194,22 @@ app.get("/api/history/:symbol?", async (req, res) => {
   try {
     const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
     
-    if (!FINNHUB_KEY) {
-      // Return mock historical data if no key
+    if (!isKeyReady(FINNHUB_KEY)) {
       const mockHistorical = [];
       const now = Date.now();
       const base = symbol === 'SPY' ? 739.00 : 150.00;
-      let lastPrice = base + Math.random() * 10;
+      let lastPrice = base + (Math.random() - 0.5) * 2;
       for (let i = 60; i >= 0; i--) {
         const date = new Date(now - i * 24 * 60 * 60 * 1000);
         const open = lastPrice;
-        const close = open + (Math.random() - 0.5) * 10;
-        const high = Math.max(open, close) + Math.random() * 5;
-        const low = Math.min(open, close) - Math.random() * 5;
-        const volume = Math.floor(Math.random() * 1000000) + 100000;
-        
+        const close = open + (Math.random() - 0.5) * 2;
         mockHistorical.push({
           time: Math.floor(date.getTime() / 1000) as any,
           open,
-          high,
-          low,
+          high: Math.max(open, close) + 0.5,
+          low: Math.min(open, close) - 0.5,
           close,
-          volume
+          volume: Math.floor(Math.random() * 1000000)
         });
         lastPrice = close;
       }
@@ -229,7 +217,7 @@ app.get("/api/history/:symbol?", async (req, res) => {
     }
 
     const to = Math.floor(Date.now() / 1000);
-    const from = to - (60 * 24 * 60 * 60); // 60 days
+    const from = to - (60 * 24 * 60 * 60); 
     
     const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_KEY}`;
     const response = await fetch(url);
@@ -252,7 +240,7 @@ app.get("/api/history/:symbol?", async (req, res) => {
     const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
     const mockHistorical = [];
     const now = Date.now();
-    const base = symbol === 'SPY' ? 739.00 : 150.00;
+    const base = (symbol === 'SPY' ? 739.00 : (symbol === 'CL' ? 78.45 : 150.00));
     let lastPrice = base + (Math.random() - 0.5) * 2;
     for (let i = 60; i >= 0; i--) {
       const date = new Date(now - i * 24 * 60 * 60 * 1000);
@@ -272,6 +260,16 @@ app.get("/api/history/:symbol?", async (req, res) => {
   }
 });
 
+// Catch-all for other /api requests directed to the engine handler (api/index.js)
+app.all("/api", async (req, res) => {
+  try {
+    await handler(req, res);
+  } catch (err) {
+    console.error("API Engine Error:", err);
+    res.status(500).json({ error: "AI Terminal Engine Fault", details: err.message });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
@@ -287,11 +285,9 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Intelligence Terminal Server active on port ${PORT}`);
-    });
-  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Intelligence Terminal Server active on port ${PORT}`);
+  });
 }
 
 startServer();

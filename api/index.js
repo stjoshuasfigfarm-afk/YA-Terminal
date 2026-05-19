@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { COMPANIES } from "../src/data/companies.js";
+import { COMPANIES } from "../src/data/companies";
 
 /**
  * API index.js - The Engine
@@ -64,6 +64,10 @@ export default async function handler(req, res) {
   try {
     console.log(`[API_ENGINE] Incoming: ${service} for ${ticker}`);
     
+    if (!service) {
+      return res.status(400).json({ error: 'Missing service parameter' });
+    }
+
     switch (service) {
       case 'core':
         const core = await fetchCoreMetrics(ticker, keys);

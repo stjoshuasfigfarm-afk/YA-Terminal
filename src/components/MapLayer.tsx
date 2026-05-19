@@ -32,6 +32,137 @@ const MapController = ({ target, activeNewsStory }: { target: Company | null; ac
   return null;
 };
 
+// Procedural News Pin Manager
+const NewsPinManager = ({ activeNewsStory, news }: { activeNewsStory: any | null, news: any[] }) => {
+  const map = useMap();
+  const newsPinLayerRef = useRef<L.LayerGroup | null>(null);
+  const droppedCoordsRef = useRef<Set<string>>(new Set());
+
+  // Initialize Layer Group once
+  useEffect(() => {
+    if (!newsPinLayerRef.current) {
+      newsPinLayerRef.current = L.layerGroup().addTo(map);
+    }
+  }, [map]);
+
+  // Bulk drop pins for initial/updated news list
+  useEffect(() => {
+    if (!news || news.length === 0 || !newsPinLayerRef.current) return;
+
+    news.forEach(story => {
+      const company = COMPANIES.find(c => c.symbol === story.symbol);
+      if (!company) return;
+
+      const coordKey = `${company.lat.toFixed(4)},${company.lng.toFixed(4)}`;
+      if (droppedCoordsRef.current.has(coordKey)) return;
+
+      const pinIcon = L.divIcon({
+        className: 'news-brief-pin',
+        html: `
+          <div class="flex flex-col items-center">
+            <div class="w-2.5 h-2.5 bg-emerald-500/80 rounded-full border border-black shadow-[0_0_5px_#10b981]"></div>
+            <div class="w-[1px] h-3 bg-gradient-to-b from-emerald-500/80 to-transparent"></div>
+          </div>
+        `,
+        iconSize: [20, 30],
+        iconAnchor: [10, 25]
+      });
+
+      const pin = L.marker([company.lat, company.lng], { icon: pinIcon, opacity: 0.9, zIndexOffset: 800 })
+        .bindPopup(`
+          <div class="bg-black text-[8px] font-mono p-1 text-emerald-500 uppercase">
+            Story: ${story.title.slice(0, 30)}...
+          </div>
+        `, { closeButton: false });
+      
+      pin.addTo(newsPinLayerRef.current!);
+      droppedCoordsRef.current.add(coordKey);
+    });
+  }, [news]);
+
+  // Drop Active Pin Logic Trigger
+  useEffect(() => {
+    if (!activeNewsStory) return;
+
+    const company = COMPANIES.find(c => c.symbol === activeNewsStory.symbol);
+    if (!company) return;
+
+    const coordKey = `${company.lat.toFixed(4)},${company.lng.toFixed(4)}`;
+    
+    // For active news, we always want to force open its popup (even if pin exists)
+    let activeMarker: L.Marker | null = null;
+    newsPinLayerRef.current?.eachLayer((layer: any) => {
+      if (layer instanceof L.Marker) {
+        const pos = layer.getLatLng();
+        if (pos.lat.toFixed(4) === company.lat.toFixed(4) && pos.lng.toFixed(4) === company.lng.toFixed(4)) {
+          activeMarker = layer;
+        }
+      }
+    });
+
+    const customIcon = L.divIcon({
+      className: 'news-terminal-pin',
+      html: `
+        <div class="flex flex-col items-center">
+          <div class="relative flex items-center justify-center">
+            <div class="w-8 h-8 bg-emerald-500/30 rounded-full animate-ping absolute"></div>
+            <div class="w-3 h-3 bg-emerald-400 rounded-full border border-white shadow-[0_0_15px_#10b981] z-10"></div>
+            <div class="absolute w-10 h-10 border border-emerald-500/20 rounded-full"></div>
+            <div class="absolute w-8 h-[0.5px] bg-emerald-500/60"></div>
+            <div class="absolute h-8 w-[0.5px] bg-emerald-500/60"></div>
+          </div>
+          <div class="w-[1.5px] h-12 bg-gradient-to-b from-emerald-400 to-transparent shadow-[0_0_10px_#10b981]"></div>
+        </div>
+      `,
+      iconSize: [40, 60],
+      iconAnchor: [20, 52]
+    });
+
+    const popupContent = `
+      <div class="bg-[#050505] border border-emerald-900/50 p-3 min-w-[220px] font-mono shadow-[0_0_40px_rgba(0,0,0,0.9)] rounded-none">
+         <div class="flex items-center justify-between mb-2 border-b border-emerald-900/40 pb-2">
+           <div class="flex items-center gap-2">
+             <span class="text-[7px] bg-emerald-500 text-black px-1.5 py-0.5 font-black uppercase tracking-tighter">SIG_STORY</span>
+             <span class="text-[10px] text-emerald-400 font-black uppercase tracking-[0.1em]">${activeNewsStory.symbol || 'UKN'}</span>
+           </div>
+           <div class="w-1.5 h-1.5 bg-emerald-500 animate-pulse rounded-full"></div>
+         </div>
+         <div class="text-[11px] text-zinc-100 font-bold leading-[1.3] mb-3 uppercase tracking-tight">
+           ${activeNewsStory.intelligence?.translatedTitle || activeNewsStory.title}
+         </div>
+         <div class="flex justify-between items-center text-[7px] font-black uppercase tracking-widest text-zinc-600">
+           <span>LOC: ${company.lat.toFixed(2)}N / ${company.lng.toFixed(2)}E</span>
+           <span class="text-emerald-900/60">RADAR_LOCK_V9</span>
+         </div>
+      </div>
+    `;
+
+    if (activeMarker) {
+      (activeMarker as L.Marker).setIcon(customIcon);
+      (activeMarker as L.Marker).setPopupContent(popupContent);
+      (activeMarker as L.Marker).openPopup();
+    } else {
+      const pin = L.marker([company.lat, company.lng], { 
+        icon: customIcon,
+        zIndexOffset: 1000 
+      }).bindPopup(popupContent, {
+        className: 'terminal-map-popup',
+        closeButton: false,
+        offset: [0, -10]
+      });
+
+      if (newsPinLayerRef.current) {
+        pin.addTo(newsPinLayerRef.current);
+        droppedCoordsRef.current.add(coordKey);
+        pin.openPopup();
+      }
+    }
+
+  }, [activeNewsStory]);
+
+  return null;
+};
+
 interface MapLayerProps {
   selectedStock: Company | null;
   focusStock?: Company | null;
@@ -135,32 +266,88 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
           <MapController target={selectedStock} activeNewsStory={activeNewsStory} />
+          <NewsPinManager activeNewsStory={activeNewsStory} news={news} />
           
 
-          {COMPANIES.filter(c => !isNewsCycling || (activeNewsStory && c.symbol === activeNewsStory.symbol)).map(company => (
-            <CircleMarker
-              key={company.symbol}
-              center={[company.lat, company.lng]}
-              radius={selectedStock?.symbol === company.symbol ? 8 : (isNewsCycling ? 4 : 6)}
-              pathOptions={{
-                color: selectedStock?.symbol === company.symbol ? '#22ab94' : (isNewsCycling ? '#555' : '#888'),
-                fillColor: selectedStock?.symbol === company.symbol ? '#22ab94' : (isNewsCycling ? '#222' : '#444'),
-                fillOpacity: isNewsCycling ? 0.8 : 0.9,
-                weight: isNewsCycling ? 1 : 2
-              }}
-              eventHandlers={{
-                click: () => onSelectNode(company)
-              }}
-            >
-              <Tooltip sticky>{company.symbol}</Tooltip>
-              <Popup className="tactical-popup">
-                <div className="bg-zinc-950 border border-zinc-800 p-2 font-mono text-[10px] text-white">
-                  <div className="text-emerald-500 font-bold mb-1">{company.symbol} // {company.name}</div>
-                  <div className="text-[8px] text-zinc-500 uppercase tracking-widest">Sector: {company.sector}</div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
+          {/* Persistent Company Pins */}
+          {COMPANIES.map(company => {
+            const isSelected = selectedStock?.symbol === company.symbol;
+            const hasActiveNews = activeNewsStory && activeNewsStory.symbol === company.symbol;
+            
+            return (
+              <Marker
+                key={`company-${company.symbol}`}
+                position={[company.lat, company.lng]}
+                zIndexOffset={isSelected ? 5000 : (hasActiveNews ? 1000 : 0)}
+                icon={L.divIcon({
+                  className: 'terminal-company-pin',
+                  html: `
+                    <div class="flex flex-col items-center group">
+                      <div class="relative">
+                        ${isSelected ? `
+                          <!-- Tactical Selection Pin -->
+                          <div class="absolute -inset-4 bg-emerald-500/10 rounded-full animate-pulse"></div>
+                          <div class="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center animate-in slide-in-from-top-4 duration-500">
+                             <div class="bg-emerald-500 text-black px-1.5 py-0.5 text-[8px] font-black font-mono border-x border-white shadow-[0_0_15px_rgba(16,185,129,0.6)] flex items-center gap-1">
+                                <span class="animate-pulse">●</span> ${company.symbol}
+                             </div>
+                             <div class="w-0.5 h-6 bg-gradient-to-b from-white to-emerald-500"></div>
+                          </div>
+                          <div class="w-4 h-4 bg-white rounded-full border-2 border-emerald-500 shadow-[0_0_20px_#fff] z-50"></div>
+                        ` : `
+                          <div class="w-2.5 h-2.5 ${hasActiveNews ? 'bg-amber-400 shadow-[0_0_10px_#fbbf24]' : 'bg-zinc-700'} rounded-full border border-zinc-900 transition-all duration-300 group-hover:scale-125 group-hover:bg-white z-10"></div>
+                        `}
+                        <div class="absolute -top-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-black border border-zinc-800 text-[6px] px-1 text-zinc-400 font-mono tracking-widest uppercase pointer-events-none z-[6000]">
+                          ${company.symbol}
+                        </div>
+                      </div>
+                      ${!isSelected ? `<div class="w-[1px] h-4 bg-gradient-to-b ${hasActiveNews ? 'from-amber-400' : 'from-zinc-700'} to-transparent"></div>` : '<div class="w-[2px] h-6 bg-gradient-to-b from-emerald-500 to-transparent"></div>'}
+                    </div>
+                  `,
+                  iconSize: isSelected ? [60, 80] : [20, 30],
+                  iconAnchor: isSelected ? [30, 40] : [10, 26]
+                })}
+                eventHandlers={{
+                  click: () => onSelectNode(company)
+                }}
+              >
+                <Popup className="tactical-popup">
+                  <div className="bg-[#050505] border border-zinc-800 p-3 font-mono text-[9px] min-w-[180px] shadow-[0_0_30px_rgba(0,0,0,0.8)]">
+                    <div className="flex justify-between items-start mb-2 border-b border-zinc-900 pb-2">
+                      <div className="flex flex-col">
+                        <span className="text-emerald-500 font-bold text-[11px]">${company.symbol}</span>
+                        <span className="text-[6px] text-zinc-600 uppercase tracking-tighter">NODE_IDENTIFIER: {Math.floor(Math.random() * 999999)}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[7px] bg-zinc-900 text-zinc-400 px-1 py-0.5 rounded">{company.country}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-white font-black uppercase mb-3 tracking-tight text-[10px]">{company.name}</div>
+                    
+                    <div className="grid grid-cols-2 gap-y-2 text-[7px] uppercase tracking-widest text-zinc-500">
+                      <div>Sector</div>
+                      <div className="text-zinc-300 text-right">{company.sector}</div>
+                      
+                      <div>Workforce</div>
+                      <div className="text-zinc-300 text-right">{company.workforce || 'NDA_PROTECTED'}</div>
+                      
+                      <div>H_Quarters</div>
+                      <div className="text-zinc-300 text-right">{company.headquarters?.split(',')[0] || 'CLASSIFIED'}</div>
+                      
+                      <div>Network</div>
+                      <div className="text-emerald-500/50 text-right italic font-bold">Active_Telemetry</div>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-zinc-900 flex justify-between items-center">
+                      <div className="text-[6px] text-zinc-700 uppercase tracking-tighter">COORD: {company.lat.toFixed(2)}N / {company.lng.toFixed(2)}E</div>
+                      <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
 
           {/* Supply Chain Lines on 2D Map */}
           {arcsData.map((arc: any, idx) => (
@@ -170,40 +357,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
               pathOptions={{ color: '#ff8800', weight: 1, opacity: 0.4, dashArray: '4, 4' }}
              />
           ))}
-          {/* Intelligence BRIEF - All news stories mapped to their nodes */}
-          {news && news.map((story, i) => {
-            const company = COMPANIES.find(c => c.symbol === story.symbol);
-            if (!company) return null;
-            
-            const isActive = activeNewsStory && 
-              (story.intelligence?.translatedTitle || story.title) === (activeNewsStory.intelligence?.translatedTitle || activeNewsStory.title);
-            
-            return (
-              <Marker 
-                key={`${story.symbol}-${i}-${isActive}`}
-                position={[company.lat, company.lng]}
-                icon={L.divIcon({
-                  className: 'custom-div-icon',
-                  html: `<div class="relative ${isActive ? 'z-[2000]' : 'z-[500]'}">
-                    ${isActive ? `
-                      <div class="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap bg-emerald-500 text-black px-2 py-1 font-mono font-black text-[10px] uppercase tracking-tighter border border-white shadow-[0_0_20px_rgba(16,185,129,0.8)] animate-in zoom-in duration-300">
-                        ${(story.intelligence?.translatedTitle || story.title).slice(0, 50)}${(story.intelligence?.translatedTitle || story.title).length > 50 ? '...' : ''}
-                      </div>
-                      <div class="w-5 h-5 rounded-full bg-white animate-ping opacity-75"></div>
-                      <div class="w-4 h-4 absolute top-0.5 left-0.5 rounded-full bg-emerald-400 border-2 border-black shadow-[0_0_15px_white]"></div>
-                    ` : `
-                      <div class="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/80 text-emerald-500/80 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-widest border border-emerald-900/50 backdrop-blur-sm opacity-60 group-hover:opacity-100 transition-opacity">
-                        ${(story.intelligence?.translatedTitle || story.title).slice(0, 25)}...
-                      </div>
-                      <div class="w-2 h-2 absolute top-1.5 left-1.5 rounded-full bg-emerald-900 border border-emerald-500/30"></div>
-                    `}
-                  </div>`,
-                  iconSize: [24, 24],
-                  iconAnchor: [12, 12]
-                })}
-              />
-            );
-          })}
 
           {/* New News Alert */}
           {newsAlert && COMPANIES.find(c => c.symbol === newsAlert.symbol) && (

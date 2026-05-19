@@ -7,15 +7,19 @@ interface HeaderProps {
   spyPrice?: number;
   oilPrice?: number;
   yields?: any;
+  systemStatus?: { status: string, keys_detected: string[] } | null;
 }
 
-export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPrice, yields }) => {
+export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPrice, yields, systemStatus }) => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const isLive = systemStatus?.keys_detected && systemStatus.keys_detected.length > 0;
+  const detectedKeys = systemStatus?.keys_detected || [];
 
   return (
     <header className="h-7 border-b border-zinc-800 flex items-center bg-black shrink-0 relative overflow-hidden z-20">
@@ -78,8 +82,25 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPric
       </div>
 
       <div className="px-3 flex items-center space-x-2 border-l border-zinc-800 h-full bg-black/80">
-        <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
-        <span className="text-[9px] font-mono text-white uppercase tracking-tighter opacity-80">Link_Active</span>
+        <div className={cn(
+          "w-1.5 h-1.5 rounded-full animate-pulse",
+          isLive ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-amber-500"
+        )}></div>
+        <div className="flex flex-col leading-[1]">
+          <span className="text-[7px] font-mono text-white uppercase tracking-tighter opacity-80">
+            {isLive ? 'LIVE_TELEMETRY' : 'SIMULATION_MODE'}
+          </span>
+          {isLive && (
+             <span className="text-[5px] text-zinc-600 font-mono">
+               PROVIDERS: {detectedKeys.join('|')}
+             </span>
+          )}
+          {!isLive && (
+             <span className="text-[5px] text-zinc-600 font-mono">
+               CORE_OFFLINE // KEYS_REQD
+             </span>
+          )}
+        </div>
       </div>
     </header>
   );

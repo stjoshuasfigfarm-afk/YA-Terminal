@@ -29,6 +29,7 @@ export default function App() {
   const [spyPrice, setSpyPrice] = useState<number>(739.00);
   const [oilPrice, setOilPrice] = useState<number>(78.50);
   const [nodeYields, setNodeYields] = useState<any>(null);
+  const [systemStatus, setSystemStatus] = useState<{ status: string, keys_detected: string[] } | null>(null);
 
   const lastAiRequestRef = useRef<{ [key: string]: number }>({});
   const aiCacheRef = useRef<{ [key: string]: any }>({});
@@ -231,16 +232,19 @@ export default function App() {
   useEffect(() => {
     const fetchGlobalData = async () => {
       try {
-        const [yRes, spyRes, oilRes] = await Promise.all([
+        const [yRes, spyRes, oilRes, sRes] = await Promise.all([
           fetch('/api?service=yields&country=USA'),
           fetch('/api/quote?symbol=SPY'),
-          fetch('/api/quote?symbol=CL')
+          fetch('/api/quote?symbol=CL'),
+          fetch('/api?service=status')
         ]);
         const yData = await yRes.json();
         const spyData = await spyRes.json();
         const oilData = await oilRes.json();
+        const sData = await sRes.json();
 
         setGlobalYields(yData);
+        setSystemStatus(sData);
         if (spyData && spyData.price !== undefined) setSpyPrice(Number(spyData.price));
         if (oilData && oilData.price !== undefined) setOilPrice(Number(oilData.price));
       } catch (e) {
@@ -385,7 +389,13 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-black text-zinc-300 font-sans border-2 border-zinc-900 selection:bg-white selection:text-black">
-      <Header selectedStock={quote} spyPrice={spyPrice} oilPrice={oilPrice} yields={globalYields} />
+      <Header 
+        selectedStock={quote} 
+        spyPrice={spyPrice} 
+        oilPrice={oilPrice} 
+        yields={globalYields} 
+        systemStatus={systemStatus}
+      />
       
       <main className="flex-1 flex overflow-hidden gap-[1px] bg-zinc-800">
         <SearchSidebar 
