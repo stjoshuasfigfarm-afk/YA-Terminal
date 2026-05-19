@@ -1,13 +1,7 @@
 @import "tailwindcss";
-@import "leaflet/dist/leaflet.css";
 
 @theme {
   --color-zinc-950: #09090b;
-  --color-emerald-400: #40bfab;
-  --color-emerald-500: #22ab94;
-  --color-emerald-600: #1e9682;
-  --color-emerald-900: #0f4a40;
-  --color-emerald-950: #0a332c;
 }
 
 @layer base {
@@ -25,6 +19,7 @@
 .ticker-scroll {
   display: flex;
   width: max-content;
+  animation: ticker 60s linear infinite;
 }
 
 @keyframes ticker {
@@ -48,9 +43,37 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* 3D Globe Overrides */
-.map-green-hued canvas {
-  filter: sepia(0.5) hue-rotate(80deg) saturate(1.5) brightness(0.8);
+/* Leaflet Overrides */
+.leaflet-container {
+  background: #000 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background: white !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.map-green-hued .map-tile-layer {
+  filter: sepia(1) hue-rotate(80deg) saturate(3) brightness(0.7) contrast(1.2);
+}
+
+.map-green-hued .leaflet-container {
+  background: #050505 !important;
 }
 
 .supply-chain-line {
@@ -87,26 +110,4 @@
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-@keyframes progress {
-  from { width: 0% }
-  to { width: 100% }
-}
-
-/* Leaflet Popup Styling Overrides */
-.leaflet-popup-content-wrapper, .leaflet-popup-tip {
-  background: transparent !important;
-  box-shadow: none !important;
-  color: inherit !important;
-  padding: 0 !important;
-}
-
-.leaflet-popup-content {
-  margin: 0 !important;
-  width: auto !important;
-}
-
-.leaflet-container a.leaflet-popup-close-button {
-  display: none !important;
 }

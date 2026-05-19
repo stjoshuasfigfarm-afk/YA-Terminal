@@ -1,99 +1,61 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Header } from "./components/Header";
 import { SearchSidebar } from "./components/SearchSidebar";
 import { MapLayer } from "./components/MapLayer";
 import { IntelligenceSidebar } from "./components/IntelligenceSidebar";
-import { NewsModal } from "./components/NewsModal";
+import { Ticker } from "./components/Ticker";
+import { CommandPalette } from "./components/CommandPalette";
 import { COMPANIES, Company } from "./data/companies";
 
 export default function App() {
   const [selectedStock, setSelectedStock] = useState<Company | null>(null);
   const [mapFocusStock, setMapFocusStock] = useState<Company | null>(null);
-  const [isNewsCycling, setIsNewsCycling] = useState(false);
-  const [activeNewsStory, setActiveNewsStory] = useState<any | null>(null);
-  const [selectedNewsStory, setSelectedNewsStory] = useState<any | null>(null);
+  const [isAutopilot, setIsAutopilot] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [showGlobalNetwork, setShowGlobalNetwork] = useState(false);
   
   // Data State
   const [quote, setQuote] = useState<any>(null);
   const [news, setNews] = useState<any[]>([]);
+  const [allMarketData, setAllMarketData] = useState<Record<string, any>>({});
   const [financials, setFinancials] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [focusNews, setFocusNews] = useState<any[]>([]);
   const [briefing, setBriefing] = useState<string | null>(null);
+  const [sentiment, setSentiment] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("INTEL");
+  const [logs, setLogs] = useState<string[]>(["SYSTEM_BOOT_SEQUENCE_COMPLETE", "UPLINK_ESTABLISHED"]);
+
+  const addLog = useCallback((msg: string) => {
+    setLogs(prev => [msg, ...prev.slice(0, 19)]);
+  }, []);
+
   const [relationships, setRelationships] = useState<{ suppliers: any[], customers: any[] }>({ suppliers: [], customers: [] });
   const [globalYields, setGlobalYields] = useState<any>(null);
-  const [spyPrice, setSpyPrice] = useState<number>(739.00);
-  const [oilPrice, setOilPrice] = useState<number>(78.50);
-  const [gldPrice, setGldPrice] = useState<number>(220.50);
-  const [tltPrice, setTltPrice] = useState<number>(95.20);
   const [nodeYields, setNodeYields] = useState<any>(null);
-  const [systemStatus, setSystemStatus] = useState<{ status: string, keys_detected: string[] } | null>(null);
 
-  const lastAiRequestRef = useRef<{ [key: string]: number }>({});
-  const aiCacheRef = useRef<{ [key: string]: any }>({});
-  const isGlobalRateLimitedRef = useRef<boolean>(false);
-
-  const enrichNews = useCallback(async (rawNews: any[], symbol: string) => {
+  const enrichNews = useCallback(async (rawNews: any[]) => {
     if (!rawNews || rawNews.length === 0) return;
-    
-    // Check cache
-    if (aiCacheRef.current[`enrich-${symbol}`]) {
-      setNews(aiCacheRef.current[`enrich-${symbol}`]);
-      return;
-    }
-
-    if (isGlobalRateLimitedRef.current) {
-      console.log("[AI_LOG] Global rate limit active. Blocking request.");
-                
-      const enriched = rawNews.map((item) => ({
-        ...item,
-        intelligence: { translatedTitle: item.title }
-      }));
-      setNews(enriched);
-      return;
-    }
-
-    const now = Date.now();
-    const lastRequest = lastAiRequestRef.current[`enrich-${symbol}`];
-    // Increase symbol-specific cooldown to 30 minutes to be extremely conservative
-    if (lastRequest && now - lastRequest < 1800000) {
-      console.log(`[AI_LOG] Symbol-specific cooldown active for ${symbol}. Using cache/fallback.`);
-      if (aiCacheRef.current[`enrich-${symbol}`]) {
-        setNews(aiCacheRef.current[`enrich-${symbol}`]);
-      } else {
-        const enriched = rawNews.map((item) => ({
-          ...item,
-          intelligence: { translatedTitle: item.title }
-        }));
-        setNews(enriched);
-      }
-      return;
-    }
     
     setIsAiProcessing(true);
     try {
-      lastAiRequestRef.current[`enrich-${symbol}`] = now;
       const response = await fetch("/api?service=ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "enrich-news",
-          symbol,
-          data: rawNews.slice(0, 5) // Reduced from 12 to 5 to save tokens
+          data: rawNews.slice(0, 5) // Limit to top 5 news for performance
         })
       });
 
-      if (response.status === 429) {
-        isGlobalRateLimitedRef.current = true;
-        setTimeout(() => { isGlobalRateLimitedRef.current = false; }, 300000); // 5 min global block
-        throw new Error("RATE_LIMIT_EXCEEDED");
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `AI Uplink Failed: ${response.status}`);
       }
-
-      if (!response.ok) throw new Error("AI Uplink Failed");
+      
       const processed = await response.json();
       
       const enriched = rawNews.map((item, i) => ({
@@ -101,38 +63,26 @@ export default function App() {
         intelligence: (processed && processed[i]) || { translatedTitle: item.title }
       }));
       setNews(enriched);
-      aiCacheRef.current[`enrich-${symbol}`] = enriched;
     } catch (error: any) {
       console.error("AI Enrichment failed:", error);
-      const enriched = rawNews.map((item) => ({
+      // Fallback to original news titles if AI enrichment fails
+      const fallbackNews = rawNews.map(item => ({
         ...item,
-        intelligence: { translatedTitle: item.title }
+        intelligence: item.intelligence || { translatedTitle: item.title }
       }));
-      setNews(enriched);
+      setNews(fallbackNews);
     } finally {
       setIsAiProcessing(false);
     }
   }, []);
 
   const generateBriefing = useCallback(async (symbol: string, context: any) => {
-    // Check cache
-    if (aiCacheRef.current[`briefing-${symbol}`]) {
-      setBriefing(aiCacheRef.current[`briefing-${symbol}`]);
-      return;
-    }
-
-    if (isGlobalRateLimitedRef.current) return;
-
-    const now = Date.now();
-    const lastRequest = lastAiRequestRef.current[`briefing-${symbol}`];
-    if (lastRequest && now - lastRequest < 1800000) { // 30 min cooldown
-      return;
-    }
-
     setIsAiProcessing(true);
+    setBriefing(null);
+    setSentiment(null);
     try {
-      lastAiRequestRef.current[`briefing-${symbol}`] = now;
-      const response = await fetch("/api?service=ai", {
+      // 1. Generate Briefing
+      const briefingResponse = await fetch("/api?service=ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -142,27 +92,40 @@ export default function App() {
         })
       });
 
-      if (response.status === 429) {
-        isGlobalRateLimitedRef.current = true;
-        setTimeout(() => { isGlobalRateLimitedRef.current = false; }, 300000); // 5 min block
-        throw new Error("RATE_LIMIT_EXCEEDED");
+      if (briefingResponse.ok) {
+        const data = await briefingResponse.json();
+        setBriefing(data.briefing);
+      }
+      
+      // 2. Generate Sentiment Analysis
+      const sentimentResponse = await fetch("/api?service=ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "analyze-sentiment",
+          symbol,
+          data: context
+        })
+      });
+
+      if (sentimentResponse.ok) {
+        const data = await sentimentResponse.json();
+        setSentiment(data);
+        addLog(`SENTIMENT_ACQUIRED: ${data.label} (${(data.score * 100).toFixed(0)}%)`);
       }
 
-      if (!response.ok) throw new Error("Briefing Uplink Failed");
-      const data = await response.json();
-      setBriefing(data.briefing);
-      aiCacheRef.current[`briefing-${symbol}`] = data.briefing;
-    } catch (error) {
-      console.error("Briefing Generation failed:", error);
-      setBriefing(`**STRATEGIC_INTEL_REPORT // ${symbol}**\n\n*   **Market Position:** Maintaining technical dominance across specified sector nodes. Neural patterns suggest high institutional accumulation.\n*   **Logistics Sync:** Regional headquarters reporting optimal throughput. No significant silo breaches detected in recent telemetry cycles.\n*   **Tactical Alpha:** Volatility markers indicate a period of consolidation. Strategic re-alignment recommended prior to the next neural uplink.`);
+    } catch (error: any) {
+      console.error("AI Analysis failed:", error);
+      setBriefing(`ERR: NEURAL_LINK_CONGESTION // ${error.message || "Manual assessment required."}`);
     } finally {
       setIsAiProcessing(false);
     }
-  }, []);
+  }, [addLog]);
 
   const fetchData = useCallback(async (symbol: string) => {
     if (!symbol) return;
     setIsLoading(true);
+    addLog(`INITIALIZING_TELEMETRY: ${symbol}`);
     
     const headers = { 'Content-Type': 'application/json' };
     
@@ -170,7 +133,7 @@ export default function App() {
       const company = COMPANIES.find(c => c.symbol === symbol);
       const countryCode = company?.country || 'USA';
 
-      const [q, nRaw, p, f, h, r, y] = await Promise.all([
+      const [q, n, p, f, h, r, y] = await Promise.all([
         fetch(`/api/quote?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Quote API alert: Status ${res.status}`);
           return res.json();
@@ -181,7 +144,7 @@ export default function App() {
         fetch(`/api/news?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`News API alert: Status ${res.status}`);
           return res.json();
-        }).catch(() => ({ data: [] })),
+        }).catch(() => ([])),
         fetch(`/api/profile?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Profile API alert: Status ${res.status}`);
           return res.json();
@@ -198,8 +161,6 @@ export default function App() {
         fetch(`/api?service=yields&country=${countryCode}`, { headers }).then(res => res.json()).catch(() => (null)),
       ]);
       
-      const n = Array.isArray(nRaw) ? nRaw : (Array.isArray(nRaw?.data) ? nRaw.data : []);
-
       // Data Parsing check
       if (q && (q.price !== undefined && q.price !== null)) {
         setQuote(q);
@@ -216,24 +177,14 @@ export default function App() {
       setNodeYields(y);
       
       if (n && n.length > 0) {
-        enrichNews(n, symbol);
+        enrichNews(n);
       }
       
-      // Generate strategic briefing
-      const validNews = (n || []).filter(item => {
-        const title = item.intelligence?.translatedTitle || item.title;
-        const summary = item.intelligence?.intelligenceSummary || item.summary || item.description;
-        const isGeneric = !title || !summary || 
-                        title.includes("SIGNAL_INTERFERENCE") || 
-                        summary.includes("TACTICAL_INTEL_UNAVAILABLE") ||
-                        summary.includes("Pending analysis");
-        return !isGeneric;
-      });
-      
-      if (validNews.length > 0) {
-        setBriefing(validNews[0].intelligence?.intelligenceSummary || validNews[0].summary || validNews[0].description);
+      // Generate strategic briefing if not already processing
+      if (!isAiProcessing) {
+        addLog(`REQUESTING_STRATEGIC_SYNTHESIS: ${symbol}`);
+        generateBriefing(symbol, { news: n?.slice(0, 3), quote: q, yields: y });
       }
-      generateBriefing(symbol, { news: validNews.slice(0, 3), quote: q, yields: y });
     } catch (err) {
       console.error("Critical telemetry synchronization failure:", err);
     } finally {
@@ -241,34 +192,38 @@ export default function App() {
     }
   }, [enrichNews]);
 
-  // Global Yield Polling
+  // Global Key Listeners
   useEffect(() => {
-    const fetchGlobalData = async () => {
-      try {
-        const [yRes, indexRes, sRes] = await Promise.all([
-          fetch('/api?service=yields&country=USA').catch(() => null),
-          fetch('/api/batch-core?symbol=SPY,CL,GLD,TLT').catch(() => null),
-          fetch('/api?service=status').catch(() => null)
-        ]);
-        
-        const yData = yRes ? await yRes.json().catch(() => null) : null;
-        const indexData = indexRes ? await indexRes.json().catch(() => null) : null;
-        const sData = sRes ? await sRes.json().catch(() => null) : null;
-
-        if (yData) setGlobalYields(yData);
-        if (sData) setSystemStatus(sData);
-        if (indexData?.data) {
-          if (indexData.data.SPY) setSpyPrice(Number(indexData.data.SPY.price));
-          if (indexData.data.CL) setOilPrice(Number(indexData.data.CL.price));
-          if (indexData.data.GLD) setGldPrice(Number(indexData.data.GLD.price));
-          if (indexData.data.TLT) setTltPrice(Number(indexData.data.TLT.price));
-        }
-      } catch (e) {
-        console.error("Global data orientation failed", e);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
       }
     };
-    fetchGlobalData();
-    const interval = setInterval(fetchGlobalData, 10000); // 10s for live indices/spy
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Global Yield Polling
+  useEffect(() => {
+    let retryCount = 0;
+    const fetchGlobalYields = async () => {
+      try {
+        const res = await fetch('/api?service=yields&country=USA');
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
+        const data = await res.json();
+        setGlobalYields(data);
+        retryCount = 0; // Reset on success
+      } catch (e) {
+        console.error("Global yields uplink failed", e);
+        if (retryCount < 3) {
+          retryCount++;
+          setTimeout(fetchGlobalYields, 5000 * retryCount);
+        }
+      }
+    };
+    fetchGlobalYields();
+    const interval = setInterval(fetchGlobalYields, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -280,6 +235,41 @@ export default function App() {
       fetchData(defaultCompany.symbol);
     }
   }, [fetchData, selectedStock]);
+
+  // Global Market Heatmap Polling
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        // Only fetch a subset for performance if needed, but here we want the globe to look active
+        const symbolsToFetch = COMPANIES.map(c => c.symbol);
+        
+        // We'll fetch in small batches or use a subset to avoid hitting rate limits
+        const results: Record<string, any> = {};
+        
+        // Fetch top 15 for the most "active" look
+        const topSymbols = symbolsToFetch.slice(0, 15);
+        
+        await Promise.all(topSymbols.map(async (sym) => {
+          try {
+            const res = await fetch(`/api/quote?symbol=${sym}`);
+            if (res.ok) {
+              results[sym] = await res.json();
+            }
+          } catch (e) {
+            // Silently fail for individual nodes
+          }
+        }));
+
+        setAllMarketData(prev => ({ ...prev, ...results }));
+      } catch (e) {
+        console.error("Global heatmap uplink failed", e);
+      }
+    };
+
+    fetchAllData();
+    const interval = setInterval(fetchAllData, 45000); // Pulse every 45s
+    return () => clearInterval(interval);
+  }, []);
 
   // Live Telemetry Polling (Every 15s)
   useEffect(() => {
@@ -303,8 +293,8 @@ export default function App() {
       } catch (e) {
         console.warn("Telemetry polling drift detected.", e);
       }
-    }, 15000); // 15 seconds for active stock quote focus
-    
+    }, 15000);
+
     return () => clearInterval(pollInterval);
   }, [selectedStock]);
 
@@ -322,8 +312,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' }
         });
         if (!res.ok) console.error(`Map Focus News status: ${res.status}`);
-        const nRaw = await res.json();
-        const n = Array.isArray(nRaw) ? nRaw : (nRaw?.data || []);
+        const n = await res.json();
         setFocusNews(n);
       } catch (e) {
         console.error("Map focus news sync failure", e);
@@ -336,124 +325,83 @@ export default function App() {
     setSelectedStock(company);
     setMapFocusStock(company);
     fetchData(company.symbol);
-    if (isNewsCycling) setIsNewsCycling(false);
-  }, [isNewsCycling, fetchData]);
+    if (isAutopilot) setIsAutopilot(false);
+  }, [isAutopilot, fetchData]);
+
 
   // Intelligence Stream Cycle (Neural Stream)
   useEffect(() => {
     let timer: any;
-    if (isNewsCycling && news.length > 0) {
-      let currentIndex = news.findIndex(n => (n.intelligence?.translatedTitle || n.title) === (activeNewsStory?.intelligence?.translatedTitle || activeNewsStory?.title));
-      if (currentIndex === -1) currentIndex = 0;
-
+    if (isAutopilot) {
       const cycle = () => {
-        const nextIndex = (currentIndex + 1) % news.length;
-        const story = news[nextIndex];
-        currentIndex = nextIndex;
-        
-        setActiveNewsStory(story);
-        
-        const company = COMPANIES.find(c => c.symbol === story?.symbol);
-        if (company) {
-          setMapFocusStock(company);
-          setSelectedStock(company);
-          if (company.symbol !== selectedStock?.symbol) {
-             fetchData(company.symbol);
-          }
-        }
+        const randomIndex = Math.floor(Math.random() * COMPANIES.length);
+        const nextCompany = COMPANIES[randomIndex];
+        setMapFocusStock(nextCompany);
       };
+
+      // Run once immediately
+      cycle();
       
-      timer = setInterval(cycle, 30000); 
-    } else {
-        setActiveNewsStory(null);
+      timer = setInterval(cycle, 30000); // 30 seconds per cycle
     }
 
     return () => clearInterval(timer);
-  }, [isNewsCycling, news, fetchData]);
-
-  const handleToggleNews = useCallback(() => {
-    const nextState = !isNewsCycling;
-    setIsNewsCycling(nextState);
-    
-    if (nextState && news.length > 0) {
-      // Find first valid story
-      const firstValidStory = news.find(n => {
-        const title = n.intelligence?.translatedTitle || n.title;
-        const summary = n.intelligence?.intelligenceSummary || n.summary || n.description;
-        return title && summary && 
-               !title.includes("SIGNAL_INTERFERENCE") && 
-               !summary.includes("TACTICAL_INTEL_UNAVAILABLE");
-      }) || news[0];
-      
-      if (firstValidStory) {
-        setSelectedNewsStory(null); // Clear selected news modal if any
-        setActiveNewsStory(firstValidStory);
-        
-        // Find associated company for initial focus
-        const associatedCompany = COMPANIES.find(c => c.symbol === firstValidStory.symbol);
-        if (associatedCompany) {
-          setMapFocusStock(associatedCompany);
-          setSelectedStock(associatedCompany);
-          fetchData(associatedCompany.symbol);
-        }
-        
-        setActiveTab("INTEL"); // Switch to Intelligence tab
-      }
-    } else {
-      setActiveNewsStory(null);
-    }
-  }, [isNewsCycling, news, fetchData]);
+  }, [isAutopilot]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-black text-zinc-300 font-sans border-2 border-zinc-900 selection:bg-white selection:text-black">
-      <Header 
-        selectedStock={selectedStock} 
-        spyPrice={spyPrice} 
-        oilPrice={oilPrice} 
-        gldPrice={gldPrice}
-        tltPrice={tltPrice}
-        yields={globalYields} 
-        systemStatus={systemStatus}
-        selectedQuote={quote}
-      />
+      <Header selectedStock={quote} yields={globalYields} />
       
-      <main className="flex-1 flex overflow-hidden gap-[1px] bg-zinc-800">
+      <main className="flex-1 flex overflow-hidden">
         <SearchSidebar 
           onSelect={handleSelectNode} 
           selectedSymbol={selectedStock?.symbol}
-          isNewsCycling={isNewsCycling}
-          toggleNewsCycling={handleToggleNews}
+          isAutopilot={isAutopilot}
+          toggleAutopilot={() => setIsAutopilot(!isAutopilot)}
         />
 
-        <MapLayer 
-          selectedStock={selectedStock} 
-          focusStock={mapFocusStock}
-          onSelectNode={handleSelectNode}
-          intelligenceFeed={(Array.isArray(focusNews) && focusNews.length > 0) ? focusNews : (Array.isArray(news) ? news : [])}
-          isNewsCycling={isNewsCycling}
-          toggleNewsCycling={handleToggleNews}
-          activeTab={activeTab}
-          news={Array.isArray(news) ? news : []}
-          activeNewsStory={activeNewsStory}
-          setActiveNewsStory={setActiveNewsStory}
-        />
+        <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden">
+          <MapLayer 
+            selectedStock={selectedStock} 
+            focusStock={mapFocusStock}
+            onSelectNode={handleSelectNode}
+            intelligenceFeed={focusNews.length > 0 ? focusNews : news}
+            isIntelligenceStream={isAutopilot}
+            toggleIntelligenceStream={() => setIsAutopilot(!isAutopilot)}
+            showGlobalNetwork={showGlobalNetwork}
+            toggleGlobalNetwork={() => setShowGlobalNetwork(!showGlobalNetwork)}
+            activeTab={activeTab}
+            marketData={allMarketData}
+            allNewsData={news}
+            sentiment={sentiment}
+          />
+          <Ticker marketData={allMarketData} onSelect={handleSelectNode} />
+        </div>
 
         <IntelligenceSidebar 
           selectedStock={selectedStock}
           quote={quote}
-          news={Array.isArray(news) ? news : []}
-          financials={Array.isArray(financials) ? financials : []}
+          news={news}
+          financials={financials}
           profile={profile}
-          history={Array.isArray(history) ? history : []}
+          history={history}
           isAiProcessing={isAiProcessing}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          onSelectNode={handleSelectNode}
           relationships={relationships}
           briefing={briefing}
+          sentiment={sentiment}
           yields={nodeYields}
-          onSelectNews={setSelectedNewsStory}
+          logs={logs}
         />
       </main>
+
+      <CommandPalette 
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelect={handleSelectNode}
+      />
 
       <footer className="h-5 border-t border-zinc-800 bg-zinc-950 flex items-center justify-between px-2 text-[8px] font-mono text-zinc-600 z-30">
         <div className="flex space-x-3">
@@ -476,10 +424,6 @@ export default function App() {
                <div className="font-mono text-white text-[10px] font-bold animate-pulse tracking-[0.3em] uppercase">Intercepting_Data_Stream...</div>
             </div>
          </div>
-      )}
-      
-      {selectedNewsStory && (
-        <NewsModal story={selectedNewsStory} onClose={() => setSelectedNewsStory(null)} />
       )}
     </div>
   );

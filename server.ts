@@ -1,10 +1,12 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import dotenv from "dotenv";
 import { COMPANIES } from "./src/data/companies";
+
+dotenv.config();
+
+
 import handler from "./api/index.js";
 
 const app = express();
@@ -12,30 +14,248 @@ app.use(express.json());
 export default app;
 const PORT = 3000;
 
-const FMP_KEY = process.env.FMP_API_KEY || "";
-const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
-
-const isKeyReady = (k: string) => {
-  if (!k) return false;
-  if (k.length < 5) return false;
-  if (k.includes('YOUR_')) return false;
-  return true;
-};
-
-if (!isKeyReady(FMP_KEY)) console.warn(">>> [DEPLOYMENT_WARN] FMP_API_KEY not configured. Falling back to simulations.");
-if (!isKeyReady(FINNHUB_KEY)) console.warn(">>> [DEPLOYMENT_WARN] FINNHUB_API_KEY not configured. Falling back to simulations.");
-
-// API Routes - Delegate all /api requests to the unified API engine
-app.all("/api*", async (req, res) => {
+// API Routes
+app.all("/api", async (req, res) => {
+  // Wrap the serverless handler
   try {
-    // Inject service parameter if path-based route is used (Express doesn't always populate req.query as Vercel does)
+    // Vercel handlers are (req, res) => void | Promise<void>
+    // but they expect a slightly different res object if it's purely serverless.
+    // However, for Express compatibility in dev, this usually works or needs slight mapping.
     await handler(req, res);
   } catch (err) {
-    console.error("API Engine Error:", err);
-    res.status(500).json({ error: "Intelligence Terminal Engine Fault", details: err.message });
+    console.error("API Proxy Error:", err);
+    res.status(500).json({ error: "Silo Engine Fault", details: err.message });
   }
 });
 
+const FMP_KEY = process.env.FMP_API_KEY || "";
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
+
+app.get("/api/search", async (req, res) => {
+  try {
+    const query = (req.query.q as string || "").toUpperCase();
+    if (!query) return res.json([]);
+    
+    if (FMP_KEY && FMP_KEY.length > 5 && !FMP_KEY.includes('YOUR_')) {
+      const response = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${query}&limit=10&apikey=${FMP_KEY}`);
+      const data = await response.json();
+      return res.json(data.map((item: any) => ({
+        symbol: item.symbol,
+        name: item.name
+      })));
+    }
+    
+    // Fallback search
+    const mockTickers = [
+      { symbol: 'AAPL', name: 'Apple Inc.' },
+      { symbol: 'MSFT', name: 'Microsoft Corp.' },
+      { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+      { symbol: 'TSLA', name: 'Tesla Inc.' },
+      { symbol: 'NVDA', name: 'Nvidia Corp.' }
+    ].filter(t => t.symbol.includes(query));
+    res.json(mockTickers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/quote/:symbol?", async (req, res) => {
+  try {
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    
+    let data: any = {};
+    if (FMP_KEY && FMP_KEY.length > 5 && !FMP_KEY.includes('YOUR_')) {
+      const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`);
+      const fmpData = await response.json();
+      if (fmpData && fmpData[0]) {
+        data = fmpData[0];
+      } else {
+        throw new Error("No FMP data");
+      }
+    } else {
+      throw new Error("No valid FMP Key");
+    }
+
+    res.json({
+      price: data.price,
+      changes: data.change,
+      changesPercentage: data.changesPercentage,
+      high: data.dayHigh,
+      low: data.dayLow,
+      open: data.open,
+      previousClose: data.previousClose,
+      symbol
+    });
+  } catch (err) {
+    const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
+    const price = 150 + Math.random() * 50;
+    res.json({
+      price: price,
+      changes: (Math.random() - 0.5) * 5,
+      changesPercentage: (Math.random() - 0.5) * 2,
+      high: price + 2,
+      low: price - 2,
+      open: price,
+      previousClose: price - 1,
+      symbol: symbol,
+      mock: true,
+      error: err.message
+    });
+  }
+});
+
+app.get("/api/profile/:symbol?", async (req, res) => {
+  try {
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    if (!FINNHUB_KEY) throw new Error("No Key");
+    const response = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_KEY}`);
+    const data = await response.json();
+    res.json({
+      mktCap: data.marketCapitalization * 1000000,
+      companyName: data.name,
+      industry: data.finnhubIndustry,
+      website: data.weburl,
+      logo: data.logo,
+      currency: data.currency
+    });
+  } catch (err) {
+    const symbol = (req.params.symbol || req.query.symbol as string || "AAPL").toUpperCase();
+    res.json({
+      mktCap: 1500000000000 + Math.random() * 1000000000,
+      companyName: COMPANIES.find(c => c.symbol === symbol)?.name || symbol,
+      industry: "Technology",
+      website: "https://example.com",
+      currency: "USD",
+      mock: true
+    });
+  }
+});
+
+app.get("/api/news/:symbol?", async (req, res) => {
+  try {
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    const today = new Date().toISOString().split('T')[0];
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    const fromDate = lastMonth.toISOString().split('T')[0];
+    
+    const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    // Map Finnhub news to existing structure: [{ title, description, published_at }]
+    const mappedNews = (data || []).slice(0, 5).map((n: any) => ({
+      title: n.headline,
+      description: n.summary,
+      published_at: new Date(n.datetime * 1000).toISOString(),
+      url: n.url,
+      image: n.image
+    }));
+    
+    res.json(mappedNews);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch news" });
+  }
+});
+
+app.get("/api/financials/:symbol?", async (req, res) => {
+  try {
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    if (!FINNHUB_KEY) throw new Error("No Key");
+    const response = await fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${symbol}&token=${FINNHUB_KEY}`);
+    const data = await response.json();
+    // Map to { date, netIncome } for the histogram
+    const mapped = (data || []).map((e: any) => ({
+      date: e.period,
+      netIncome: e.actual - e.estimate // Using surprise as a proxy for visual
+    }));
+    res.json(mapped);
+  } catch (err) {
+    res.json([
+      { date: "2023-Q4", netIncome: 1.2 },
+      { date: "2023-Q3", netIncome: 0.8 },
+      { date: "2023-Q2", netIncome: 1.5 },
+      { date: "2023-Q1", netIncome: -0.4 }
+    ]);
+  }
+});
+
+app.get("/api/history/:symbol?", async (req, res) => {
+  try {
+    const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
+    if (!symbol) return res.status(400).json({ error: "Missing symbol" });
+    
+    if (!FINNHUB_KEY) {
+      // Return mock historical data if no key
+      const mockHistorical = [];
+      const now = Date.now();
+      let lastPrice = Math.random() * 100 + 150;
+      for (let i = 60; i >= 0; i--) {
+        const date = new Date(now - i * 24 * 60 * 60 * 1000);
+        const open = lastPrice;
+        const close = open + (Math.random() - 0.5) * 10;
+        const high = Math.max(open, close) + Math.random() * 5;
+        const low = Math.min(open, close) - Math.random() * 5;
+        const volume = Math.floor(Math.random() * 1000000) + 100000;
+        
+        mockHistorical.push({
+          time: Math.floor(date.getTime() / 1000) as any,
+          open,
+          high,
+          low,
+          close,
+          volume
+        });
+        lastPrice = close;
+      }
+      return res.json({ historical: mockHistorical });
+    }
+
+    const to = Math.floor(Date.now() / 1000);
+    const from = to - (60 * 24 * 60 * 60); // 60 days
+    
+    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.s === 'ok') {
+      const historical = data.t.map((t: number, i: number) => ({
+        time: t,
+        open: data.o[i],
+        high: data.h[i],
+        low: data.l[i],
+        close: data.c[i],
+        volume: data.v[i]
+      }));
+      res.json({ historical });
+    } else {
+      throw new Error("Finnhub error");
+    }
+  } catch (err) {
+    const mockHistorical = [];
+    const now = Date.now();
+    let lastPrice = 150 + Math.random() * 50;
+    for (let i = 60; i >= 0; i--) {
+      const date = new Date(now - i * 24 * 60 * 60 * 1000);
+      const open = lastPrice;
+      const close = open + (Math.random() - 0.5) * 20;
+      mockHistorical.push({
+        time: Math.floor(date.getTime() / 1000) as any,
+        open,
+        high: Math.max(open, close) + 5,
+        low: Math.min(open, close) - 5,
+        close,
+        volume: Math.floor(Math.random() * 1000000)
+      });
+      lastPrice = close;
+    }
+    res.json({ historical: mockHistorical });
+  }
+});
 
 async function startServer() {
   if (process.env.NODE_ENV === "production") {
@@ -52,9 +272,11 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Intelligence Terminal Server active on port ${PORT}`);
-  });
+  if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Intelligence Terminal Server active on port ${PORT}`);
+    });
+  }
 }
 
 startServer();

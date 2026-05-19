@@ -1,5 +1,4 @@
 import { GoogleGenAI } from "@google/genai";
-import { COMPANIES } from "../src/data/companies";
 
 /**
  * API index.js - The Engine
@@ -9,17 +8,14 @@ import { COMPANIES } from "../src/data/companies";
 // Helper to validate keys are not empty or placeholders
 const isKeyReady = (k) => {
   if (!k) return false;
-  const s = String(k).trim();
-  if (s.length < 5) return false;
-  if (s.includes('YOUR_')) return false;
-  if (s.includes('API_KEY_HERE')) return false;
+  if (typeof k !== 'string') return false;
+  if (k.length < 5) return false;
+  if (k.includes('YOUR_')) return false;
   return true;
 };
 
 // Initialize Gemini
 let aiClient = null;
-const aiCache = new Map(); // Simple cache
-
 const getAiClient = (key) => {
   if (!aiClient && isKeyReady(key)) {
     aiClient = new GoogleGenAI({ 
@@ -45,22 +41,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  let { service, symbol = 'AAPL' } = req.query || {};
-  
-  // Path-based service detection for Vercel/Express routes
-  const urlPath = req.url ? req.url.split('?')[0] : '';
-  const fullUrl = req.url || '';
-  
-  if (!service) {
-    if (urlPath.includes('quote')) service = 'core';
-    else if (urlPath.includes('profile')) service = 'logistics';
-    else if (urlPath.includes('news')) service = 'news';
-    else if (urlPath.includes('history')) service = 'history';
-    else if (urlPath.includes('financials')) service = 'financials';
-    else if (urlPath.includes('search')) service = 'search';
-    else if (urlPath.includes('status') || fullUrl.includes('service=status')) service = 'status';
-  }
-
+  const { service, symbol = 'AAPL' } = req.query || {};
   const ticker = (symbol || 'AAPL').toUpperCase();
 
   // Environment Keys
@@ -68,27 +49,18 @@ export default async function handler(req, res) {
     fmp: process.env.FMP_API_KEY,
     alpaca: process.env.ALPACA_API_KEY,
     alpacaSecret: process.env.ALPACA_SECRET_KEY,
+    financialData: process.env.FINANCIAL_DATA_API_KEY,
     itick: process.env.ITIC_API_KEY,
     finnhub: process.env.FINNHUB_API_KEY,
     marketaux: process.env.MARKETAUX_API_KEY,
     gemini: process.env.GEMINI_API_KEY,
     tiingo: process.env.TIINGO_API_KEY,
     massive: process.env.MASSIVE_API_KEY,
-    alpha: process.env.ALPHA_VANTAGE_API_KEY,
-    twelve: process.env.TWELVE_DATA_API_KEY,
-    fred: process.env.FRED_API_KEY,
-    bea: process.env.BEA_API_KEY,
-    sec: process.env.SEC_API_KEY,
-    financialData: process.env.FINANCIAL_DATA_API_KEY,
   };
 
   try {
     console.log(`[API_ENGINE] Incoming: ${service} for ${ticker}`);
     
-    if (!service) {
-      return res.status(400).json({ error: 'Missing service parameter' });
-    }
-
     switch (service) {
       case 'core':
         const core = await fetchCoreMetrics(ticker, keys);
@@ -120,12 +92,6 @@ export default async function handler(req, res) {
       case 'regulatory':
         const reg = await fetchRegulatoryChecks(ticker, keys);
         return res.status(200).json(reg);
-      case 'filings':
-        const fmpFilings = await fetchSECFilings(ticker, keys);
-        return res.status(200).json(fmpFilings);
-      case 'calendars':
-        const calendars = await fetchFinnhubCalendars(req.query.type || 'earnings', keys);
-        return res.status(200).json(calendars);
       case 'relationships':
         const rels = await fetchCompanyRelationships(ticker, keys);
         return res.status(200).json(rels);
@@ -144,31 +110,19 @@ export default async function handler(req, res) {
       case 'orders':
         const orders = await fetchAlpacaOrders(req.body, keys);
         return res.status(200).json(orders);
-      case 'search':
-        const results = await fetchSearch(req.query.q || '', keys);
-        return res.status(200).json(results);
-      case 'history':
-        const hist = await fetchHistory(ticker, keys);
-        return res.status(200).json(hist);
-      case 'financials':
-        const fins = await fetchFinancials(ticker, keys);
-        return res.status(200).json(fins);
       case 'status':
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         return res.status(200).json({ 
           status: 'ONLINE', 
           uptime: process.uptime(),
-          keys_detected: Object.keys(keys).filter(k => isKeyReady(keys[k])),
-          environment: process.env.NODE_ENV || 'development'
+          keys_detected: Object.keys(keys).filter(k => isKeyReady(keys[k]))
         });
       default:
         return res.status(400).json({ error: 'Service invalid', requested: service });
     }
   } catch (error) {
     console.error(`[Engine Failure] Service: ${service} | Ticker: ${ticker}`, error);
-    const status = error.status || 500;
-    return res.status(status).json({ 
-      error: status === 429 ? 'RATE_LIMIT' : 'Silo Rehydration Failed', 
+    return res.status(500).json({ 
+      error: 'Silo Rehydration Failed', 
       message: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -179,149 +133,23 @@ export default async function handler(req, res) {
  * Fetch Real-time price and profile with fallback (Silo Rehydration)
  */
 async function fetchCoreMetrics(symbol, keys) {
-  const attempts = [];
-  
-  // Priority: FMP
+  // Primary Source: FMP (Requested Architecture)
   try {
     if (isKeyReady(keys.fmp)) {
       const fmpRes = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${keys.fmp}`);
-      if (fmpRes.ok) {
-        const data = await fmpRes.json();
-        if (data && data[0]) {
-          console.log(`[TELEMETRY_SUCCESS] FMP for ${symbol}`);
-          return { 
-            source: 'FMP_PRIMARY', 
-            price: data[0].price, 
-            change: data[0].change, 
-            name: data[0].name,
-            symbol 
-          };
-        }
-      } else {
-        attempts.push(`FMP_ERR_${fmpRes.status}`);
+      const data = await fmpRes.json();
+      if (data && data[0]) {
+        return { 
+          source: 'FMP_PRIMARY', 
+          price: data[0].price, 
+          change: data[0].change, 
+          name: data[0].name,
+          symbol 
+        };
       }
     }
   } catch (e) { 
     console.warn('[SILO_FAIL] FMP Primary Telemetry bypassed.', e.message); 
-    attempts.push(`FMP_EXCEPTION: ${e.message}`);
-  }
-
-  // Priority: Finnhub (requested robust check)
-  try {
-    if (isKeyReady(keys.finnhub)) {
-      const fhRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${keys.finnhub}`);
-      if (fhRes.ok) {
-        const data = await fhRes.json();
-        if (data && data.c && data.c !== 0) {
-          console.log(`[TELEMETRY_SUCCESS] Finnhub for ${symbol}`);
-          return { 
-            source: 'FINNHUB_STREAM', 
-            price: data.c, 
-            change: data.d, 
-            symbol 
-          };
-        }
-      } else {
-        attempts.push(`FINNHUB_ERR_${fhRes.status}`);
-      }
-    }
-  } catch (e) {
-    console.warn('[SILO_FAIL] Finnhub Telemetry bypassed.', e.message);
-    attempts.push(`FINNHUB_EXCEPTION: ${e.message}`);
-  }
-
-  // Priority: Twelve Data
-  try {
-    if (isKeyReady(keys.twelve)) {
-      const tdRes = await fetch(`https://api.twelvedata.com/quote?symbol=${symbol}&apikey=${keys.twelve}`);
-      if (tdRes.ok) {
-        const data = await tdRes.json();
-        if (data && data.price) {
-          console.log(`[TELEMETRY_SUCCESS] Twelve Data for ${symbol}`);
-          return { 
-            source: 'TWELVE_DATA_UPLINK', 
-            price: Number(data.price), 
-            change: Number(data.change || 0), 
-            symbol 
-          };
-        }
-      } else {
-        attempts.push(`TWELVE_ERR_${tdRes.status}`);
-      }
-    }
-  } catch (e) {
-    attempts.push(`TWELVE_EXCEPTION: ${e.message}`);
-  }
-
-  // Priority: Alpha Vantage
-  try {
-    if (isKeyReady(keys.alpha)) {
-      const avRes = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${keys.alpha}`);
-      if (avRes.ok) {
-        const data = await avRes.json();
-        const quote = data['Global Quote'];
-        if (quote && quote['05. price']) {
-          console.log(`[TELEMETRY_SUCCESS] Alpha Vantage for ${symbol}`);
-          return { 
-            source: 'ALPHA_VANTAGE_CORE', 
-            price: Number(quote['05. price']), 
-            change: Number(quote['09. change']), 
-            symbol 
-          };
-        }
-      } else {
-        attempts.push(`ALPHA_ERR_${avRes.status}`);
-      }
-    }
-  } catch (e) {
-    attempts.push(`ALPHA_EXCEPTION: ${e.message}`);
-  }
-
-  // Priority: Tiingo (Reliable fallback)
-  try {
-    if (isKeyReady(keys.tiingo)) {
-      const tRes = await fetch(`https://api.tiingo.com/tiingo/daily/${symbol}/prices?token=${keys.tiingo}`);
-      if (tRes.ok) {
-        const data = await tRes.json();
-        if (data && data[0]) {
-          console.log(`[TELEMETRY_SUCCESS] Tiingo for ${symbol}`);
-          return { 
-            source: 'TIINGO_LATENCY_MID', 
-            price: data[0].close, 
-            change: 0, 
-            symbol 
-          };
-        }
-      } else {
-        attempts.push(`TIINGO_ERR_${tRes.status}`);
-      }
-    }
-  } catch (e) {
-    console.warn('[SILO_FAIL] Tiingo Telemetry bypassed.', e.message);
-    attempts.push(`TIINGO_EXCEPTION: ${e.message}`);
-  }
-
-  // Priority: Polygon / Massive
-  try {
-    if (isKeyReady(keys.massive)) {
-      const polyRes = await fetch(`https://api.polygon.io/v2/last/trade/${symbol}?apiKey=${keys.massive}`);
-      if (polyRes.ok) {
-        const data = await polyRes.json();
-        if (data && data.results && data.results.p) {
-          console.log(`[TELEMETRY_SUCCESS] Polygon for ${symbol}`);
-          return { 
-            source: 'POLYGON_REALTIME', 
-            price: data.results.p, 
-            change: 0, 
-            symbol 
-          };
-        }
-      } else {
-        attempts.push(`POLYGON_ERR_${polyRes.status}`);
-      }
-    }
-  } catch (e) {
-    attempts.push(`POLYGON_EXCEPTION: ${e.message}`);
   }
 
   // Secondary Source: ITICK for sub-second precision
@@ -330,69 +158,38 @@ async function fetchCoreMetrics(symbol, keys) {
       const itickRes = await fetch(`https://api.itick.io/v1/quote?symbol=${symbol}&token=${keys.itick}`);
       if (itickRes.ok) {
         const data = await itickRes.json();
-        console.log(`[TELEMETRY_SUCCESS] ITICK for ${symbol}`);
         return { source: 'ITICK_PRECISION', price: data.price, change: data.change, symbol };
       }
-      attempts.push(`ITICK_ERR_${itickRes.status}`);
     }
   } catch (e) { 
     console.warn('[SILO_FAIL] ITICK Secondary Telemetry bypassed.', e.message); 
-    attempts.push(`ITICK_EXCEPTION: ${e.message}`);
   }
 
-  // Secondary Source: Alpaca
+  // Deep Fallback: Finnhub (Last Resort)
   try {
-    if (isKeyReady(keys.alpaca)) {
-      const alpacaRes = await fetch(`https://data.alpaca.markets/v2/stocks/${symbol}/quotes/latest`, {
-        headers: {
-          'APCA-API-KEY-ID': keys.alpaca,
-          'APCA-API-SECRET-KEY': keys.alpacaSecret
-        }
-      });
-      if (alpacaRes.ok) {
-        const data = await alpacaRes.json();
-        if (data && data.quote) {
-          console.log(`[TELEMETRY_SUCCESS] Alpaca for ${symbol}`);
-          return { 
-            source: 'ALPACA_LATENCY_LOW', 
-            price: data.quote.ap || data.quote.bp, 
-            change: 0, 
-            symbol 
-          };
-        }
+    if (isKeyReady(keys.finnhub)) {
+      const fhRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${keys.finnhub}`);
+      const data = await fhRes.json();
+      if (data && data.c) {
+        return { source: 'FINNHUB_FALLBACK', price: data.c, change: data.d, symbol };
       }
-      attempts.push(`ALPACA_ERR_${alpacaRes.status}`);
     }
   } catch (e) {
-    console.warn('[SILO_FAIL] Alpaca Telemetry bypassed.', e.message);
-    attempts.push(`ALPACA_EXCEPTION: ${e.message}`);
+    console.error('[SILO_CRITICAL] Total Telemetry Blackout.', e.message);
   }
 
-  // Final check for all sources failed or missing keys
+  // Determine Missing Keys for Reporting
   const missing = [];
   if (!isKeyReady(keys.fmp)) missing.push('FMP');
-  if (!isKeyReady(keys.finnhub)) missing.push('FINNHUB');
-  if (!isKeyReady(keys.tiingo)) missing.push('TIINGO');
   if (!isKeyReady(keys.itick)) missing.push('ITICK');
-  if (!isKeyReady(keys.alpaca)) missing.push('ALPACA');
-
-  let basePrice = 150.00;
-  if (symbol === 'SPY') basePrice = 739.00;
-  if (symbol === 'CL') basePrice = 78.45;
-  if (symbol === 'GLD') basePrice = 220.50;
-  if (symbol === 'TLT') basePrice = 95.20;
-  
-  const jitter = (Math.random() - 0.5) * 0.1;
-  console.log(`[TELEMETRY_SIMULATION] ${symbol} using fallback. Attempts: ${attempts.join(' | ')}`);
+  if (!isKeyReady(keys.finnhub)) missing.push('FINNHUB');
 
   return { 
     source: 'MOCK_EMERGENCY', 
-    price: Number((basePrice + jitter).toFixed(2)), 
-    change: Number(((Math.random() - 0.5) * 0.2).toFixed(2)), 
+    price: 150.00 + Math.random() * 5, 
+    change: 0.12, 
     symbol, 
-    status: missing.length ? `KEYS_MISSING: ${missing.join(', ')}` : 'ALL_SOURCES_TIMEOUT',
-    missing_keys: missing,
-    attempts
+    status: missing.length ? `KEYS_MISSING: ${missing.join(', ')}` : 'ALL_KEYS_FAILED'
   };
 }
 
@@ -400,7 +197,6 @@ async function fetchBatchCoreMetrics(symbols, keys) {
   const tickerList = symbols.toUpperCase().split(',');
   const results = {};
 
-  // Try FMP Batch first
   try {
     if (isKeyReady(keys.fmp)) {
       const fmpRes = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbols}?apikey=${keys.fmp}`);
@@ -413,62 +209,19 @@ async function fetchBatchCoreMetrics(symbols, keys) {
             changesPercentage: item.changesPercentage
           };
         });
-        if (Object.keys(results).length === tickerList.length) {
-          return { source: 'FMP_BATCH', data: results };
-        }
+        return { source: 'FMP_BATCH', data: results };
       }
     }
   } catch (e) {
     console.warn('[SILO_FAIL] FMP Batch Telemetry bypassed.', e.message);
   }
 
-  // Fallback: Individual Finnhub fetches for batch (parallel)
-  try {
-    if (isKeyReady(keys.finnhub)) {
-      const fetches = tickerList.map(async (t) => {
-        try {
-          const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${t}&token=${keys.finnhub}`);
-          if (res.ok) {
-            const d = await res.json();
-            if (d && d.c) {
-              return { symbol: t, price: d.c, change: d.d, changesPercentage: (d.d / (d.c - d.d) * 100) };
-            }
-          }
-        } catch (e) {}
-        return null;
-      });
-      const batchData = await Promise.all(fetches);
-      batchData.forEach(item => {
-        if (item) {
-          results[item.symbol] = {
-            price: item.price,
-            change: item.change,
-            changesPercentage: item.changesPercentage
-          };
-        }
-      });
-      if (Object.keys(results).length > 0) {
-        return { source: 'FINNHUB_INDIVIDUAL_BATCH', data: results };
-      }
-    }
-  } catch (e) {
-    console.warn('[SILO_FAIL] Finnhub Individual Batch Telemetry bypassed.', e.message);
-  }
-
   // Simulated fallback for all tickers requested
   tickerList.forEach(t => {
-    let base = 150.00;
-    if (t === 'SPY') base = 739.00;
-    else if (t === 'CL') base = 78.45;
-    else if (t === 'GLD') base = 220.50;
-    else if (t === 'TLT') base = 95.20;
-    else if (t === 'BTC') base = 65000;
-    
-    const jitter = (Math.random() - 0.5) * 0.1;
     results[t] = {
-      price: Number((base + jitter).toFixed(2)),
-      change: Number(((Math.random() - 0.5) * 0.2).toFixed(2)),
-      changesPercentage: Number(((Math.random() - 0.5) * 0.1).toFixed(2))
+      price: 150.00 + Math.random() * 50,
+      change: (Math.random() - 0.4) * 5,
+      changesPercentage: (Math.random() - 0.4) * 2
     };
   });
 
@@ -479,39 +232,32 @@ async function fetchBatchCoreMetrics(symbols, keys) {
  * Labor stats and micro-logistics
  */
 async function fetchLogisticsMetrics(symbol, keys) {
-  const company = COMPANIES.find(c => c.symbol === symbol.toUpperCase());
-  
   if (!isKeyReady(keys.fmp)) {
     const mockPrice = 145 + (Math.random() * 10);
     const mockChanges = (Math.random() - 0.4) * 2;
     const mockDcf = mockPrice * (0.9 + Math.random() * 0.3);
-    const mockEmployees = company?.workforce ? parseInt(company.workforce.replace(/,/g, '')) : (154000 + Math.floor(Math.random() * 1000));
-    const mockMktCap = company?.marketCap || (2850000000000 + (Math.random() * 100000000));
-    
+    const mockEmployees = 154000 + Math.floor(Math.random() * 1000);
+    const mockMktCap = 2850000000000 + (Math.random() * 100000000);
     return {
-      fullTimeEmployees: mockEmployees,
+      employees: mockEmployees,
       mktCap: mockMktCap,
-      beta: company?.beta || (1.2 + (Math.random() * 0.2)),
+      beta: 1.2 + (Math.random() * 0.2),
       volAvg: 54000000 + Math.floor(Math.random() * 500000),
-      dividend: company?.dividendUnit || (0.24 + (Math.random() * 0.05)),
-      pe: company?.pe || (28.4 + (Math.random() * 2)),
+      dividend: 0.24 + (Math.random() * 0.05),
+      pe: 28.4 + (Math.random() * 2),
       eps: 6.55 + (Math.random() * 0.5),
       dcf: mockDcf,
       price: mockPrice,
       changes: mockChanges,
       range: `${(mockPrice * 0.8).toFixed(2)} - ${(mockPrice * 1.2).toFixed(2)}`,
-      companyName: company?.name || `${symbol} // MOCK_TELEMETRY`,
-      sector: company?.sector || 'Technology',
-      industry: company?.sector || 'Consumer Electronics',
+      companyName: `${symbol} // MOCK_TELEMETRY`,
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
       revenue: mockPrice * 2.5 * mockEmployees,
       ppe: mockMktCap * 0.12,
       headcountGrowth: 4.2,
       regionalDist: { NA: 45, APAC: 30, EMEA: 25 },
-      hq: { 
-        city: company?.headquarters?.split(',')[0] || 'Cupertino', 
-        state: company?.headquarters?.split(',')[1]?.trim() || 'CA', 
-        country: company?.country || 'USA' 
-      }
+      hq: { city: 'Cupertino', state: 'CA', country: 'USA' }
     };
   }
   try {
@@ -535,7 +281,7 @@ async function fetchLogisticsMetrics(symbol, keys) {
     const revenue = (eps * 20) * employees * (0.5 + Math.random()); // Synthetic revenue base
 
     return {
-      fullTimeEmployees: employees,
+      employees: employees,
       mktCap: mktCap,
       beta: beta,
       volAvg: volAvg,
@@ -564,25 +310,10 @@ async function fetchLogisticsMetrics(symbol, keys) {
         city: profile.city,
         state: profile.state,
         country: profile.country
-      },
-      lastAnnualEarnings: revenue * (0.15 + Math.random() * 0.1) // Derived mock
+      }
     };
   } catch (e) {
-    return { 
-      fullTimeEmployees: company?.workforce ? parseInt(company.workforce.replace(/,/g, '')) : (154000 + Math.floor(Math.random() * 5000)), 
-      mktCap: company?.marketCap || 2850000000000, 
-      beta: company?.beta || 1.1, 
-      volAvg: 54000000,
-      dividend: company?.dividendUnit || 0.24,
-      lastAnnualEarnings: 95000000000,
-      sector: company?.sector || 'Technology', 
-      industry: company?.sector || 'Neural Hardware', 
-      hq: { 
-        city: company?.headquarters?.split(',')[0] || 'Cupertino', 
-        state: company?.headquarters?.split(',')[1]?.trim() || 'CA', 
-        country: company?.country || 'USA' 
-      } 
-    };
+    return { employees: 'FETCH_ERROR', mktCap: 0, beta: 0, sector: 'ERR', industry: 'ERR', hq: { city: 'ERR', state: 'ERR', country: 'ERR' } };
   }
 }
 
@@ -642,7 +373,7 @@ async function fetchGeneralNews(symbol, keys) {
       if (Array.isArray(data)) {
         return { 
           source: 'FINNHUB_STREAM', 
-          data: data.slice(0, 30).map(item => ({
+          data: data.slice(0, 15).map(item => ({
             title: item.headline,
             description: item.summary,
             published_at: new Date(item.datetime * 1000).toISOString(),
@@ -666,33 +397,14 @@ async function fetchGeneralNews(symbol, keys) {
     }
   }
 
-  return { 
-    source: 'SIMULATED_UPLINK', 
-    data: [
-      {
-        title: `Strategic Re-orientation: ${symbol} Node`,
-        description: `Cyber-intelligence reports indicate a significant resource shift within ${symbol}'s primary logistics silo. Market sentiment recalibrating as downstream dependencies are analyzed.`,
-        published_at: new Date().toISOString(),
-        source: "NEURAL_LINK_INTEL"
-      },
-      {
-        title: `Node Activation: ${symbol} Strategic Grid`,
-        description: `Tactical telemetry detected at ${symbol} regional headquarters. Neural link confirms initialization of high-volume transaction processing protocols.`,
-        published_at: new Date(Date.now() - 3600000).toISOString(),
-        source: "PROPRIETARY_SCAN"
-      }
-    ], 
-    message: 'LIVE_INTEL_KEYS_MISSING_USING_SIMULATED_FEED' 
-  };
+  return { source: 'SIMULATED_UPLINK', data: [], message: 'NO_LIVE_INTEL_KEYS_DETECTED' };
 }
 
 /**
  * Supply Chain and Customer Relationships
  */
 async function fetchCompanyRelationships(symbol, keys) {
-  const company = COMPANIES.find(c => c.symbol === symbol.toUpperCase());
-  
-  // Custom mapping for high-profile companies
+  // We use a combination of known industry peers and location-aware silos
   const relationshipMap = {
     'AAPL': {
       suppliers: [
@@ -728,25 +440,6 @@ async function fetchCompanyRelationships(symbol, keys) {
     }
   };
 
-  const dynamicRels = {
-    suppliers: [],
-    customers: []
-  };
-
-  if (company && company.partners) {
-    company.partners.forEach(pSymbol => {
-      const partner = COMPANIES.find(c => c.symbol === pSymbol);
-      if (partner) {
-        dynamicRels.suppliers.push({
-          name: partner.name,
-          symbol: partner.symbol,
-          city: partner.headquarters?.split(',')[0] || 'Unknown',
-          coords: [partner.lat, partner.lng]
-        });
-      }
-    });
-  }
-
   const defaultRels = {
     suppliers: [
       { name: 'Logic_Silo_A', symbol: 'SUP_A', city: 'Shenzhen', coords: [22.5431, 114.0579] },
@@ -757,17 +450,9 @@ async function fetchCompanyRelationships(symbol, keys) {
     ]
   };
 
-  let finalRels = relationshipMap[symbol.toUpperCase()] || defaultRels;
-  if (dynamicRels.suppliers.length > 0) {
-    finalRels = { 
-      suppliers: [...finalRels.suppliers, ...dynamicRels.suppliers].slice(0, 5),
-      customers: finalRels.customers
-    };
-  }
-
   return { 
     source: 'RELATIONAL_SYNTHESIS', 
-    relationships: finalRels 
+    relationships: relationshipMap[symbol.toUpperCase()] || defaultRels 
   };
 }
 
@@ -788,6 +473,49 @@ async function fetchRegulatoryChecks(symbol, keys) {
   };
 }
 
+// Helper to sleep
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Retry wrapper for AI calls with exponential backoff and specialized rate-limit handling
+async function withRetry(fn, maxRetries = 5, initialDelay = 2000) {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn(i); // Pass attempt index to function
+    } catch (error) {
+      lastError = error;
+      
+      const status = error.status || error.code || (error.response && error.response.status);
+      const message = (error.message || "").toLowerCase();
+      const isRateLimit = status === 429 || message.includes('429') || message.includes('quota') || message.includes('rate limit');
+      const isServerOverload = status === 503 || message.includes('503') || message.includes('overloaded') || message.includes('busy');
+      const isTransient = isRateLimit || isServerOverload || status === 500 || status === 504 || message.includes('timeout') || message.includes('unavailable');
+      
+      if (isTransient && i < maxRetries - 1) {
+        let delay;
+        if (isRateLimit) {
+          // If the error message mentions a specific retry time (e.g., "retry in 20s"), use it
+          const retryMatch = message.match(/retry in ([\d.]+)s/);
+          const suggestedSeconds = retryMatch ? parseFloat(retryMatch[1]) : 0;
+          
+          // Wait at least 20 seconds for rate limits, OR 5s if it's the second+ attempt hitting 429
+          delay = Math.max(suggestedSeconds * 1000 + 1000, 21000);
+          console.warn(`[AI_RATE_LIMIT] Attempt ${i + 1} hit quota. Waiting ${Math.round(delay/1000)}s before retry...`);
+        } else {
+          // Standard exponential backoff: 2s, 4s, 8s... + jitter
+          delay = (initialDelay * Math.pow(2, i)) + (Math.random() * 2000);
+          console.warn(`[AI_RETRY] Attempt ${i + 1} failed with ${status || 'transient error'}. Retrying in ${Math.round(delay)}ms...`);
+        }
+        
+        await sleep(delay);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 /**
  * AI Service Handler
  */
@@ -799,109 +527,105 @@ async function handleAiService(req, keys) {
     throw new Error("AI_LINK_DISCONNECTED: Gemini API key missing or invalid.");
   }
 
-  const model = "gemini-1.5-flash"; // Use 1.5-flash for better stability on free tier limits
-  let cacheKey;
-  if (action === 'generate-briefing') {
-    cacheKey = `briefing:${symbol}`;
-  } else if (action === 'enrich-news') {
-    const titles = (data || []).map(n => n.title).join('|').slice(0, 50); // Shorter cache key
-    cacheKey = `enrich:${symbol}:${titles}`;
-  } else {
-    cacheKey = JSON.stringify({ action, symbol, data: JSON.stringify(data) });
-  }
-  
-  if (aiCache.has(cacheKey)) {
-    return aiCache.get(cacheKey);
-  }
-
-  // Backoff helper
-  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-  let retries = 0;
-  const maxRetries = 3;
-
-  const executeWithRetry = async (fn, fallback) => {
-    while (retries < maxRetries) {
-      try {
-        const result = await fn();
-        return result;
-      } catch (e) {
-        if (e.status === 429 && retries < maxRetries - 1) {
-          retries++;
-          const backoff = (Math.pow(2, retries) * 10000) + (Math.random() * 5000); // Increased backoff to 10s-20s+
-          console.log(`[AI_BACKOFF] Quota hit. Retrying in ${Math.round(backoff/1000)}s... attempt ${retries}`);
-          await delay(backoff);
-        } else {
-          // If 429 and max retries, or other error, return fallback instead of throwing
-          console.warn(`[AI_DEGRADED] Service entering fallback mode:`, e.message);
-          return fallback;
-        }
-      }
-    }
-    return fallback;
+  // Use stable models: gemini-1.5-flash as primary, gemini-1.5-flash-8b as secondary fallback
+  const getModelForAttempt = (attempt) => {
+    if (attempt === 0) return "gemini-1.5-flash";
+    if (attempt === 1) return "gemini-1.5-flash-8b";
+    if (attempt === 2) return "gemini-1.5-flash-latest";
+    return "gemini-3-flash-preview"; // Last resort
   };
 
-  if (action === 'enrich-news') {
-    const prompt = `
-      Analyze these news headlines/summaries for a financial terminal (${symbol}).
-      - Translate to professional English if needed.
-      - Summarize into a concise "Neural Link" headline (max 80 chars).
-      - Provide a detailed "intelligenceSummary" for each item.
-      - Return JSON array: [{ "translatedTitle": string, "intelligenceSummary": string }]
-      
-      News (limit 5):
-      ${(data || []).slice(0, 5).map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
-    `;
+  try {
+    if (action === 'enrich-news') {
+      return await withRetry(async (attempt) => {
+        const modelName = getModelForAttempt(attempt);
+        const genModel = ai.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: { responseMimeType: "application/json" }
+        });
 
-    try {
-      const result = await executeWithRetry(async () => {
-        const genModel = ai.getGenerativeModel({ model });
-        const res = await genModel.generateContent(prompt);
-        return { text: res.response.text(), success: true };
-      }, { text: "[]", success: false });
+        const prompt = `
+          Analyze these news headlines/summaries.
+          Translate to professional English if needed.
+          Summarize into a concise "Neural Link" headline (max 80 chars).
+          Return JSON array: [{ "translatedTitle": string }]
+          News:
+          ${data.map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+        `;
 
-      if (!result.success) {
-        throw new Error("EXHAUSTED");
-      }
+        const result = await genModel.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
 
-      const text = result.text || "[]";
-      const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanText);
-      aiCache.set(cacheKey, parsed);
-      return parsed;
-    } catch (e) {
-      console.error("[AI_FAIL] News Enrichment Error:", e.message);
-      // Fallback to title/summary as they are
-      const fallbackData = (data || []).map(item => ({ 
-        translatedTitle: item.title || "Neural_Link_Status: Active",
-        intelligenceSummary: item.description || item.summary || "Strategizing real-time telemetry from multiple logistics nodes. Full intelligence briefing pending re-synchronization."
-      }));
-      return fallbackData;
+        if (!text) {
+          throw new Error("AI_RESPONSE_EMPTY: Model returned no text.");
+        }
+
+        return JSON.parse(text);
+      }, 5, 2000);
     }
-  }
 
-  if (action === 'generate-briefing') {
-    const prompt = `
-      Generate a concise, tactical "Intelligence Brief" for: ${symbol}. 
-      Use technical, cyberpunk Terminal language (Nodes, Silos, Uplink).
-      3 areas: Strategic Positioning, Supply Chain Integrity, Intelligence Alpha.
-      Keep it under 150 words. Punchy bullet points.
-      Data Context (Internal Use): ${JSON.stringify(data || {})}
-    `;
+    if (action === 'analyze-sentiment') {
+      return await withRetry(async (attempt) => {
+        const modelName = getModelForAttempt(attempt);
+        const genModel = ai.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: { responseMimeType: "application/json" }
+        });
 
-    try {
-      const result = await executeWithRetry(async () => {
-        const genModel = ai.getGenerativeModel({ model });
-        const res = await genModel.generateContent(prompt);
-        return { text: res.response.text(), success: true };
-      }, { text: "ERR: NEURAL_LINK_STALL // Satellite link interrupted. Automatic telemetry fallback active.", success: false });
+        const prompt = `
+          Analyze the overall market sentiment for ${symbol} based on this data: ${JSON.stringify(data)}.
+          Return a JSON object with:
+          - score: number between -1 (extremely bearish/dangerous) and 1 (extremely bullish/stable)
+          - label: string (e.g., "NEURAL_STABLE", "VOLATILE_OUTFLOW", "BULLISH_SIGNAL")
+          - reason: string (max 10 words)
+        `;
 
-      const response = { briefing: result.text || "NO_DATA_STREAM_AVAILABLE" };
-      aiCache.set(cacheKey, response);
-      return response;
-    } catch (e) {
-      console.error("[AI_FAIL] Briefing Generation Error:", e.message);
-      return { briefing: `**STRATEGIC_OVERVIEW // ${symbol}**\n\n*   **Node Stability:** Primary infrastructure demonstrates high resilience. Baseline telemetry optimal.\n*   **Relational Mesh:** Partnerships with key industry silos remain intact. No silo breaches detected.\n*   **Risk Profile:** Low-frequency interference detected. Monitor neural stream for deviations from baseline.` };
+        const result = await genModel.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        if (!text) {
+          throw new Error("SENTIMENT_RESPONSE_EMPTY: Model returned no text.");
+        }
+
+        return JSON.parse(text);
+      }, 5, 2000);
     }
+
+    if (action === 'generate-briefing') {
+      return await withRetry(async (attempt) => {
+        const modelName = getModelForAttempt(attempt);
+        const genModel = ai.getGenerativeModel({ model: modelName });
+
+        const prompt = `
+          You are a strategic intelligence officer for a multi-national investment firm.
+          Generate a highly concise, tactical "Intelligence Brief" for the company: ${symbol}. 
+          Use a technical, cyberpunk Terminal aesthetic (e.g., using terms like Nodes, Silos, Uplink, Vulnerabilities).
+          
+          Focus on 3 areas:
+          1. Strategic Positioning (Current market dominance or threat)
+          2. Supply Chain Integrity (Recent disruptions or key partners)
+          3. Intelligence Alpha (A non-obvious tactical insight)
+
+          Format: Keep it under 200 words total. Use short, punchy bullet points.
+          Current Context Data: ${JSON.stringify(data)}
+        `;
+
+        const result = await genModel.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        if (!text) {
+          throw new Error("BRIEFING_RESPONSE_EMPTY: Model returned no text.");
+        }
+
+        return { briefing: text };
+      }, 5, 2000);
+    }
+  } catch (error) {
+    console.error(`[AI_SERVICE_ERROR] Action: ${action} | Symbol: ${symbol}`, error);
+    throw error;
   }
 
   throw new Error("UNKNOWN_AI_ACTION");
@@ -918,7 +642,6 @@ async function fetchYieldData(country, keys) {
     '2Y': { symbol: 'US2Y', val: 4.82 },
     '5Y': { symbol: 'US5Y', val: 4.45 },
     '10Y': { symbol: 'US10Y', val: 4.42 },
-    '20Y': { symbol: 'US20Y', val: 4.50 },
     '30Y': { symbol: 'US30Y', val: 4.56 }
   };
 
@@ -930,53 +653,30 @@ async function fetchYieldData(country, keys) {
   };
 
   try {
-    if (isKeyReady(keys.fred)) {
-      // Fetch 10-Year Treasury Constant Maturity Rate from FRED
-      const fredRes = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&limit=1&sort_order=desc&api_key=${keys.fred}&file_type=json`);
-      if (fredRes.ok) {
-        const data = await fredRes.json();
-        if (data.observations && data.observations.length > 0) {
-          results.treasuries['10Y'] = Number(data.observations[0].value);
-          console.log(`[TELEMETRY_SUCCESS] FRED Yield Data Active`);
+    if (isKeyReady(keys.fmp)) {
+      // Treasury fetch
+      const res = await fetch(`https://financialmodelingprep.com/api/v4/treasury?from=2024-01-01&apikey=${keys.fmp}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const latest = data[0];
+          results.treasuries = {
+            '2Y': latest.twoYear || 4.82,
+            '5Y': latest.fiveYear || 4.45,
+            '10Y': latest.tenYear || 4.42,
+            '30Y': latest.thirtyYear || 4.56
+          };
         }
       }
     }
   } catch (e) {
-    console.warn('[FRED_FAIL]', e.message);
+    console.warn('[SILO_FAIL] Yield Telemetry using synthetic fallback.', e.message);
   }
 
-  try {
-    if (isKeyReady(keys.fmp)) {
-      // Parallel fetch for US Treasuries
-      const fetches = Object.keys(treasuryMap).map(async (key) => {
-        try {
-          const res = await fetch(`https://financialmodelingprep.com/api/v4/treasury?from=2024-01-01&apikey=${keys.fmp}`);
-          const data = await res.json();
-          // FMP returns a list of all treasury rates, find the latest
-          if (data && data.length > 0) {
-            const latest = data[0];
-            const fieldMap = { '2Y': 'twoYear', '5Y': 'fiveYear', '10Y': 'tenYear', '20Y': 'twentyYear', '30Y': 'thirtyYear' };
-            return { key, val: latest[fieldMap[key]] };
-          }
-        } catch (e) { return { key, val: treasuryMap[key].val }; }
-      });
-      
-      const treasuryData = await Promise.all(fetches);
-      treasuryData.forEach(d => {
-        if (d) results.treasuries[d.key] = d.val;
-      });
-    } else {
-      // Simulated precision movement
-      Object.keys(treasuryMap).forEach(k => {
-        results.treasuries[k] = Number((treasuryMap[k].val + (Math.random() - 0.5) * 0.1).toFixed(2));
-      });
-      // Ensure specific benchmarks are present
-      if (!results.treasuries['10Y']) results.treasuries['10Y'] = 4.42;
-      if (!results.treasuries['2Y']) results.treasuries['2Y'] = 4.82;
-    }
-  } catch (e) {
+  // Fallback to synthetic if FMP failed or keys missing
+  if (Object.keys(results.treasuries).length === 0) {
     Object.keys(treasuryMap).forEach(k => {
-      results.treasuries[k] = treasuryMap[k].val;
+      results.treasuries[k] = treasuryMap[k].val + (Math.random() - 0.5) * 0.05;
     });
   }
 
@@ -996,86 +696,7 @@ async function fetchYieldData(country, keys) {
 
   results.interestRate = ratesMap[country.toUpperCase()] || 4.25;
 
-  // Add BEA Macro data if available
-  try {
-    if (isKeyReady(keys.bea) && isUS) {
-      const beaRes = await fetch(`https://apps.bea.gov/api/data/?UserID=${keys.bea}&method=GetData&datasetname=NIPA&TableName=T10101&Frequency=Q&Year=X&ResultFormat=JSON`);
-      if (beaRes.ok) {
-        const data = await beaRes.json();
-        // Just take the latest GDP growth rate
-        const entries = data?.BEAAPI?.Results?.Data || [];
-        if (entries.length > 0) {
-          results.gdpGrowth = Number(entries[entries.length - 1].DataValue);
-          console.log(`[TELEMETRY_SUCCESS] BEA Macro Data Active`);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[BEA_FAIL]', e.message);
-  }
-
   return results;
-}
-
-/**
- * FMP Stable SEC Filings Synthesis
- */
-async function fetchSECFilings(symbol, keys) {
-  // Try SEC-API.io if available
-  try {
-    if (isKeyReady(keys.sec)) {
-      const secRes = await fetch(`https://api.sec-api.io/symbol/${symbol}?token=${keys.sec}`);
-      if (secRes.ok) {
-        const data = await secRes.json();
-        return {
-          source: 'SEC_API_DIRECT',
-          data
-        };
-      }
-    }
-  } catch (e) {
-    console.warn('[SEC_API_FAIL]', e.message);
-  }
-
-  if (!isKeyReady(keys.fmp)) return { error: 'FMP_KEY_MISSING' };
-  try {
-    const [eightK, financials] = await Promise.all([
-      fetch(`https://financialmodelingprep.com/stable/sec-filings-8k?symbol=${symbol}&limit=10&apikey=${keys.fmp}`).then(r => r.json()),
-      fetch(`https://financialmodelingprep.com/stable/sec-filings-financials?symbol=${symbol}&limit=10&apikey=${keys.fmp}`).then(r => r.json())
-    ]);
-    return {
-      source: 'FMP_STABLE_FILINGS',
-      eightK,
-      financials
-    };
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-
-/**
- * Finnhub Tactical Calendars
- */
-async function fetchFinnhubCalendars(type, keys) {
-  if (!isKeyReady(keys.finnhub)) return { error: 'FINNHUB_KEY_MISSING' };
-  try {
-    const from = new Date().toISOString().split('T')[0];
-    const to = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
-    let url = '';
-    if (type === 'earnings') {
-      url = `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${keys.finnhub}`;
-    } else if (type === 'ipo') {
-      url = `https://finnhub.io/api/v1/calendar/ipo?from=${from}&to=${to}&token=${keys.finnhub}`;
-    } else {
-      return { error: 'INVALID_CALENDAR_TYPE' };
-    }
-    
-    const res = await fetch(url);
-    return await res.json();
-  } catch (e) {
-    return { error: e.message };
-  }
 }
 
 /**
@@ -1129,106 +750,25 @@ async function fetchPolygonReference(symbol, keys) {
     return { error: e.message };
   }
 }
-/**
- * FMP/Finnhub Search Support
- */
-async function fetchSearch(query, keys) {
-  try {
-    const q = (query || "").toUpperCase();
-    if (!q) return [];
-    
-    if (isKeyReady(keys.fmp)) {
-      const response = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${q}&limit=10&apikey=${keys.fmp}`);
-      const data = await response.json();
-      return (data || []).map(item => ({
-        symbol: item.symbol,
-        name: item.name
-      }));
-    }
-  } catch (e) {
-    console.warn('[SEARCH_FAIL]', e.message);
-  }
-  
-  return [
-    { symbol: 'AAPL', name: 'Apple Inc.' },
-    { symbol: 'MSFT', name: 'Microsoft Corp.' },
-    { symbol: 'GOOGL', name: 'Alphabet Inc.' },
-    { symbol: 'TSLA', name: 'Tesla Inc.' },
-    { symbol: 'NVDA', name: 'Nvidia Corp.' }
-  ].filter(t => t.symbol.includes(query.toUpperCase()));
-}
 
 /**
- * Finnhub History / Candle Data
+ * Alpaca Order Management (Paper Only)
  */
-async function fetchHistory(symbol, keys) {
+async function fetchAlpacaOrders(body, keys) {
+  if (!isKeyReady(keys.alpaca)) return { error: 'ALPACA_KEY_MISSING' };
   try {
-    if (isKeyReady(keys.finnhub)) {
-      const to = Math.floor(Date.now() / 1000);
-      const from = to - (60 * 24 * 60 * 60); 
-      const res = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${keys.finnhub}`);
-      const data = await res.json();
-      
-      if (data.s === 'ok') {
-        const historical = data.t.map((t, i) => ({
-          time: t,
-          open: data.o[i],
-          high: data.h[i],
-          low: data.l[i],
-          close: data.c[i],
-          volume: data.v[i]
-        }));
-        return { historical };
-      }
-    }
-  } catch (e) {
-    console.warn('[HISTORY_FAIL]', e.message);
-  }
-
-  // Fallback Simulation
-  const mockHistorical = [];
-  const now = Date.now();
-  const base = (symbol === 'SPY' ? 739.00 : (symbol === 'CL' ? 78.45 : 150.00));
-  let lastPrice = base + (Math.random() - 0.5) * 2;
-  for (let i = 60; i >= 0; i--) {
-    const date = new Date(now - i * 24 * 60 * 60 * 1000);
-    const open = lastPrice;
-    const close = open + (Math.random() - 0.5) * 2;
-    mockHistorical.push({
-      time: Math.floor(date.getTime() / 1000),
-      open,
-      high: Math.max(open, close) + 0.5,
-      low: Math.min(open, close) - 0.5,
-      close,
-      volume: Math.floor(Math.random() * 1000000)
+    const res = await fetch('https://paper-api.alpaca.markets/v2/orders', {
+      method: 'POST',
+      headers: {
+        'APCA-API-KEY-ID': keys.alpaca,
+        'APCA-API-SECRET-KEY': keys.alpacaSecret,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body || {})
     });
-    lastPrice = close;
-  }
-  return { historical: mockHistorical };
-}
-
-/**
- * Finnhub Earnings / Financials
- */
-async function fetchFinancials(symbol, keys) {
-  try {
-    if (isKeyReady(keys.finnhub)) {
-      const res = await fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${symbol}&token=${keys.finnhub}`);
-      const data = await res.json();
-      return (data || []).map(e => ({
-        date: e.period,
-        netIncome: e.actual - e.estimate
-      }));
-    }
+    return await res.json();
   } catch (e) {
-    console.warn('[FINANCIALS_FAIL]', e.message);
+    return { error: e.message };
   }
-
-  return [
-    { date: "2024-Q1", netIncome: 34.5e9 + (Math.random() * 2e9) },
-    { date: "2023-Q4", netIncome: 32.1e9 + (Math.random() * 2e9) },
-    { date: "2023-Q3", netIncome: 28.7e9 + (Math.random() * 2e9) },
-    { date: "2022-Q4", netIncome: -2.4e9 - (Math.random() * 1e9) }
-  ];
 }
 
