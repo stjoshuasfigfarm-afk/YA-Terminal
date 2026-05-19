@@ -68,13 +68,18 @@ export default async function handler(req, res) {
     fmp: process.env.FMP_API_KEY,
     alpaca: process.env.ALPACA_API_KEY,
     alpacaSecret: process.env.ALPACA_SECRET_KEY,
-    financialData: process.env.FINANCIAL_DATA_API_KEY,
     itick: process.env.ITIC_API_KEY,
     finnhub: process.env.FINNHUB_API_KEY,
     marketaux: process.env.MARKETAUX_API_KEY,
     gemini: process.env.GEMINI_API_KEY,
     tiingo: process.env.TIINGO_API_KEY,
     massive: process.env.MASSIVE_API_KEY,
+    alpha: process.env.ALPHA_VANTAGE_API_KEY,
+    twelve: process.env.TWELVE_DATA_API_KEY,
+    fred: process.env.FRED_API_KEY,
+    bea: process.env.BEA_API_KEY,
+    sec: process.env.SEC_API_KEY,
+    financialData: process.env.FINANCIAL_DATA_API_KEY,
   };
 
   try {
@@ -225,6 +230,53 @@ async function fetchCoreMetrics(symbol, keys) {
     attempts.push(`FINNHUB_EXCEPTION: ${e.message}`);
   }
 
+  // Priority: Twelve Data
+  try {
+    if (isKeyReady(keys.twelve)) {
+      const tdRes = await fetch(`https://api.twelvedata.com/quote?symbol=${symbol}&apikey=${keys.twelve}`);
+      if (tdRes.ok) {
+        const data = await tdRes.json();
+        if (data && data.price) {
+          console.log(`[TELEMETRY_SUCCESS] Twelve Data for ${symbol}`);
+          return { 
+            source: 'TWELVE_DATA_UPLINK', 
+            price: Number(data.price), 
+            change: Number(data.change || 0), 
+            symbol 
+          };
+        }
+      } else {
+        attempts.push(`TWELVE_ERR_${tdRes.status}`);
+      }
+    }
+  } catch (e) {
+    attempts.push(`TWELVE_EXCEPTION: ${e.message}`);
+  }
+
+  // Priority: Alpha Vantage
+  try {
+    if (isKeyReady(keys.alpha)) {
+      const avRes = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${keys.alpha}`);
+      if (avRes.ok) {
+        const data = await avRes.json();
+        const quote = data['Global Quote'];
+        if (quote && quote['05. price']) {
+          console.log(`[TELEMETRY_SUCCESS] Alpha Vantage for ${symbol}`);
+          return { 
+            source: 'ALPHA_VANTAGE_CORE', 
+            price: Number(quote['05. price']), 
+            change: Number(quote['09. change']), 
+            symbol 
+          };
+        }
+      } else {
+        attempts.push(`ALPHA_ERR_${avRes.status}`);
+      }
+    }
+  } catch (e) {
+    attempts.push(`ALPHA_EXCEPTION: ${e.message}`);
+  }
+
   // Priority: Tiingo (Reliable fallback)
   try {
     if (isKeyReady(keys.tiingo)) {
@@ -247,6 +299,29 @@ async function fetchCoreMetrics(symbol, keys) {
   } catch (e) {
     console.warn('[SILO_FAIL] Tiingo Telemetry bypassed.', e.message);
     attempts.push(`TIINGO_EXCEPTION: ${e.message}`);
+  }
+
+  // Priority: Polygon / Massive
+  try {
+    if (isKeyReady(keys.massive)) {
+      const polyRes = await fetch(`https://api.polygon.io/v2/last/trade/${symbol}?apiKey=${keys.massive}`);
+      if (polyRes.ok) {
+        const data = await polyRes.json();
+        if (data && data.results && data.results.p) {
+          console.log(`[TELEMETRY_SUCCESS] Polygon for ${symbol}`);
+          return { 
+            source: 'POLYGON_REALTIME', 
+            price: data.results.p, 
+            change: 0, 
+            symbol 
+          };
+        }
+      } else {
+        attempts.push(`POLYGON_ERR_${polyRes.status}`);
+      }
+    }
+  } catch (e) {
+    attempts.push(`POLYGON_EXCEPTION: ${e.message}`);
   }
 
   // Secondary Source: ITICK for sub-second precision
@@ -855,6 +930,22 @@ async function fetchYieldData(country, keys) {
   };
 
   try {
+    if (isKeyReady(keys.fred)) {
+      // Fetch 10-Year Treasury Constant Maturity Rate from FRED
+      const fredRes = await fetch(`https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&limit=1&sort_order=desc&api_key=${keys.fred}&file_type=json`);
+      if (fredRes.ok) {
+        const data = await fredRes.json();
+        if (data.observations && data.observations.length > 0) {
+          results.treasuries['10Y'] = Number(data.observations[0].value);
+          console.log(`[TELEMETRY_SUCCESS] FRED Yield Data Active`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[FRED_FAIL]', e.message);
+  }
+
+  try {
     if (isKeyReady(keys.fmp)) {
       // Parallel fetch for US Treasuries
       const fetches = Object.keys(treasuryMap).map(async (key) => {
@@ -905,6 +996,24 @@ async function fetchYieldData(country, keys) {
 
   results.interestRate = ratesMap[country.toUpperCase()] || 4.25;
 
+  // Add BEA Macro data if available
+  try {
+    if (isKeyReady(keys.bea) && isUS) {
+      const beaRes = await fetch(`https://apps.bea.gov/api/data/?UserID=${keys.bea}&method=GetData&datasetname=NIPA&TableName=T10101&Frequency=Q&Year=X&ResultFormat=JSON`);
+      if (beaRes.ok) {
+        const data = await beaRes.json();
+        // Just take the latest GDP growth rate
+        const entries = data?.BEAAPI?.Results?.Data || [];
+        if (entries.length > 0) {
+          results.gdpGrowth = Number(entries[entries.length - 1].DataValue);
+          console.log(`[TELEMETRY_SUCCESS] BEA Macro Data Active`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[BEA_FAIL]', e.message);
+  }
+
   return results;
 }
 
@@ -912,6 +1021,22 @@ async function fetchYieldData(country, keys) {
  * FMP Stable SEC Filings Synthesis
  */
 async function fetchSECFilings(symbol, keys) {
+  // Try SEC-API.io if available
+  try {
+    if (isKeyReady(keys.sec)) {
+      const secRes = await fetch(`https://api.sec-api.io/symbol/${symbol}?token=${keys.sec}`);
+      if (secRes.ok) {
+        const data = await secRes.json();
+        return {
+          source: 'SEC_API_DIRECT',
+          data
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[SEC_API_FAIL]', e.message);
+  }
+
   if (!isKeyReady(keys.fmp)) return { error: 'FMP_KEY_MISSING' };
   try {
     const [eightK, financials] = await Promise.all([
