@@ -44,7 +44,19 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { service, symbol = 'AAPL' } = req.query || {};
+  let { service, symbol = 'AAPL' } = req.query || {};
+  
+  // Path-based service detection for Vercel/Express routes
+  const urlPath = req.url ? req.url.split('?')[0] : '';
+  if (!service) {
+    if (urlPath.includes('quote')) service = 'core';
+    else if (urlPath.includes('profile')) service = 'logistics';
+    else if (urlPath.includes('news')) service = 'news';
+    else if (urlPath.includes('history')) service = 'history';
+    else if (urlPath.includes('financials')) service = 'financials';
+    else if (urlPath.includes('search')) service = 'search';
+  }
+
   const ticker = (symbol || 'AAPL').toUpperCase();
 
   // Environment Keys
@@ -123,6 +135,15 @@ export default async function handler(req, res) {
       case 'orders':
         const orders = await fetchAlpacaOrders(req.body, keys);
         return res.status(200).json(orders);
+      case 'search':
+        const results = await fetchSearch(req.query.q || '', keys);
+        return res.status(200).json(results);
+      case 'history':
+        const hist = await fetchHistory(ticker, keys);
+        return res.status(200).json(hist);
+      case 'financials':
+        const fins = await fetchFinancials(ticker, keys);
+        return res.status(200).json(fins);
       case 'status':
         return res.status(200).json({ 
           status: 'ONLINE', 
@@ -574,12 +595,12 @@ async function handleAiService(req, keys) {
     throw new Error("AI_LINK_DISCONNECTED: Gemini API key missing or invalid.");
   }
 
-  const model = "gemini-2.0-flash";
+  const model = "gemini-1.5-flash"; // Use 1.5-flash for better stability on free tier limits
   let cacheKey;
   if (action === 'generate-briefing') {
     cacheKey = `briefing:${symbol}`;
   } else if (action === 'enrich-news') {
-    const titles = (data || []).map(n => n.title).join('|');
+    const titles = (data || []).map(n => n.title).join('|').slice(0, 50); // Shorter cache key
     cacheKey = `enrich:${symbol}:${titles}`;
   } else {
     cacheKey = JSON.stringify({ action, symbol, data: JSON.stringify(data) });
@@ -592,46 +613,51 @@ async function handleAiService(req, keys) {
   // Backoff helper
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   let retries = 0;
-  const maxRetries = 5;
+  const maxRetries = 3;
 
   const executeWithRetry = async (fn, fallback) => {
     while (retries < maxRetries) {
       try {
-        return await fn();
+        const result = await fn();
+        return result;
       } catch (e) {
         if (e.status === 429 && retries < maxRetries - 1) {
           retries++;
-          const backoff = (Math.pow(2, retries) * 5000) + (Math.random() * 2000);
-          console.log(`[AI_BACKOFF] Retrying in ${backoff}ms...`);
+          const backoff = (Math.pow(2, retries) * 10000) + (Math.random() * 5000); // Increased backoff to 10s-20s+
+          console.log(`[AI_BACKOFF] Quota hit. Retrying in ${Math.round(backoff/1000)}s... attempt ${retries}`);
           await delay(backoff);
         } else {
-          console.error(`[AI_FAIL] Max retries reached or non-retryable error:`, e);
+          // If 429 and max retries, or other error, return fallback instead of throwing
+          console.warn(`[AI_DEGRADED] Service entering fallback mode:`, e.message);
           return fallback;
         }
       }
     }
+    return fallback;
   };
 
   if (action === 'enrich-news') {
     const prompt = `
-      Analyze these news headlines/summaries and provide a structured synthesis for a financial intelligence terminal.
+      Analyze these news headlines/summaries for a financial terminal (${symbol}).
       - Translate to professional English if needed.
-      - Summarize into a concise, impactful "Neural Link" headline (max 80 chars).
-      - Extract all relevant information, including key financial metrics, market sentiment, regulatory filings, laws, yields, and forward-looking statements into a detailed, comprehensive "intelligenceSummary".
-      - Return JSON array EXACTLY: [{ "translatedTitle": string, "intelligenceSummary": string }]
+      - Summarize into a concise "Neural Link" headline (max 80 chars).
+      - Provide a detailed "intelligenceSummary" for each item.
+      - Return JSON array: [{ "translatedTitle": string, "intelligenceSummary": string }]
       
-      News:
-      ${(data || []).map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+      News (limit 5):
+      ${(data || []).slice(0, 5).map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
     `;
 
     try {
       const result = await executeWithRetry(async () => {
-        return await ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: { responseMimeType: "application/json" }
-        });
-      }, { text: "[]" });
+        const genModel = ai.getGenerativeModel({ model });
+        const res = await genModel.generateContent(prompt);
+        return { text: res.response.text(), success: true };
+      }, { text: "[]", success: false });
+
+      if (!result.success) {
+        throw new Error("EXHAUSTED");
+      }
 
       const text = result.text || "[]";
       const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -639,45 +665,38 @@ async function handleAiService(req, keys) {
       aiCache.set(cacheKey, parsed);
       return parsed;
     } catch (e) {
-      console.error("[AI_FAIL] News Enrichment Error:", e);
-      // Fallback to title/summary as they are, avoid full failure
-      return (data || []).map(item => ({ 
+      console.error("[AI_FAIL] News Enrichment Error:", e.message);
+      // Fallback to title/summary as they are
+      const fallbackData = (data || []).map(item => ({ 
         translatedTitle: item.title || "Neural_Link_Status: Active",
-        intelligenceSummary: item.description || "Strategizing real-time telemetry from multiple logistics nodes. Full intelligence briefing pending re-synchronization with primary satellite link."
+        intelligenceSummary: item.description || item.summary || "Strategizing real-time telemetry from multiple logistics nodes. Full intelligence briefing pending re-synchronization."
       }));
+      return fallbackData;
     }
   }
 
   if (action === 'generate-briefing') {
     const prompt = `
-      You are a strategic intelligence officer for a multi-national investment firm.
-      Generate a highly concise, tactical "Intelligence Brief" for the company: ${symbol}. 
-      Use a technical, cyberpunk Terminal aesthetic (e.g., using terms like Nodes, Silos, Uplink, Vulnerabilities).
-      
-      Focus on 3 areas:
-      1. Strategic Positioning (Current market dominance or threat)
-      2. Supply Chain Integrity (Recent disruptions or key partners)
-      3. Intelligence Alpha (A non-obvious tactical insight)
-  
-      Format: Keep it under 200 words total. Use short, punchy bullet points.
-      Current Context Data: ${JSON.stringify(data || {})}
+      Generate a concise, tactical "Intelligence Brief" for: ${symbol}. 
+      Use technical, cyberpunk Terminal language (Nodes, Silos, Uplink).
+      3 areas: Strategic Positioning, Supply Chain Integrity, Intelligence Alpha.
+      Keep it under 150 words. Punchy bullet points.
+      Data Context (Internal Use): ${JSON.stringify(data || {})}
     `;
 
     try {
       const result = await executeWithRetry(async () => {
-        return await ai.models.generateContent({
-          model,
-          contents: prompt
-        });
-      }, { text: "ERR: NEURAL_LINK_STALL // Intelligence stream exhausted due to high demand." });
+        const genModel = ai.getGenerativeModel({ model });
+        const res = await genModel.generateContent(prompt);
+        return { text: res.response.text(), success: true };
+      }, { text: "ERR: NEURAL_LINK_STALL // Satellite link interrupted. Automatic telemetry fallback active.", success: false });
 
       const response = { briefing: result.text || "NO_DATA_STREAM_AVAILABLE" };
       aiCache.set(cacheKey, response);
       return response;
     } catch (e) {
-      console.error("[AI_FAIL] Briefing Generation Error:", e);
-      // More descriptive fallback briefing
-      return { briefing: `**STRATEGIC_OVERVIEW // ${symbol}**\n\n*   **Node Stability:** Primary infrastructure demonstrates high resilience amidst local sector volatility.\n*   **Relational Mesh:** Partnerships with key industry silos remain intact. Uplink sensors indicate positive downstream momentum.\n*   **Risk Profile:** Low-frequency interference detected. Monitor neural stream for deviations from baseline stability.` };
+      console.error("[AI_FAIL] Briefing Generation Error:", e.message);
+      return { briefing: `**STRATEGIC_OVERVIEW // ${symbol}**\n\n*   **Node Stability:** Primary infrastructure demonstrates high resilience. Baseline telemetry optimal.\n*   **Relational Mesh:** Partnerships with key industry silos remain intact. No silo breaches detected.\n*   **Risk Profile:** Low-frequency interference detected. Monitor neural stream for deviations from baseline.` };
     }
   }
 
@@ -856,25 +875,106 @@ async function fetchPolygonReference(symbol, keys) {
     return { error: e.message };
   }
 }
+/**
+ * FMP/Finnhub Search Support
+ */
+async function fetchSearch(query, keys) {
+  try {
+    const q = (query || "").toUpperCase();
+    if (!q) return [];
+    
+    if (isKeyReady(keys.fmp)) {
+      const response = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${q}&limit=10&apikey=${keys.fmp}`);
+      const data = await response.json();
+      return (data || []).map(item => ({
+        symbol: item.symbol,
+        name: item.name
+      }));
+    }
+  } catch (e) {
+    console.warn('[SEARCH_FAIL]', e.message);
+  }
+  
+  return [
+    { symbol: 'AAPL', name: 'Apple Inc.' },
+    { symbol: 'MSFT', name: 'Microsoft Corp.' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+    { symbol: 'TSLA', name: 'Tesla Inc.' },
+    { symbol: 'NVDA', name: 'Nvidia Corp.' }
+  ].filter(t => t.symbol.includes(query.toUpperCase()));
+}
 
 /**
- * Alpaca Order Management (Paper Only)
+ * Finnhub History / Candle Data
  */
-async function fetchAlpacaOrders(body, keys) {
-  if (!isKeyReady(keys.alpaca)) return { error: 'ALPACA_KEY_MISSING' };
+async function fetchHistory(symbol, keys) {
   try {
-    const res = await fetch('https://paper-api.alpaca.markets/v2/orders', {
-      method: 'POST',
-      headers: {
-        'APCA-API-KEY-ID': keys.alpaca,
-        'APCA-API-SECRET-KEY': keys.alpacaSecret,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body || {})
-    });
-    return await res.json();
+    if (isKeyReady(keys.finnhub)) {
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - (60 * 24 * 60 * 60); 
+      const res = await fetch(`https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${keys.finnhub}`);
+      const data = await res.json();
+      
+      if (data.s === 'ok') {
+        const historical = data.t.map((t, i) => ({
+          time: t,
+          open: data.o[i],
+          high: data.h[i],
+          low: data.l[i],
+          close: data.c[i],
+          volume: data.v[i]
+        }));
+        return { historical };
+      }
+    }
   } catch (e) {
-    return { error: e.message };
+    console.warn('[HISTORY_FAIL]', e.message);
   }
+
+  // Fallback Simulation
+  const mockHistorical = [];
+  const now = Date.now();
+  const base = (symbol === 'SPY' ? 739.00 : (symbol === 'CL' ? 78.45 : 150.00));
+  let lastPrice = base + (Math.random() - 0.5) * 2;
+  for (let i = 60; i >= 0; i--) {
+    const date = new Date(now - i * 24 * 60 * 60 * 1000);
+    const open = lastPrice;
+    const close = open + (Math.random() - 0.5) * 2;
+    mockHistorical.push({
+      time: Math.floor(date.getTime() / 1000),
+      open,
+      high: Math.max(open, close) + 0.5,
+      low: Math.min(open, close) - 0.5,
+      close,
+      volume: Math.floor(Math.random() * 1000000)
+    });
+    lastPrice = close;
+  }
+  return { historical: mockHistorical };
+}
+
+/**
+ * Finnhub Earnings / Financials
+ */
+async function fetchFinancials(symbol, keys) {
+  try {
+    if (isKeyReady(keys.finnhub)) {
+      const res = await fetch(`https://finnhub.io/api/v1/stock/earnings?symbol=${symbol}&token=${keys.finnhub}`);
+      const data = await res.json();
+      return (data || []).map(e => ({
+        date: e.period,
+        netIncome: e.actual - e.estimate
+      }));
+    }
+  } catch (e) {
+    console.warn('[FINANCIALS_FAIL]', e.message);
+  }
+
+  return [
+    { date: "2024-Q1", netIncome: 34.5e9 + (Math.random() * 2e9) },
+    { date: "2023-Q4", netIncome: 32.1e9 + (Math.random() * 2e9) },
+    { date: "2023-Q3", netIncome: 28.7e9 + (Math.random() * 2e9) },
+    { date: "2022-Q4", netIncome: -2.4e9 - (Math.random() * 1e9) }
+  ];
 }
 

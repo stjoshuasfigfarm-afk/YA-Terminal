@@ -13,22 +13,45 @@ const MapController = ({ target, activeNewsStory }: { target: Company | null; ac
   const map = useMap();
   useEffect(() => {
     // Focus on news story location if active, otherwise fallback to target
-    const targetLocation = activeNewsStory && COMPANIES.find(c => c.symbol === activeNewsStory.symbol) 
-      ? COMPANIES.find(c => c.symbol === activeNewsStory.symbol) 
-      : target;
+    const newsCompany = activeNewsStory ? COMPANIES.find(c => c.symbol === activeNewsStory.symbol) : null;
+    const targetLocation = newsCompany || target;
 
-    if (targetLocation) {
+    if (targetLocation && typeof targetLocation.lat === 'number' && !isNaN(targetLocation.lat)) {
       // Zoom out to global view first to emphasize the move
       map.flyTo([targetLocation.lat, targetLocation.lng], 2, { duration: 0.5 });
       
       // After a short delay, zoom in to the target
       const timer = setTimeout(() => {
-        map.flyTo([targetLocation.lat, targetLocation.lng], 5, { duration: 1.5 });
+        if (targetLocation && typeof targetLocation.lat === 'number' && !isNaN(targetLocation.lat)) {
+          map.flyTo([targetLocation.lat, targetLocation.lng], 5, { duration: 1.5 });
+        }
       }, 500);
       
       return () => clearTimeout(timer);
     }
   }, [target, activeNewsStory, map]);
+  return null;
+};
+
+// Component to handle programmatic popup opening on selection
+const SelectionPopupManager = ({ selectedStock }: { selectedStock: Company | null }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!selectedStock) return;
+    
+    // Delay slightly to ensure markers are mounted and flyTo has started
+    const timer = setTimeout(() => {
+      map.eachLayer((layer: any) => {
+        if (layer instanceof L.Marker && (layer.options as any).alt === selectedStock.symbol) {
+          layer.openPopup();
+        }
+      });
+    }, 1500); // 1.5s delay to coincide with the end of MapController's flyTo
+    
+    return () => clearTimeout(timer);
+  }, [selectedStock, map]);
+  
   return null;
 };
 
@@ -47,11 +70,12 @@ const NewsPinManager = ({ activeNewsStory, news }: { activeNewsStory: any | null
 
   // Bulk drop pins for initial/updated news list
   useEffect(() => {
-    if (!news || news.length === 0 || !newsPinLayerRef.current) return;
+    if (!news || !Array.isArray(news) || news.length === 0 || !newsPinLayerRef.current) return;
 
     news.forEach(story => {
+      if (!story || !story.symbol) return;
       const company = COMPANIES.find(c => c.symbol === story.symbol);
-      if (!company) return;
+      if (!company || isNaN(company.lat) || isNaN(company.lng)) return;
 
       const coordKey = `${company.lat.toFixed(4)},${company.lng.toFixed(4)}`;
       if (droppedCoordsRef.current.has(coordKey)) return;
@@ -85,7 +109,7 @@ const NewsPinManager = ({ activeNewsStory, news }: { activeNewsStory: any | null
     if (!activeNewsStory) return;
 
     const company = COMPANIES.find(c => c.symbol === activeNewsStory.symbol);
-    if (!company) return;
+    if (!company || isNaN(company.lat) || isNaN(company.lng)) return;
 
     const coordKey = `${company.lat.toFixed(4)},${company.lng.toFixed(4)}`;
     
@@ -266,6 +290,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           />
           <MapController target={selectedStock} activeNewsStory={activeNewsStory} />
+          <SelectionPopupManager selectedStock={selectedStock} />
           <NewsPinManager activeNewsStory={activeNewsStory} news={news} />
           
 
@@ -278,6 +303,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
               <Marker
                 key={`company-${company.symbol}`}
                 position={[company.lat, company.lng]}
+                alt={company.symbol}
                 zIndexOffset={isSelected ? 5000 : (hasActiveNews ? 1000 : 0)}
                 icon={L.divIcon({
                   className: 'terminal-company-pin',
@@ -359,16 +385,20 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           ))}
 
           {/* New News Alert */}
-          {newsAlert && COMPANIES.find(c => c.symbol === newsAlert.symbol) && (
-            <Marker position={[COMPANIES.find(c => c.symbol === newsAlert.symbol)!.lat, COMPANIES.find(c => c.symbol === newsAlert.symbol)!.lng]} zIndexOffset={3000}>
-              <Tooltip permanent direction="bottom" offset={[0, 15]} className="!bg-red-600 !border-white !text-white !font-mono !text-[10px] !font-black !uppercase !tracking-widest !shadow-[0_0_20px_red]">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-white animate-ping" />
-                  PRIORITY_ALERT: {newsAlert.title}
-                </div>
-              </Tooltip>
-            </Marker>
-          )}
+          {newsAlert && (() => {
+            const company = COMPANIES.find(c => c.symbol === newsAlert.symbol);
+            if (!company || isNaN(company.lat) || isNaN(company.lng)) return null;
+            return (
+              <Marker position={[company.lat, company.lng]} zIndexOffset={3000}>
+                <Tooltip permanent direction="bottom" offset={[0, 15]} className="!bg-red-600 !border-white !text-white !font-mono !text-[10px] !font-black !uppercase !tracking-widest !shadow-[0_0_20px_red]">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-white animate-ping" />
+                    PRIORITY_ALERT: {newsAlert.title}
+                  </div>
+                </Tooltip>
+              </Marker>
+            );
+          })()}
           
         </MapContainer>
       </div>

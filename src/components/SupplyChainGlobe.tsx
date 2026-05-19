@@ -10,17 +10,17 @@ export const SupplyChainGlobe: React.FC<SupplyChainGlobeProps> = ({ selectedStoc
   const globeEl = useRef<any>(null);
 
   useEffect(() => {
-    if (globeEl.current && selectedStock) {
+    if (globeEl.current && selectedStock && !isNaN(selectedStock.lat) && !isNaN(selectedStock.lng)) {
       globeEl.current.pointOfView({ lat: selectedStock.lat, lng: selectedStock.lng, altitude: 2 }, 1000);
     }
   }, [selectedStock]);
 
   const arcsData = useMemo(() => {
-    if (!selectedStock || !selectedStock.partners) return [];
+    if (!selectedStock || isNaN(selectedStock.lat) || !selectedStock.partners) return [];
     
     return selectedStock.partners.map(pSymbol => {
       const partner = COMPANIES.find(c => c.symbol === pSymbol);
-      if (!partner) return null;
+      if (!partner || isNaN(partner.lat) || isNaN(partner.lng)) return null;
       return {
         startLat: selectedStock.lat,
         startLng: selectedStock.lng,
@@ -32,19 +32,19 @@ export const SupplyChainGlobe: React.FC<SupplyChainGlobeProps> = ({ selectedStoc
   }, [selectedStock]);
 
   const pointsData = useMemo(() => {
-    if (!selectedStock) return [];
+    if (!selectedStock || isNaN(selectedStock.lat)) return [];
     const points = [selectedStock];
     if (selectedStock.partners) {
       selectedStock.partners.forEach(pSymbol => {
         const partner = COMPANIES.find(c => c.symbol === pSymbol);
-        if (partner) points.push(partner);
+        if (partner && !isNaN(partner.lat)) points.push(partner);
       });
     }
     return points;
   }, [selectedStock]);
 
   const ringsData = useMemo(() => {
-    if (!selectedStock) return [];
+    if (!selectedStock || isNaN(selectedStock.lat)) return [];
     return [{ lat: selectedStock.lat, lng: selectedStock.lng }];
   }, [selectedStock]);
 

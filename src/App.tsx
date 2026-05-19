@@ -57,9 +57,18 @@ export default function App() {
 
     const now = Date.now();
     const lastRequest = lastAiRequestRef.current[`enrich-${symbol}`];
-    // Increase symbol-specific cooldown to 10 minutes
-    if (lastRequest && now - lastRequest < 600000) {
-      console.log(`[AI_LOG] Symbol-specific cooldown active for ${symbol}.`);
+    // Increase symbol-specific cooldown to 30 minutes to be extremely conservative
+    if (lastRequest && now - lastRequest < 1800000) {
+      console.log(`[AI_LOG] Symbol-specific cooldown active for ${symbol}. Using cache/fallback.`);
+      if (aiCacheRef.current[`enrich-${symbol}`]) {
+        setNews(aiCacheRef.current[`enrich-${symbol}`]);
+      } else {
+        const enriched = rawNews.map((item) => ({
+          ...item,
+          intelligence: { translatedTitle: item.title }
+        }));
+        setNews(enriched);
+      }
       return;
     }
     
@@ -72,13 +81,13 @@ export default function App() {
         body: JSON.stringify({
           action: "enrich-news",
           symbol,
-          data: rawNews.slice(0, 12)
+          data: rawNews.slice(0, 5) // Reduced from 12 to 5 to save tokens
         })
       });
 
       if (response.status === 429) {
         isGlobalRateLimitedRef.current = true;
-        setTimeout(() => { isGlobalRateLimitedRef.current = false; }, 120000); // 2 min global block
+        setTimeout(() => { isGlobalRateLimitedRef.current = false; }, 300000); // 5 min global block
         throw new Error("RATE_LIMIT_EXCEEDED");
       }
 
@@ -114,7 +123,7 @@ export default function App() {
 
     const now = Date.now();
     const lastRequest = lastAiRequestRef.current[`briefing-${symbol}`];
-    if (lastRequest && now - lastRequest < 600000) {
+    if (lastRequest && now - lastRequest < 1800000) { // 30 min cooldown
       return;
     }
 
@@ -133,7 +142,7 @@ export default function App() {
 
       if (response.status === 429) {
         isGlobalRateLimitedRef.current = true;
-        setTimeout(() => { isGlobalRateLimitedRef.current = false; }, 120000);
+        setTimeout(() => { isGlobalRateLimitedRef.current = false; }, 300000); // 5 min block
         throw new Error("RATE_LIMIT_EXCEEDED");
       }
 
@@ -159,7 +168,7 @@ export default function App() {
       const company = COMPANIES.find(c => c.symbol === symbol);
       const countryCode = company?.country || 'USA';
 
-      const [q, n, p, f, h, r, y] = await Promise.all([
+      const [q, nRaw, p, f, h, r, y] = await Promise.all([
         fetch(`/api/quote?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Quote API alert: Status ${res.status}`);
           return res.json();
@@ -170,7 +179,7 @@ export default function App() {
         fetch(`/api/news?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`News API alert: Status ${res.status}`);
           return res.json();
-        }).catch(() => ([])),
+        }).catch(() => ({ data: [] })),
         fetch(`/api/profile?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Profile API alert: Status ${res.status}`);
           return res.json();
@@ -187,6 +196,8 @@ export default function App() {
         fetch(`/api?service=yields&country=${countryCode}`, { headers }).then(res => res.json()).catch(() => (null)),
       ]);
       
+      const n = Array.isArray(nRaw) ? nRaw : (Array.isArray(nRaw?.data) ? nRaw.data : []);
+
       // Data Parsing check
       if (q && (q.price !== undefined && q.price !== null)) {
         setQuote(q);
@@ -233,18 +244,19 @@ export default function App() {
     const fetchGlobalData = async () => {
       try {
         const [yRes, spyRes, oilRes, sRes] = await Promise.all([
-          fetch('/api?service=yields&country=USA'),
-          fetch('/api/quote?symbol=SPY'),
-          fetch('/api/quote?symbol=CL'),
-          fetch('/api?service=status')
+          fetch('/api?service=yields&country=USA').catch(() => null),
+          fetch('/api/quote?symbol=SPY').catch(() => null),
+          fetch('/api/quote?symbol=CL').catch(() => null),
+          fetch('/api?service=status').catch(() => null)
         ]);
-        const yData = await yRes.json();
-        const spyData = await spyRes.json();
-        const oilData = await oilRes.json();
-        const sData = await sRes.json();
+        
+        const yData = yRes ? await yRes.json().catch(() => null) : null;
+        const spyData = spyRes ? await spyRes.json().catch(() => null) : null;
+        const oilData = oilRes ? await oilRes.json().catch(() => null) : null;
+        const sData = sRes ? await sRes.json().catch(() => null) : null;
 
-        setGlobalYields(yData);
-        setSystemStatus(sData);
+        if (yData) setGlobalYields(yData);
+        if (sData) setSystemStatus(sData);
         if (spyData && spyData.price !== undefined) setSpyPrice(Number(spyData.price));
         if (oilData && oilData.price !== undefined) setOilPrice(Number(oilData.price));
       } catch (e) {
@@ -306,7 +318,8 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' }
         });
         if (!res.ok) console.error(`Map Focus News status: ${res.status}`);
-        const n = await res.json();
+        const nRaw = await res.json();
+        const n = Array.isArray(nRaw) ? nRaw : (nRaw?.data || []);
         setFocusNews(n);
       } catch (e) {
         console.error("Map focus news sync failure", e);
@@ -409,11 +422,11 @@ export default function App() {
           selectedStock={selectedStock} 
           focusStock={mapFocusStock}
           onSelectNode={handleSelectNode}
-          intelligenceFeed={focusNews.length > 0 ? focusNews : news}
+          intelligenceFeed={(Array.isArray(focusNews) && focusNews.length > 0) ? focusNews : (Array.isArray(news) ? news : [])}
           isNewsCycling={isNewsCycling}
           toggleNewsCycling={handleToggleNews}
           activeTab={activeTab}
-          news={news}
+          news={Array.isArray(news) ? news : []}
           activeNewsStory={activeNewsStory}
           setActiveNewsStory={setActiveNewsStory}
         />
@@ -421,10 +434,10 @@ export default function App() {
         <IntelligenceSidebar 
           selectedStock={selectedStock}
           quote={quote}
-          news={news}
-          financials={financials}
+          news={Array.isArray(news) ? news : []}
+          financials={Array.isArray(financials) ? financials : []}
           profile={profile}
-          history={history}
+          history={Array.isArray(history) ? history : []}
           isAiProcessing={isAiProcessing}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
