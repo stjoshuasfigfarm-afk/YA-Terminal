@@ -267,7 +267,7 @@ export default function App() {
     };
 
     fetchAllData();
-    const interval = setInterval(fetchAllData, 45000); // Pulse every 45s
+    const interval = setInterval(fetchAllData, 15000); // Pulse every 15s
     return () => clearInterval(interval);
   }, []);
 
