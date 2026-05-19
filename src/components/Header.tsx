@@ -23,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPric
 
   const isLive = systemStatus?.keys_detected && systemStatus.keys_detected.length > 0;
   const detectedKeys = systemStatus?.keys_detected || [];
+  const missingKeys = selectedQuote?.missing_keys || [];
 
   return (
     <header className="h-7 border-b border-zinc-800 flex items-center bg-black shrink-0 relative overflow-hidden z-20">
@@ -102,8 +103,8 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPric
              </span>
           )}
           {!isLive && (
-             <span className="text-[5px] text-rose-400/60 font-mono animate-pulse">
-               CRITICAL_TELEMETRY_MISSING // SET_API_KEYS
+             <span className="text-[5px] text-rose-400/80 font-mono animate-pulse">
+               CRITICAL_TELEMETRY_MISSING // {missingKeys.length > 0 ? `REQD: ${missingKeys.join(',')}` : 'SET_API_KEYS'}
              </span>
           )}
         </div>

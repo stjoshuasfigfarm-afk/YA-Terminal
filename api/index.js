@@ -174,23 +174,79 @@ export default async function handler(req, res) {
  * Fetch Real-time price and profile with fallback (Silo Rehydration)
  */
 async function fetchCoreMetrics(symbol, keys) {
-  // Primary Source: FMP (Requested Architecture)
+  const attempts = [];
+  
+  // Priority: FMP
   try {
     if (isKeyReady(keys.fmp)) {
       const fmpRes = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${keys.fmp}`);
-      const data = await fmpRes.json();
-      if (data && data[0]) {
-        return { 
-          source: 'FMP_PRIMARY', 
-          price: data[0].price, 
-          change: data[0].change, 
-          name: data[0].name,
-          symbol 
-        };
+      if (fmpRes.ok) {
+        const data = await fmpRes.json();
+        if (data && data[0]) {
+          console.log(`[TELEMETRY_SUCCESS] FMP for ${symbol}`);
+          return { 
+            source: 'FMP_PRIMARY', 
+            price: data[0].price, 
+            change: data[0].change, 
+            name: data[0].name,
+            symbol 
+          };
+        }
+      } else {
+        attempts.push(`FMP_ERR_${fmpRes.status}`);
       }
     }
   } catch (e) { 
     console.warn('[SILO_FAIL] FMP Primary Telemetry bypassed.', e.message); 
+    attempts.push(`FMP_EXCEPTION: ${e.message}`);
+  }
+
+  // Priority: Finnhub (requested robust check)
+  try {
+    if (isKeyReady(keys.finnhub)) {
+      const fhRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${keys.finnhub}`);
+      if (fhRes.ok) {
+        const data = await fhRes.json();
+        if (data && data.c && data.c !== 0) {
+          console.log(`[TELEMETRY_SUCCESS] Finnhub for ${symbol}`);
+          return { 
+            source: 'FINNHUB_STREAM', 
+            price: data.c, 
+            change: data.d, 
+            symbol 
+          };
+        }
+      } else {
+        attempts.push(`FINNHUB_ERR_${fhRes.status}`);
+      }
+    }
+  } catch (e) {
+    console.warn('[SILO_FAIL] Finnhub Telemetry bypassed.', e.message);
+    attempts.push(`FINNHUB_EXCEPTION: ${e.message}`);
+  }
+
+  // Priority: Tiingo (Reliable fallback)
+  try {
+    if (isKeyReady(keys.tiingo)) {
+      const tRes = await fetch(`https://api.tiingo.com/tiingo/daily/${symbol}/prices?token=${keys.tiingo}`);
+      if (tRes.ok) {
+        const data = await tRes.json();
+        if (data && data[0]) {
+          console.log(`[TELEMETRY_SUCCESS] Tiingo for ${symbol}`);
+          return { 
+            source: 'TIINGO_LATENCY_MID', 
+            price: data[0].close, 
+            change: 0, 
+            symbol 
+          };
+        }
+      } else {
+        attempts.push(`TIINGO_ERR_${tRes.status}`);
+      }
+    }
+  } catch (e) {
+    console.warn('[SILO_FAIL] Tiingo Telemetry bypassed.', e.message);
+    attempts.push(`TIINGO_EXCEPTION: ${e.message}`);
   }
 
   // Secondary Source: ITICK for sub-second precision
@@ -199,14 +255,17 @@ async function fetchCoreMetrics(symbol, keys) {
       const itickRes = await fetch(`https://api.itick.io/v1/quote?symbol=${symbol}&token=${keys.itick}`);
       if (itickRes.ok) {
         const data = await itickRes.json();
+        console.log(`[TELEMETRY_SUCCESS] ITICK for ${symbol}`);
         return { source: 'ITICK_PRECISION', price: data.price, change: data.change, symbol };
       }
+      attempts.push(`ITICK_ERR_${itickRes.status}`);
     }
   } catch (e) { 
     console.warn('[SILO_FAIL] ITICK Secondary Telemetry bypassed.', e.message); 
+    attempts.push(`ITICK_EXCEPTION: ${e.message}`);
   }
 
-  // Secondary Source: Alpaca (if configured and FMP/others fail)
+  // Secondary Source: Alpaca
   try {
     if (isKeyReady(keys.alpaca)) {
       const alpacaRes = await fetch(`https://data.alpaca.markets/v2/stocks/${symbol}/quotes/latest`, {
@@ -218,72 +277,47 @@ async function fetchCoreMetrics(symbol, keys) {
       if (alpacaRes.ok) {
         const data = await alpacaRes.json();
         if (data && data.quote) {
+          console.log(`[TELEMETRY_SUCCESS] Alpaca for ${symbol}`);
           return { 
             source: 'ALPACA_LATENCY_LOW', 
-            price: data.quote.ap, // Ask price as proxy
-            change: 0, // Alpaca quote doesn't provide daily change directly in this endpoint
-            symbol 
-          };
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[SILO_FAIL] Alpaca Telemetry bypassed.', e.message);
-  }
-
-  // Secondary Source: Tiingo
-  try {
-    if (isKeyReady(keys.tiingo)) {
-      const tRes = await fetch(`https://api.tiingo.com/tiingo/daily/${symbol}/prices?token=${keys.tiingo}`);
-      if (tRes.ok) {
-        const data = await tRes.json();
-        if (data && data[0]) {
-          return { 
-            source: 'TIINGO_LATENCY_MID', 
-            price: data[0].close, 
+            price: data.quote.ap || data.quote.bp, 
             change: 0, 
             symbol 
           };
         }
       }
+      attempts.push(`ALPACA_ERR_${alpacaRes.status}`);
     }
   } catch (e) {
-    console.warn('[SILO_FAIL] Tiingo Telemetry bypassed.', e.message);
+    console.warn('[SILO_FAIL] Alpaca Telemetry bypassed.', e.message);
+    attempts.push(`ALPACA_EXCEPTION: ${e.message}`);
   }
 
-  // Deep Fallback: Finnhub (Last Resort)
-  try {
-    if (isKeyReady(keys.finnhub)) {
-      const fhRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${keys.finnhub}`);
-      const data = await fhRes.json();
-      if (data && data.c) {
-        return { source: 'FINNHUB_FALLBACK', price: data.c, change: data.d, symbol };
-      }
-    }
-  } catch (e) {
-    console.error('[SILO_CRITICAL] Total Telemetry Blackout.', e.message);
-  }
-
-  // Determine Missing Keys for Reporting
+  // Final check for all sources failed or missing keys
   const missing = [];
   if (!isKeyReady(keys.fmp)) missing.push('FMP');
+  if (!isKeyReady(keys.finnhub)) missing.push('FINNHUB');
+  if (!isKeyReady(keys.tiingo)) missing.push('TIINGO');
   if (!isKeyReady(keys.itick)) missing.push('ITICK');
   if (!isKeyReady(keys.alpaca)) missing.push('ALPACA');
-  if (!isKeyReady(keys.tiingo)) missing.push('TIINGO');
-  if (!isKeyReady(keys.finnhub)) missing.push('FINNHUB');
 
   let basePrice = 150.00;
   if (symbol === 'SPY') basePrice = 739.00;
   if (symbol === 'CL') basePrice = 78.45;
+  if (symbol === 'GLD') basePrice = 220.50;
+  if (symbol === 'TLT') basePrice = 95.20;
   
   const jitter = (Math.random() - 0.5) * 0.1;
+  console.log(`[TELEMETRY_SIMULATION] ${symbol} using fallback. Attempts: ${attempts.join(' | ')}`);
 
   return { 
     source: 'MOCK_EMERGENCY', 
     price: Number((basePrice + jitter).toFixed(2)), 
     change: Number(((Math.random() - 0.5) * 0.2).toFixed(2)), 
     symbol, 
-    status: missing.length ? `KEYS_MISSING: ${missing.join(', ')}` : 'ALL_KEYS_FAILED'
+    status: missing.length ? `KEYS_MISSING: ${missing.join(', ')}` : 'ALL_SOURCES_TIMEOUT',
+    missing_keys: missing,
+    attempts
   };
 }
 
@@ -291,6 +325,7 @@ async function fetchBatchCoreMetrics(symbols, keys) {
   const tickerList = symbols.toUpperCase().split(',');
   const results = {};
 
+  // Try FMP Batch first
   try {
     if (isKeyReady(keys.fmp)) {
       const fmpRes = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbols}?apikey=${keys.fmp}`);
@@ -303,11 +338,46 @@ async function fetchBatchCoreMetrics(symbols, keys) {
             changesPercentage: item.changesPercentage
           };
         });
-        return { source: 'FMP_BATCH', data: results };
+        if (Object.keys(results).length === tickerList.length) {
+          return { source: 'FMP_BATCH', data: results };
+        }
       }
     }
   } catch (e) {
     console.warn('[SILO_FAIL] FMP Batch Telemetry bypassed.', e.message);
+  }
+
+  // Fallback: Individual Finnhub fetches for batch (parallel)
+  try {
+    if (isKeyReady(keys.finnhub)) {
+      const fetches = tickerList.map(async (t) => {
+        try {
+          const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${t}&token=${keys.finnhub}`);
+          if (res.ok) {
+            const d = await res.json();
+            if (d && d.c) {
+              return { symbol: t, price: d.c, change: d.d, changesPercentage: (d.d / (d.c - d.d) * 100) };
+            }
+          }
+        } catch (e) {}
+        return null;
+      });
+      const batchData = await Promise.all(fetches);
+      batchData.forEach(item => {
+        if (item) {
+          results[item.symbol] = {
+            price: item.price,
+            change: item.change,
+            changesPercentage: item.changesPercentage
+          };
+        }
+      });
+      if (Object.keys(results).length > 0) {
+        return { source: 'FINNHUB_INDIVIDUAL_BATCH', data: results };
+      }
+    }
+  } catch (e) {
+    console.warn('[SILO_FAIL] Finnhub Individual Batch Telemetry bypassed.', e.message);
   }
 
   // Simulated fallback for all tickers requested
