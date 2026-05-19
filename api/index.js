@@ -231,6 +231,26 @@ async function fetchCoreMetrics(symbol, keys) {
     console.warn('[SILO_FAIL] Alpaca Telemetry bypassed.', e.message);
   }
 
+  // Secondary Source: Tiingo
+  try {
+    if (isKeyReady(keys.tiingo)) {
+      const tRes = await fetch(`https://api.tiingo.com/tiingo/daily/${symbol}/prices?token=${keys.tiingo}`);
+      if (tRes.ok) {
+        const data = await tRes.json();
+        if (data && data[0]) {
+          return { 
+            source: 'TIINGO_LATENCY_MID', 
+            price: data[0].close, 
+            change: 0, 
+            symbol 
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[SILO_FAIL] Tiingo Telemetry bypassed.', e.message);
+  }
+
   // Deep Fallback: Finnhub (Last Resort)
   try {
     if (isKeyReady(keys.finnhub)) {
@@ -248,6 +268,8 @@ async function fetchCoreMetrics(symbol, keys) {
   const missing = [];
   if (!isKeyReady(keys.fmp)) missing.push('FMP');
   if (!isKeyReady(keys.itick)) missing.push('ITICK');
+  if (!isKeyReady(keys.alpaca)) missing.push('ALPACA');
+  if (!isKeyReady(keys.tiingo)) missing.push('TIINGO');
   if (!isKeyReady(keys.finnhub)) missing.push('FINNHUB');
 
   let basePrice = 150.00;
@@ -290,7 +312,13 @@ async function fetchBatchCoreMetrics(symbols, keys) {
 
   // Simulated fallback for all tickers requested
   tickerList.forEach(t => {
-    const base = t === 'SPY' ? 739.00 : 150.00;
+    let base = 150.00;
+    if (t === 'SPY') base = 739.00;
+    else if (t === 'CL') base = 78.45;
+    else if (t === 'GLD') base = 220.50;
+    else if (t === 'TLT') base = 95.20;
+    else if (t === 'BTC') base = 65000;
+    
     const jitter = (Math.random() - 0.5) * 0.1;
     results[t] = {
       price: Number((base + jitter).toFixed(2)),

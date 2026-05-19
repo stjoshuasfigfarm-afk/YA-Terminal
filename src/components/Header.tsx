@@ -6,11 +6,14 @@ interface HeaderProps {
   selectedStock?: any;
   spyPrice?: number;
   oilPrice?: number;
+  gldPrice?: number;
+  tltPrice?: number;
   yields?: any;
   systemStatus?: { status: string, keys_detected: string[] } | null;
+  selectedQuote?: any;
 }
 
-export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPrice, yields, systemStatus }) => {
+export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPrice, gldPrice, tltPrice, yields, systemStatus, selectedQuote }) => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -47,14 +50,14 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPric
             <div className="flex items-center gap-1.5">
               <span className="text-zinc-600 font-mono text-[8px] tracking-widest uppercase">GLD</span>
               <span className="text-white font-mono text-[9px] font-bold">
-                {(220.50 + (Math.random() - 0.5) * 0.1).toFixed(2)}
+                {gldPrice ? gldPrice.toFixed(2) : (220.50 + (Math.random() - 0.5) * 0.1).toFixed(2)}
               </span>
               <span className="text-emerald-500 font-mono text-[7px]">+0.5%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-zinc-600 font-mono text-[8px] tracking-widest uppercase">TLT</span>
               <span className="text-white font-mono text-[9px] font-bold">
-                {(95.20 + (Math.random() - 0.5) * 0.05).toFixed(2)}
+                {tltPrice ? tltPrice.toFixed(2) : (95.20 + (Math.random() - 0.5) * 0.05).toFixed(2)}
               </span>
               <span className="text-rose-500 font-mono text-[7px]">-0.2%</span>
             </div>
@@ -87,17 +90,20 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, spyPrice, oilPric
           isLive ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-amber-500"
         )}></div>
         <div className="flex flex-col leading-[1]">
-          <span className="text-[7px] font-mono text-white uppercase tracking-tighter opacity-80">
-            {isLive ? 'LIVE_TELEMETRY' : 'SIMULATION_MODE'}
+          <span className={cn(
+            "text-[7px] font-mono uppercase tracking-tighter font-bold",
+            isLive ? "text-emerald-400" : "text-amber-400"
+          )}>
+            {isLive ? 'UPLINK_ESTABLISHED' : 'SIMULATION_MODE'}
           </span>
           {isLive && (
-             <span className="text-[5px] text-zinc-600 font-mono">
-               PROVIDERS: {detectedKeys.join('|')}
+             <span className="text-[5px] text-zinc-500 font-mono truncate max-w-[100px]">
+               DATA: {selectedQuote?.source || 'STREAM'} // {detectedKeys.join('|')}
              </span>
           )}
           {!isLive && (
-             <span className="text-[5px] text-zinc-600 font-mono">
-               CORE_OFFLINE // KEYS_REQD
+             <span className="text-[5px] text-rose-400/60 font-mono animate-pulse">
+               CRITICAL_TELEMETRY_MISSING // SET_API_KEYS
              </span>
           )}
         </div>

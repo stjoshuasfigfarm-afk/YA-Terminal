@@ -28,6 +28,8 @@ export default function App() {
   const [globalYields, setGlobalYields] = useState<any>(null);
   const [spyPrice, setSpyPrice] = useState<number>(739.00);
   const [oilPrice, setOilPrice] = useState<number>(78.50);
+  const [gldPrice, setGldPrice] = useState<number>(220.50);
+  const [tltPrice, setTltPrice] = useState<number>(95.20);
   const [nodeYields, setNodeYields] = useState<any>(null);
   const [systemStatus, setSystemStatus] = useState<{ status: string, keys_detected: string[] } | null>(null);
 
@@ -243,22 +245,24 @@ export default function App() {
   useEffect(() => {
     const fetchGlobalData = async () => {
       try {
-        const [yRes, spyRes, oilRes, sRes] = await Promise.all([
+        const [yRes, indexRes, sRes] = await Promise.all([
           fetch('/api?service=yields&country=USA').catch(() => null),
-          fetch('/api/quote?symbol=SPY').catch(() => null),
-          fetch('/api/quote?symbol=CL').catch(() => null),
+          fetch('/api/batch-core?symbol=SPY,CL,GLD,TLT').catch(() => null),
           fetch('/api?service=status').catch(() => null)
         ]);
         
         const yData = yRes ? await yRes.json().catch(() => null) : null;
-        const spyData = spyRes ? await spyRes.json().catch(() => null) : null;
-        const oilData = oilRes ? await oilRes.json().catch(() => null) : null;
+        const indexData = indexRes ? await indexRes.json().catch(() => null) : null;
         const sData = sRes ? await sRes.json().catch(() => null) : null;
 
         if (yData) setGlobalYields(yData);
         if (sData) setSystemStatus(sData);
-        if (spyData && spyData.price !== undefined) setSpyPrice(Number(spyData.price));
-        if (oilData && oilData.price !== undefined) setOilPrice(Number(oilData.price));
+        if (indexData?.data) {
+          if (indexData.data.SPY) setSpyPrice(Number(indexData.data.SPY.price));
+          if (indexData.data.CL) setOilPrice(Number(indexData.data.CL.price));
+          if (indexData.data.GLD) setGldPrice(Number(indexData.data.GLD.price));
+          if (indexData.data.TLT) setTltPrice(Number(indexData.data.TLT.price));
+        }
       } catch (e) {
         console.error("Global data orientation failed", e);
       }
@@ -403,11 +407,14 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-black text-zinc-300 font-sans border-2 border-zinc-900 selection:bg-white selection:text-black">
       <Header 
-        selectedStock={quote} 
+        selectedStock={selectedStock} 
         spyPrice={spyPrice} 
         oilPrice={oilPrice} 
+        gldPrice={gldPrice}
+        tltPrice={tltPrice}
         yields={globalYields} 
         systemStatus={systemStatus}
+        selectedQuote={quote}
       />
       
       <main className="flex-1 flex overflow-hidden gap-[1px] bg-zinc-800">
