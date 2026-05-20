@@ -124,6 +124,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   sentiment
 }) => {
   const [is3DMode, setIs3DMode] = useState(true);
+  const [showNewsSummary, setShowNewsSummary] = useState(false);
   
   const activePosition = React.useMemo((): [number, number] | null => {
     try {
@@ -232,6 +233,19 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           {is3DMode ? <MapIcon className="w-5 h-5" /> : <GlobeIcon className="w-5 h-5" />}
           <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
             {is3DMode ? "Switch_to_2D_Projection" : "Initialize_3D_Globe"}
+          </div>
+        </button>
+
+        <button 
+          onClick={() => setShowNewsSummary(!showNewsSummary)}
+          className={cn(
+            "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative",
+            showNewsSummary ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
+          )}
+        >
+          <Newspaper className="w-5 h-5 text-emerald-500" />
+          <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
+            {showNewsSummary ? "Hide_News_Summary" : "Show_News_Summary"}
           </div>
         </button>
       </div>
@@ -398,6 +412,41 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             />
           ))}
         </MapContainer>
+      )}
+
+      {showNewsSummary && (
+        <div className="absolute bottom-16 right-4 left-4 md:left-auto md:w-[480px] z-[1002] bg-zinc-950/95 border border-zinc-900 p-3 shadow-2xl flex flex-col max-h-[220px] backdrop-blur-md">
+          <div className="flex justify-between items-center border-b border-zinc-800 pb-1.5 mb-2 font-mono text-[9px]">
+            <span className="text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+              <Newspaper className="w-3.5 h-3.5 text-emerald-500" /> News_Telemetry_Stream ({selectedStock?.symbol || "GLOBAL"})
+            </span>
+            <button 
+              onClick={() => setShowNewsSummary(false)}
+              className="text-zinc-500 hover:text-white uppercase transition-colors"
+            >
+              [Close]
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2.5 pr-1 text-left">
+            {intelligenceFeed && intelligenceFeed.length > 0 ? (
+              intelligenceFeed.slice(0, 5).map((item, idx) => (
+                <div key={idx} className="group border-b border-zinc-900/60 pb-2 last:border-0 last:pb-0">
+                  <div className="flex justify-between items-center mb-1 font-mono text-[7px] text-zinc-500">
+                    <span>{item.published_at ? new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</span>
+                    <span className="opacity-0 group-hover:opacity-100 text-[6px] text-emerald-500 transition-opacity">SYS_REF_AUTO</span>
+                  </div>
+                  <h4 className="text-[10px] font-bold text-zinc-450 leading-snug group-hover:text-white transition-colors uppercase">
+                    {item.intelligence?.translatedTitle || item.title}
+                  </h4>
+                </div>
+              ))
+            ) : (
+              <div className="py-6 text-center text-[9px] font-mono text-zinc-650 uppercase">
+                No active news telemetry found.
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Scanline Overlay */}

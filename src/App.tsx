@@ -3,7 +3,6 @@ import { Header } from "./components/Header";
 import { SearchSidebar } from "./components/SearchSidebar";
 import { MapLayer } from "./components/MapLayer";
 import { IntelligenceSidebar } from "./components/IntelligenceSidebar";
-import { Ticker } from "./components/Ticker";
 import { CommandPalette } from "./components/CommandPalette";
 import { COMPANIES, Company } from "./data/companies";
 
@@ -64,28 +63,40 @@ export default function App() {
   }, []);
 
   // Robust Telemetry Fetch Interceptor
-  const telemetryFetch = useCallback(async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
-    try {
-      let finalUrl = input;
-      if (typeof finalUrl === "string" && finalUrl.startsWith("/")) {
-        finalUrl = getApiBaseUrl() + finalUrl;
-      }
-      const response = await fetch(finalUrl, init);
-      if (!response.ok) {
-        if (response.status === 404) {
-          setSystemStatus("[SYSTEM_ERROR] ROUTE_UNRESOLVED_IN_PROD");
-        } else if (response.status === 401 || response.status === 403) {
-          setSystemStatus("[SYSTEM_ERROR] AUTH_INVALID_ON_DEPLOY");
-        }
-      } else {
-        setSystemStatus("SYSTEM: OPTIMAL");
-      }
-      return response;
-    } catch (err: any) {
-      console.error("Telemetry link failure intercepted:", err);
-      setSystemStatus("[SYSTEM_ERROR] ROUTE_UNRESOLVED_IN_PROD");
-      throw err;
+  const telemetryFetch = useCallback(async (input: RequestInfo, init?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
+    let finalUrl = input;
+    if (typeof finalUrl === "string" && finalUrl.startsWith("/")) {
+      finalUrl = getApiBaseUrl() + finalUrl;
     }
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(finalUrl, init);
+        if (!response.ok) {
+          if (response.status === 404) {
+            setSystemStatus("[SYSTEM_ERROR] ROUTE_UNRESOLVED_IN_PROD");
+          } else if (response.status === 401 || response.status === 403) {
+            setSystemStatus("[SYSTEM_ERROR] AUTH_INVALID_ON_DEPLOY");
+          }
+        } else {
+          setSystemStatus("SYSTEM: OPTIMAL");
+        }
+        return response;
+      } catch (err: any) {
+        const isNetworkError = err instanceof TypeError || err.message?.includes("fetch") || err.name === "TypeError";
+        if (isNetworkError && attempt < retries) {
+          console.warn(`Telemetry link transient failure (attempt ${attempt}/${retries}). Retrying in ${delay}ms...`, err);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 1.5;
+          continue;
+        }
+
+        console.error("Telemetry link failure intercepted:", err);
+        setSystemStatus("[SYSTEM_ERROR] ROUTE_UNRESOLVED_IN_PROD");
+        throw err;
+      }
+    }
+    throw new TypeError("Failed to fetch after retries");
   }, []);
 
   const [relationships, setRelationships] = useState<{ suppliers: any[], customers: any[] }>({ suppliers: [], customers: [] });
@@ -424,7 +435,6 @@ export default function App() {
             allNewsData={news}
             sentiment={sentiment}
           />
-          <Ticker marketData={allMarketData} onSelect={handleSelectNode} />
         </div>
 
         <IntelligenceSidebar 

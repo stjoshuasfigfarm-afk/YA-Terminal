@@ -233,58 +233,81 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             </div>
             <div className="text-[6px] font-mono text-zinc-700 uppercase">60_Cycle_Pulse</div>
           </div>
-          <div className="h-64 relative overflow-hidden shrink-0 flex flex-col bg-zinc-950/20 border border-zinc-900/50">
+          <div className="h-36 relative overflow-hidden shrink-0 flex flex-col bg-zinc-950/20 border border-zinc-900/50">
             <TelemetryChart data={history} />
+          </div>
+        </div>
+
+        <div className="border-t border-zinc-900/50 pt-2 mt-2 font-mono text-[9px] shrink-0 bg-black/40">
+          <div className="text-[8px] text-emerald-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-1 border-b border-zinc-900 pb-1">
+            Financial_Metrics
+          </div>
+          
+          <div className="space-y-1.5">
+            <div className="flex justify-between border-b border-zinc-900 pb-1">
+              <span className="text-zinc-600 uppercase">MKT_CAP</span>
+              <span className="text-zinc-300 font-semibold text-[8.5px]">
+                {profile?.mktCap ? formatCurrency(profile.mktCap) : "---"}
+              </span>
+            </div>
+            
+            <div className="flex justify-between border-b border-zinc-900 pb-1">
+              <span className="text-zinc-600 uppercase">VAL_PRICE</span>
+              <span className="text-emerald-500 font-bold">
+                {quote?.price ? `$${quote.price.toFixed(2)}` : "---"}
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b border-zinc-900 pb-1">
+              <span className="text-zinc-600 uppercase">VOL_AVG</span>
+              <span className="text-zinc-350 text-[8.5px]">
+                {profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}
+              </span>
+            </div>
+            
+            <div className="pt-2 flex flex-col">
+              <div className="text-[7px] text-zinc-550 uppercase mb-1.5 flex items-center gap-1">
+                NET_INCOME_DELTA
+              </div>
+              <div className="flex items-end gap-1 h-12 bg-zinc-950/40 p-1 border border-zinc-900/50">
+                {financials && financials.length > 0 ? (
+                  (() => {
+                    const maxVal = Math.max(...financials.map(f => Math.abs(f.netIncome || 0)), 1);
+                    return financials.slice(-6).map((f: any, i: number) => {
+                      const height = Math.min(Math.max((Math.abs(f.netIncome || 0) / maxVal) * 100, 15), 100);
+                      return (
+                        <div 
+                          key={i}
+                          className={cn(
+                            "flex-1",
+                            (f.netIncome || 0) >= 0 ? "bg-emerald-500/60 hover:bg-emerald-500" : "bg-red-500/60 hover:bg-red-500"
+                          )}
+                          style={{ height: `${height}%` }}
+                          title={`Period: ${f.date}, Delta: ${f.netIncome}`}
+                        />
+                      );
+                    });
+                  })()
+                ) : (
+                  [1,2,3,4,5,6].map(i => <div key={i} className="flex-1 bg-zinc-900 h-2 animate-pulse" />)
+                )}
+              </div>
+              <div className="mt-1 text-[6px] text-zinc-600 flex justify-between uppercase">
+                <span>Past_6Q</span>
+                <span>Delta_Net</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* VERTICAL SEPARATION GAP */}
-      <div className="h-40 shrink-0 bg-transparent border-x border-zinc-900 pointer-events-none relative overflow-hidden">
+      <div className="h-4 shrink-0 bg-transparent border-x border-zinc-900 pointer-events-none relative overflow-hidden">
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #333 1px, transparent 0)', backgroundSize: '12px 12px' }} />
       </div>
 
       <section className="flex-1 flex flex-col overflow-y-auto custom-scrollbar scroll-smooth">
         <YieldAnalysis yields={yields} />
-
-        <div className="grid grid-cols-2 border-b border-zinc-800 bg-black/40 shrink-0">
-          <div className="p-2 border-r border-zinc-800 bg-black/20">
-            <div className="text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Market Cap</div>
-            <div className="font-mono text-[10px] text-white font-bold">{profile?.mktCap ? formatCurrency(profile.mktCap) : "---"}</div>
-            <div className="mt-3 text-[8px] font-mono text-zinc-600 uppercase mb-0.5">Volume (Avg)</div>
-            <div className="font-mono text-[10px] text-zinc-400">{profile?.volAvg ? formatCurrency(profile.volAvg) : "---"}</div>
-          </div>
-          <div className="p-2 flex flex-col">
-            <div className="text-[8px] font-mono text-zinc-600 uppercase mb-2">Profit_Velocity</div>
-            <div className="flex-1 flex items-end gap-0.5 px-0.5 h-10">
-              {financials && financials.length > 0 ? (
-                (() => {
-                  const maxVal = Math.max(...financials.map(f => Math.abs(f.netIncome || 0)), 1);
-                  return financials.slice(-6).map((f: any, i: number) => {
-                    const height = Math.min(Math.max((Math.abs(f.netIncome || 0) / maxVal) * 100, 15), 100);
-                    return (
-                      <div 
-                        key={i}
-                        className={cn(
-                          "flex-1 transition-all duration-500",
-                          (f.netIncome || 0) >= 0 ? "bg-white/60 hover:bg-white" : "bg-red-900/60 hover:bg-red-600"
-                        )}
-                        style={{ height: `${height}%` }}
-                        title={`Period: ${f.date}, Var: ${f.netIncome}`}
-                      />
-                    );
-                  });
-                })()
-              ) : (
-                [1,2,3,4,5,6].map(i => <div key={i} className="flex-1 bg-zinc-900 h-2 animate-pulse" />)
-              )}
-            </div>
-            <div className="mt-1 text-[7px] font-mono text-zinc-700 flex justify-between uppercase">
-              <span>Past_6Q</span>
-              <span>Delta_Net</span>
-            </div>
-          </div>
-        </div>
 
         <div className="flex border-b border-zinc-800 bg-black shrink-0">
           <button 

@@ -291,31 +291,82 @@ const SupplyArcs = ({
   );
 };
 
-const GlobeSphere = () => {
+const GlobeSphere = ({ texture }: { texture: THREE.CanvasTexture | null }) => {
   return (
     <group>
+      {/* Ocean/Water Body with dynamic land/ocean texture */}
       <mesh>
         <sphereGeometry args={[1.9, 64, 64]} />
-        <meshPhongMaterial 
-          color="#000000" 
-          transparent
-          opacity={0.8}
-        />
+        {texture ? (
+          <meshPhongMaterial 
+            map={texture}
+            transparent
+            opacity={0.8}
+            shininess={10}
+          />
+        ) : (
+          <meshPhongMaterial 
+            color="#1e293b" 
+            transparent
+            opacity={0.8}
+            shininess={10}
+          />
+        )}
       </mesh>
       
-      {/* Grid segments */}
+      {/* Grid segments matched to dark grey theme */}
       <mesh>
         <sphereGeometry args={[1.98, 30, 30]} />
-        <meshBasicMaterial color="#10b981" wireframe transparent opacity={0.05} />
+        <meshBasicMaterial color="#475569" wireframe transparent opacity={0.06} />
       </mesh>
 
-      {/* Outer Glow */}
+      {/* Outer Glow in subtle contrasting grey */}
       <mesh>
         <sphereGeometry args={[2.05, 32, 32]} />
-        <meshBasicMaterial color="#10b981" transparent opacity={0.02} side={THREE.BackSide} />
+        <meshBasicMaterial color="#4b5563" transparent opacity={0.03} side={THREE.BackSide} />
       </mesh>
     </group>
   );
+};
+
+interface GeoJsonFeature {
+  type: string;
+  geometry: {
+    type: "Polygon" | "MultiPolygon";
+    coordinates: any;
+  };
+}
+
+const parseBorders = (geoJson: any, radius: number): THREE.Vector3[][] => {
+  const paths: THREE.Vector3[][] = [];
+  if (!geoJson || !geoJson.features) return paths;
+
+  geoJson.features.forEach((feature: GeoJsonFeature) => {
+    const { geometry } = feature;
+    if (!geometry) return;
+
+    const addPolygon = (polygon: number[][][]) => {
+      polygon.forEach((ring) => {
+        const points: THREE.Vector3[] = [];
+        ring.forEach(([lng, lat]) => {
+          points.push(latLngToVector3(lat, lng, radius));
+        });
+        if (points.length > 1) {
+          paths.push(points);
+        }
+      });
+    };
+
+    if (geometry.type === "Polygon") {
+      addPolygon(geometry.coordinates);
+    } else if (geometry.type === "MultiPolygon") {
+      geometry.coordinates.forEach((polygon: number[][][]) => {
+        addPolygon(polygon);
+      });
+    }
+  });
+
+  return paths;
 };
 
 interface GlobeProps {
@@ -375,6 +426,104 @@ export const Globe: React.FC<GlobeProps> = ({
   sentiment,
   showAllConnections = false
 }) => {
+  const [geoJsonData, setGeoJsonData] = React.useState<any>(null);
+  const [countryPaths, setCountryPaths] = React.useState<THREE.Vector3[][]>([]);
+  const [statePaths, setStatePaths] = React.useState<THREE.Vector3[][]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    // Fetch Countries (low resolution 110m is perfect for performance and loads under 200ms)
+    fetch("https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson")
+      .then((res) => {
+        if (!res.ok) throw new Error("Status: " + res.status);
+        return res.json();
+      })
+      .then((data) => {
+        if (isMounted) {
+          setGeoJsonData(data);
+          setCountryPaths(parseBorders(data, 1.905));
+        }
+      })
+      .catch((err) => console.error("Globe country boundaries load failure:", err));
+
+    // Fetch States/Provinces (admin 1 level)
+    fetch("https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_1_states_provinces.geojson")
+      .then((res) => {
+        if (!res.ok) throw new Error("Status: " + res.status);
+        return res.json();
+      })
+      .then((data) => {
+        if (isMounted) {
+          setStatePaths(parseBorders(data, 1.903));
+        }
+      })
+      .catch((err) => console.error("Globe state boundaries load failure:", err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const globeTexture = useMemo(() => {
+    if (!geoJsonData) return null;
+    
+    // Create an offscreen canvas
+    const width = 2048;
+    const height = 1024;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    // 1. STYLING (OCEAN): deep, subtle neutral grey
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. STYLING (LAND): brighter, dark slate grey with a thin contrasting border (e.g. stroke #334155)
+    ctx.fillStyle = "#1e293b";
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1;
+
+    if (geoJsonData.features) {
+      geoJsonData.features.forEach((feature: any) => {
+        const { geometry } = feature;
+        if (!geometry) return;
+
+        const drawPolygon = (polygon: number[][][]) => {
+          polygon.forEach((ring) => {
+            if (ring.length === 0) return;
+            ctx.beginPath();
+            ring.forEach(([lng, lat], idx) => {
+              const x = ((lng + 180) / 360) * width;
+              const y = ((90 - lat) / 180) * height;
+              if (idx === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+              }
+            });
+            ctx.fill();
+            ctx.stroke();
+          });
+        };
+
+        if (geometry.type === "Polygon") {
+          drawPolygon(geometry.coordinates);
+        } else if (geometry.type === "MultiPolygon") {
+          geometry.coordinates.forEach((polygon: number[][][]) => {
+            drawPolygon(polygon);
+          });
+        }
+      });
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, [geoJsonData]);
+
   return (
     <div className="w-full h-full bg-black relative">
       <Canvas dpr={[1, 2]}>
@@ -394,7 +543,34 @@ export const Globe: React.FC<GlobeProps> = ({
         <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
         
         <RotatingGroup autoRotate={!selectedStock}>
-          <GlobeSphere />
+          <GlobeSphere texture={globeTexture} />
+          
+          {/* Render parsed boundaries */}
+          <group>
+            {/* International Country Borders */}
+            {countryPaths.map((points, i) => (
+              <Line
+                key={`country-border-${i}`}
+                points={points}
+                color="#64748b"
+                lineWidth={0.5}
+                transparent
+                opacity={0.35}
+              />
+            ))}
+            {/* Domestic State/Province Borders */}
+            {statePaths.map((points, i) => (
+              <Line
+                key={`state-border-${i}`}
+                points={points}
+                color="#4b5563"
+                lineWidth={0.4}
+                transparent
+                opacity={0.2}
+              />
+            ))}
+          </group>
+
           <DataPoints />
           <ScanningHorizon />
           <GlobePoints 
