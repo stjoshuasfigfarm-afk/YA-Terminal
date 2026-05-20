@@ -43,6 +43,27 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+// Explicit API 404 handler to prevent API routes from falling back to HTML SPA rendering
+app.use("/api/*", (req, res) => {
+  res.status(404).json({
+    error: "NOT_FOUND",
+    message: `API endpoint '${req.originalUrl}' does not exist on this operational terminal node.`
+  });
+});
+
+// Global API error handler to ensure pure JSON responses
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (req.originalUrl.startsWith("/api/")) {
+    console.error(`[API_ERROR] Exception on ${req.method} ${req.originalUrl}:`, err);
+    res.status(err.status || 500).json({
+      error: "INTERNAL_SERVER_ERROR",
+      message: err.message || "An unexpected system interrupt occurred during telemetry synthesis."
+    });
+  } else {
+    next(err);
+  }
+});
+
 // Configure Vite middleware transition
 async function startServer() {
   if (process.env.NODE_ENV === "production") {
