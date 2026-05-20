@@ -8,7 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         body { font-family: 'JetBrains Mono', monospace; }
         .glitch-text { text-shadow: 2px 0 #10b981, -2px 0 #059669; }
@@ -91,6 +90,46 @@
 </head>
 <body class="p-1 md:p-2 min-h-screen bg-black text-gray-400 overflow-x-hidden">
     <div id="root"></div>
+    
+    <!-- Retro Terminal-style Fullscreen Bootloader Overlay -->
+    <div id="terminal-boot-overlay" class="fixed inset-0 bg-black z-[999999] p-4 font-mono flex flex-col justify-between select-none">
+        <div class="flex-grow flex flex-col justify-center items-center max-w-xl mx-auto w-full gap-4 text-left">
+            <div class="border border-emerald-950 bg-black/80 p-6 w-full shadow-2xl shadow-emerald-950/20">
+                <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase border-b border-emerald-900 pb-2 mb-3">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    <span>YA_Terminal // SYSTEM CORE BOOT</span>
+                </div>
+                
+                <div class="space-y-1 text-[11px] text-emerald-500">
+                    <div id="boot-status-1" class="flex justify-between">
+                        <span>▶ INITIALIZING SYSTEM ARCHITECTURE...</span>
+                        <span class="text-emerald-300 font-bold">[OK]</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>▶ PRE-REQUISITE LIBRARIES (ECHARTS)...</span>
+                        <span id="boot-echarts-status" class="text-emerald-700 animate-pulse">[LOADING...]</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>▶ MOUNTING TELEMETRY PIXEL CANVAS...</span>
+                        <span id="boot-canvas-status" class="text-gray-600">[WAITING...]</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>▶ ESTABLISHING DATA HUBS GROUNDING...</span>
+                        <span id="boot-hubs-status" class="text-gray-600">[WAITING...]</span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t border-emerald-950/40 text-[10px] text-cyan-400 font-bold">
+                        <span>SYS_LOADER_STATE // PENDING_FIRST_CHART_PAINT</span>
+                        <span class="animate-pulse">ACTIVE</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex justify-between items-center text-[9px] text-gray-700 uppercase">
+            <span>YA_Terminal Uplink Bootstrapper</span>
+            <span>Secure point-to-point connection</span>
+        </div>
+    </div>
+
     <header class="mb-1 flex flex-col md:flex-row md:items-end justify-between border-b border-gray-800 pb-0.5">
         <div class="flex items-center gap-3">
             <img src="/logo.png" alt="Logo" class="w-10 h-10 object-contain" referrerPolicy="no-referrer">
@@ -168,6 +207,30 @@
 
                 <div id="coords-readout" class="absolute bottom-2 left-2 text-[8px] text-emerald-600 font-mono z-[5000] px-2 py-0.5 bg-black/95 border border-emerald-900/60 pointer-events-none uppercase">
                     GLB // LAT: 20.000 // LNG: 0.000
+                </div>
+
+                <!-- Custom Interactive Hologram Globe Control Overlay -->
+                <div id="globe-controls" class="absolute bottom-2 right-2 p-1.5 border border-emerald-950 bg-black/95 hover:border-emerald-800 transition-colors z-[5000] hidden flex flex-col gap-1 font-mono text-[8.5px] text-emerald-400 w-[170px] shadow-lg shadow-black/90">
+                    <div class="text-[7.5px] text-emerald-600 font-bold uppercase border-b border-emerald-950 pb-1 mb-1 flex justify-between items-center">
+                        <span>🌐 COGNITIVE_GLOBE</span>
+                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1 mb-1">
+                        <button onclick="window.toggleGlobeLayer('grid')" id="glow-grid-btn" class="bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer">GRID: ON</button>
+                        <button onclick="window.toggleGlobeLayer('land')" id="glow-land-btn" class="bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer">LAND: ON</button>
+                        <button onclick="window.toggleGlobeLayer('hubs')" id="glow-hubs-btn" class="bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer">HUBS: ON</button>
+                        <button onclick="window.toggleGlobeLayer('scan')" id="glow-scan-btn" class="bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer">BEAM: ON</button>
+                    </div>
+                    <div class="flex gap-1 justify-between items-center border-t border-emerald-950/60 pt-1 mt-0.5">
+                        <button onclick="window.toggleGlobeMotion()" id="globe-motion-btn" class="bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-800 px-1.5 py-0.5 text-[7px] font-bold text-cyan-300 transition-all cursor-pointer flex-grow text-center">AUTO_ROTATION: ON</button>
+                    </div>
+                    <div class="grid grid-cols-5 gap-0.5 text-center pt-1 border-t border-emerald-950/30">
+                        <button onclick="window.nudgeGlobe('left')" class="bg-emerald-950/20 hover:bg-emerald-900/40 border border-emerald-950 text-[7px] font-bold text-emerald-500 cursor-pointer py-0.5">◀</button>
+                        <button onclick="window.nudgeGlobe('up')" class="bg-emerald-950/20 hover:bg-emerald-900/40 border border-emerald-950 text-[7px] font-bold text-emerald-500 cursor-pointer py-0.5">▲</button>
+                        <button onclick="window.nudgeGlobe('down')" class="bg-emerald-950/20 hover:bg-emerald-900/40 border border-emerald-950 text-[7px] font-bold text-emerald-500 cursor-pointer py-0.5">▼</button>
+                        <button onclick="window.nudgeGlobe('right')" class="bg-emerald-950/20 hover:bg-emerald-900/40 border border-emerald-950 text-[7px] font-bold text-emerald-500 cursor-pointer py-0.5">▶</button>
+                        <button onclick="window.resetGlobeToHQ()" class="bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800 text-[6.5px] font-bold text-emerald-300 cursor-pointer" title="Reset to HQ Position">HQ</button>
+                    </div>
                 </div>
 
                 <div id="news-overlay" class="absolute bottom-4 left-4 right-4 z-[5000] bg-black/80 border border-emerald-900 p-3 hidden transition-all pointer-events-none">
@@ -256,6 +319,8 @@
     </footer>
 
     <script type="module">
+import * as echarts from 'echarts';
+window.echarts = echarts;
 
 /**
  * script.js - The Floor Manager
@@ -295,6 +360,12 @@ const globeState = {
   lastMouseX: 0,
   lastMouseY: 0,
   landPoints: [],
+  // Layer configurations
+  showGrid: true,
+  showLand: true,
+  showHubs: true,
+  showScanner: true,
+  autoRotate: true,
 };
 
 window.globeState = globeState;
@@ -869,7 +940,7 @@ function drawGlobe() {
   const ctx = globeState.ctx;
   if (!canvas || !ctx) return;
 
-  if (!globeState.isDragging) {
+  if (!globeState.isDragging && globeState.autoRotate) {
     globeState.rotationY += 0.0012; // Auto planetary rotation
   }
 
@@ -918,125 +989,179 @@ function drawGlobe() {
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Draw Grid Lines (Latitudes)
-  for (let lat = -60; lat <= 60; lat += 20) {
-    ctx.beginPath();
-    let first = true;
-    for (let lon = -180; lon <= 180; lon += 5) {
-      const pt3 = latLngTo3D(lat, lon, radius);
-      const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
-      const cx = centerX + rot.x;
-      const cy = centerY - rot.y;
+  // Draw central reticle guides over the globe
+  ctx.strokeStyle = 'rgba(16, 185, 129, 0.08)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(centerX - radius * 1.15, centerY);
+  ctx.lineTo(centerX + radius * 1.15, centerY);
+  ctx.moveTo(centerX, centerY - radius * 1.15);
+  ctx.lineTo(centerX, centerY + radius * 1.15);
+  ctx.stroke();
 
-      if (rot.z >= -10) {
-        if (first) { ctx.moveTo(cx, cy); first = false; }
-        else ctx.lineTo(cx, cy);
-      } else {
-        first = true;
-      }
-    }
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.16)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.22)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.rect(centerX - 5, centerY - 5, 10, 10);
+  ctx.stroke();
 
-    // Backside Latitudes
-    ctx.beginPath();
-    let firstBk = true;
-    for (let lon = -180; lon <= 180; lon += 5) {
-      const pt3 = latLngTo3D(lat, lon, radius);
-      const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
-      const cx = centerX + rot.x;
-      const cy = centerY - rot.y;
+  // Draw Outer Equatorial Compass Plate Ring
+  ctx.beginPath();
+  const ringRadius = radius * 1.12;
+  ctx.ellipse(centerX, centerY, ringRadius, ringRadius * 0.35, 0, 0, 2 * Math.PI);
+  ctx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
-      if (rot.z < -10) {
-        if (firstBk) { ctx.moveTo(cx, cy); firstBk = false; }
-        else ctx.lineTo(cx, cy);
-      } else {
-        firstBk = true;
-      }
-    }
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.04)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-  }
-
-  // Draw Grid Lines (Longitudes)
-  for (let lon = -180; lon < 180; lon += 30) {
-    ctx.beginPath();
-    let first = true;
-    for (let lat = -80; lat <= 80; lat += 5) {
-      const pt3 = latLngTo3D(lat, lon, radius);
-      const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
-      const cx = centerX + rot.x;
-      const cy = centerY - rot.y;
-
-      if (rot.z >= -10) {
-        if (first) { ctx.moveTo(cx, cy); first = false; }
-        else ctx.lineTo(cx, cy);
-      } else {
-        first = true;
-      }
-    }
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.16)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-
-    // Backside Longitudes
-    ctx.beginPath();
-    let firstBk = true;
-    for (let lat = -80; lat <= 80; lat += 5) {
-      const pt3 = latLngTo3D(lat, lon, radius);
-      const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
-      const cx = centerX + rot.x;
-      const cy = centerY - rot.y;
-
-      if (rot.z < -10) {
-        if (firstBk) { ctx.moveTo(cx, cy); firstBk = false; }
-        else ctx.lineTo(cx, cy);
-      } else {
-        firstBk = true;
-      }
-    }
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.04)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-  }
-
-  // Draw World Landmass Digital Matrix
-  globeState.landPoints.forEach(pt => {
-    const pt3 = latLngTo3D(pt.lat, pt.lon, radius);
+  // Draw dynamic compass degree markers on coordinates plate
+  for (let heading = 0; heading < 360; heading += 30) {
+    const rad = heading * Math.PI / 180;
+    const pt3 = {
+      x: radius * 1.12 * Math.cos(rad),
+      y: 0,
+      z: radius * 1.12 * Math.sin(rad)
+    };
     const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
     const cx = centerX + rot.x;
     const cy = centerY - rot.y;
 
-    if (rot.z >= -2) {
-      // Front side dot
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
-      ctx.fillRect(cx, cy, 1.2, 1.2);
-    } else {
-      // Far side (backside) dot - dimmer to give gorgeous 3D transparency!
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.04)';
-      ctx.fillRect(cx, cy, 0.8, 0.8);
+    if (rot.z >= -10) {
+      ctx.fillStyle = heading % 90 === 0 ? 'rgba(6, 182, 212, 0.6)' : 'rgba(16, 185, 129, 0.3)';
+      ctx.fillRect(cx - 1, cy - 1, 2, 2);
+      if (heading % 90 === 0) {
+        let lbl = heading === 0 ? 'E' : heading === 90 ? 'N' : heading === 180 ? 'W' : 'S';
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.5)';
+        ctx.font = '7px "JetBrains Mono"';
+        ctx.fillText(lbl, cx + 4, cy + 2.5);
+      }
     }
-  });
+  }
+
+  // Draw Grid Lines (Latitudes)
+  if (globeState.showGrid) {
+    for (let lat = -60; lat <= 60; lat += 20) {
+      ctx.beginPath();
+      let first = true;
+      for (let lon = -180; lon <= 180; lon += 5) {
+        const pt3 = latLngTo3D(lat, lon, radius);
+        const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
+        const cx = centerX + rot.x;
+        const cy = centerY - rot.y;
+
+        if (rot.z >= -10) {
+          if (first) { ctx.moveTo(cx, cy); first = false; }
+          else ctx.lineTo(cx, cy);
+        } else {
+          first = true;
+        }
+      }
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.16)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Backside Latitudes
+      ctx.beginPath();
+      let firstBk = true;
+      for (let lon = -180; lon <= 180; lon += 5) {
+        const pt3 = latLngTo3D(lat, lon, radius);
+        const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
+        const cx = centerX + rot.x;
+        const cy = centerY - rot.y;
+
+        if (rot.z < -10) {
+          if (firstBk) { ctx.moveTo(cx, cy); firstBk = false; }
+          else ctx.lineTo(cx, cy);
+        } else {
+          firstBk = true;
+        }
+      }
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.04)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    // Draw Grid Lines (Longitudes)
+    for (let lon = -180; lon < 180; lon += 30) {
+      ctx.beginPath();
+      let first = true;
+      for (let lat = -80; lat <= 80; lat += 5) {
+        const pt3 = latLngTo3D(lat, lon, radius);
+        const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
+        const cx = centerX + rot.x;
+        const cy = centerY - rot.y;
+
+        if (rot.z >= -10) {
+          if (first) { ctx.moveTo(cx, cy); first = false; }
+          else ctx.lineTo(cx, cy);
+        } else {
+          first = true;
+        }
+      }
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.16)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Backside Longitudes
+      ctx.beginPath();
+      let firstBk = true;
+      for (let lat = -80; lat <= 80; lat += 5) {
+        const pt3 = latLngTo3D(lat, lon, radius);
+        const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
+        const cx = centerX + rot.x;
+        const cy = centerY - rot.y;
+
+        if (rot.z < -10) {
+          if (firstBk) { ctx.moveTo(cx, cy); firstBk = false; }
+          else ctx.lineTo(cx, cy);
+        } else {
+          firstBk = true;
+        }
+      }
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.04)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+  }
+
+  // Draw World Landmass Digital Matrix
+  if (globeState.showLand) {
+    globeState.landPoints.forEach(pt => {
+      const pt3 = latLngTo3D(pt.lat, pt.lon, radius);
+      const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
+      const cx = centerX + rot.x;
+      const cy = centerY - rot.y;
+
+      if (rot.z >= -2) {
+        // Front side dot
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
+        ctx.fillRect(cx, cy, 1.2, 1.2);
+      } else {
+        // Far side (backside) dot - dimmer to give gorgeous 3D transparency!
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.04)';
+        ctx.fillRect(cx, cy, 0.8, 0.8);
+      }
+    });
+  }
 
   // Dynamic sweeping scanner beam passing down the sphere surface
-  const sweepY = centerY + radius * Math.sin(Date.now() / 1500);
-  ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(centerX - radius * 1.05, sweepY);
-  ctx.lineTo(centerX + radius * 1.05, sweepY);
-  ctx.stroke();
-
-  const dy = sweepY - centerY;
-  if (Math.abs(dy) < radius) {
-    const ellipticalRadiusX = Math.sqrt(radius * radius - dy * dy);
-    ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
-    ctx.lineWidth = 1;
+  if (globeState.showScanner) {
+    const sweepY = centerY + radius * Math.sin(Date.now() / 1500);
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.ellipse(centerX, sweepY, ellipticalRadiusX, ellipticalRadiusX * 0.18, 0, 0, 2 * Math.PI);
+    ctx.moveTo(centerX - radius * 1.05, sweepY);
+    ctx.lineTo(centerX + radius * 1.05, sweepY);
     ctx.stroke();
+
+    const dy = sweepY - centerY;
+    if (Math.abs(dy) < radius) {
+      const ellipticalRadiusX = Math.sqrt(radius * radius - dy * dy);
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(centerX, sweepY, ellipticalRadiusX, ellipticalRadiusX * 0.18, 0, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
   }
 
   let activeHub = null;
@@ -1044,119 +1169,170 @@ function drawGlobe() {
     activeHub = GLOBAL_HUBS.find(h => h.symbol === state.currentTicker);
   }
 
-  // Draw trade links with animated packet flows
-  if (activeHub) {
-    const startPt = latLngTo3D(activeHub.coords[0], activeHub.coords[1], radius);
-    const relatedHubs = GLOBAL_HUBS.filter(h => h.symbol === state.currentTicker && h !== activeHub);
-    const packetPosition = (Date.now() / 1200) % 1.0; // flow index from 0 to 1
+  // Draw trade links and hub points
+  if (globeState.showHubs) {
+    // Draw trade links with animated packet flows
+    if (activeHub) {
+      const startPt = latLngTo3D(activeHub.coords[0], activeHub.coords[1], radius);
+      const relatedHubs = GLOBAL_HUBS.filter(h => h.symbol === state.currentTicker && h !== activeHub);
+      const packetPosition = (Date.now() / 1200) % 1.0; // flow index from 0 to 1
 
-    relatedHubs.forEach(hub => {
-      const endPt = latLngTo3D(hub.coords[0], hub.coords[1], radius);
-      ctx.beginPath();
-      let first = true;
-      let particlePt = null;
-      
-      for (let t = 0; t <= 1; t += 0.02) {
-        let px = startPt.x + (endPt.x - startPt.x) * t;
-        let py = startPt.y + (endPt.y - startPt.y) * t;
-        let pz = startPt.z + (endPt.z - startPt.z) * t;
+      relatedHubs.forEach(hub => {
+        const endPt = latLngTo3D(hub.coords[0], hub.coords[1], radius);
+        ctx.beginPath();
+        let first = true;
+        let particlePt = null;
+        
+        for (let t = 0; t <= 1; t += 0.02) {
+          let px = startPt.x + (endPt.x - startPt.x) * t;
+          let py = startPt.y + (endPt.y - startPt.y) * t;
+          let pz = startPt.z + (endPt.z - startPt.z) * t;
 
-        const currentLen = Math.sqrt(px * px + py * py + pz * pz);
-        const domeHeight = Math.sin(t * Math.PI) * (radius * 0.16); // peak arc height
-        const scale = (radius + domeHeight) / currentLen;
-        px *= scale;
-        py *= scale;
-        pz *= scale;
+          const currentLen = Math.sqrt(px * px + py * py + pz * pz);
+          const domeHeight = Math.sin(t * Math.PI) * (radius * 0.16); // peak arc height
+          const scale = (radius + domeHeight) / currentLen;
+          px *= scale;
+          py *= scale;
+          pz *= scale;
 
-        const rot = rotate3D({ x: px, y: py, z: pz }, globeState.rotationX, globeState.rotationY);
-        const cx = centerX + rot.x;
-        const cy = centerY - rot.y;
+          const rot = rotate3D({ x: px, y: py, z: pz }, globeState.rotationX, globeState.rotationY);
+          const cx = centerX + rot.x;
+          const cy = centerY - rot.y;
 
-        if (rot.z >= -15) {
-          if (first) { ctx.moveTo(cx, cy); first = false; }
-          else ctx.lineTo(cx, cy);
+          if (rot.z >= -15) {
+            if (first) { ctx.moveTo(cx, cy); first = false; }
+            else ctx.lineTo(cx, cy);
+          } else {
+            first = true;
+          }
+
+          // Capture flowing tracking packet coordinates
+          if (Math.abs(t - packetPosition) < 0.015) {
+            particlePt = { cx, cy, z: rot.z };
+          }
+        }
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.55)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset line dash
+
+        // Render the glowing flow telemetry packet
+        if (particlePt && particlePt.z >= -10) {
+          ctx.fillStyle = '#22d3ee';
+          ctx.beginPath();
+          ctx.arc(particlePt.cx, particlePt.cy, 2.5, 0, 2 * Math.PI);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(34, 211, 238, 0.35)';
+          ctx.beginPath();
+          ctx.arc(particlePt.cx, particlePt.cy, 5.5, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      });
+    }
+
+    // Draw Hub Points
+    GLOBAL_HUBS.forEach(hub => {
+      const pt3 = latLngTo3D(hub.coords[0], hub.coords[1], radius);
+      const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
+      const cx = centerX + rot.x;
+      const cy = centerY - rot.y;
+
+      const isActive = activeHub && hub.symbol === activeHub.symbol;
+
+      if (rot.z >= -10) {
+        ctx.beginPath();
+        const dotSize = isActive ? 5.5 : 2.5;
+        ctx.arc(cx, cy, dotSize, 0, 2 * Math.PI);
+        
+        if (isActive) {
+          ctx.fillStyle = '#22d3ee'; // Cyan HQ
+          ctx.fill();
+
+          const pulse = dotSize + 5.5 * Math.sin(Date.now() / 150);
+          ctx.beginPath();
+          ctx.arc(cx, cy, pulse, 0, 2 * Math.PI);
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 8px "JetBrains Mono"';
+          ctx.fillText(`${hub.company} [HQ]`, cx + 8, cy - 3);
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.font = '6px "JetBrains Mono"';
+          ctx.fillText(`LAT:${hub.coords[0].toFixed(2)}/LNG:${hub.coords[1].toFixed(2)}`, cx + 8, cy + 5);
         } else {
-          first = true;
+          ctx.fillStyle = '#10b981'; // Green Node
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.6)';
+          ctx.font = '6px "JetBrains Mono"';
+          ctx.fillText(hub.symbol, cx + 5, cy + 2);
         }
-
-        // Capture flowing tracking packet coordinates
-        if (Math.abs(t - packetPosition) < 0.015) {
-          particlePt = { cx, cy, z: rot.z };
-        }
-      }
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.55)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([3, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]); // Reset line dash
-
-      // Render the glowing flow telemetry packet
-      if (particlePt && particlePt.z >= -10) {
-        ctx.fillStyle = '#22d3ee';
+      } else {
         ctx.beginPath();
-        ctx.arc(particlePt.cx, particlePt.cy, 2.5, 0, 2 * Math.PI);
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(34, 211, 238, 0.35)';
-        ctx.beginPath();
-        ctx.arc(particlePt.cx, particlePt.cy, 5.5, 0, 2 * Math.PI);
+        ctx.arc(cx, cy, 1.25, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
         ctx.fill();
       }
     });
   }
 
-  // Draw Hub Points
-  GLOBAL_HUBS.forEach(hub => {
-    const pt3 = latLngTo3D(hub.coords[0], hub.coords[1], radius);
-    const rot = rotate3D(pt3, globeState.rotationX, globeState.rotationY);
-    const cx = centerX + rot.x;
-    const cy = centerY - rot.y;
-
-    const isActive = activeHub && hub.symbol === activeHub.symbol;
-
-    if (rot.z >= -10) {
-      ctx.beginPath();
-      const dotSize = isActive ? 5.5 : 2.5;
-      ctx.arc(cx, cy, dotSize, 0, 2 * Math.PI);
+  // Hover realcompute projection calculations under the cursor
+  let hoverReadoutStr = "";
+  if (globeState.hoverActive && globeState.mouseX !== undefined && globeState.mouseY !== undefined) {
+    const rx = globeState.mouseX - centerX;
+    const ry = centerY - globeState.mouseY; // reverse relative Y coordinates
+    const distSq = rx*rx + ry*ry;
+    if (distSq <= radius*radius) {
+      const rz = Math.sqrt(radius*radius - distSq);
       
-      if (isActive) {
-        ctx.fillStyle = '#22d3ee'; // Cyan HQ
-        ctx.fill();
+      const cosX = Math.cos(-globeState.rotationX);
+      const sinX = Math.sin(-globeState.rotationX);
+      const rx_1 = rx;
+      const ry_1 = ry * cosX - rz * sinX;
+      const rz_1 = ry * sinX + rz * cosX;
 
-        const pulse = dotSize + 5.5 * Math.sin(Date.now() / 150);
-        ctx.beginPath();
-        ctx.arc(cx, cy, pulse, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+      const cosY = Math.cos(-globeState.rotationY);
+      const sinY = Math.sin(-globeState.rotationY);
+      const x_orig = rx_1 * cosY + rz_1 * sinY;
+      const y_orig = ry_1;
+      const z_orig = -rx_1 * sinY + rz_1 * cosY;
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 8px "JetBrains Mono"';
-        ctx.fillText(`${hub.company} [HQ]`, cx + 8, cy - 3);
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = '6px "JetBrains Mono"';
-        ctx.fillText(`LAT:${hub.coords[0].toFixed(2)}/LNG:${hub.coords[1].toFixed(2)}`, cx + 8, cy + 5);
-      } else {
-        ctx.fillStyle = '#10b981'; // Green Node
-        ctx.fill();
+      const cosPhi = Math.max(-1, Math.min(1, y_orig / radius));
+      const phi = Math.acos(cosPhi);
+      const lat = 90 - (phi * 180 / Math.PI);
 
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.6)';
-        ctx.font = '6px "JetBrains Mono"';
-        ctx.fillText(hub.symbol, cx + 5, cy + 2);
+      const sinPhi = Math.sin(phi);
+      let lon = 0;
+      if (Math.abs(sinPhi) > 1e-4) {
+        const theta = Math.atan2(-x_orig, z_orig);
+        lon = (theta * 180 / Math.PI) - 180;
+        while (lon < -180) lon += 360;
+        while (lon > 180) lon -= 360;
       }
-    } else {
+      hoverReadoutStr = ` // HOVER_RET[LAT:${lat.toFixed(1)}° LOG:${lon.toFixed(1)}°]`;
+
+      // Draw a subtle cyan radar ring at coordinates target center
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)';
+      ctx.lineWidth = 0.8;
       ctx.beginPath();
-      ctx.arc(cx, cy, 1.25, 0, 2 * Math.PI);
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.arc(globeState.mouseX, globeState.mouseY, 5, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(globeState.mouseX, globeState.mouseY, 1.5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#22d3ee';
       ctx.fill();
     }
-  });
+  }
 
   const rotYDeg = ((globeState.rotationY * 180 / Math.PI) % 360).toFixed(0);
   const rotXDeg = ((globeState.rotationX * 180 / Math.PI) % 360).toFixed(0);
   const readout = document.getElementById('coords-readout');
   if (readout) {
-    readout.textContent = `GLB // ROT_Y: ${rotYDeg}° // ROT_X: ${rotXDeg}° // MATRIX_ACTV`;
+    readout.textContent = `GLB // ROT_Y:${rotYDeg}° // ROT_X:${rotXDeg}°${hoverReadoutStr} // MAT_OK`;
   }
 
   globeState.animationId = requestAnimationFrame(drawGlobe);
@@ -1167,6 +1343,7 @@ window.toggleGlobeView = () => {
   const canvas = document.getElementById('globe-canvas');
   const mapEl = document.getElementById('topology-map');
   const topTitle = document.getElementById('topology-title');
+  const ctrlPanel = document.getElementById('globe-controls');
 
   if (!globeState.canvas) {
     const el = document.getElementById('globe-canvas');
@@ -1185,6 +1362,11 @@ window.toggleGlobeView = () => {
       });
 
       el.addEventListener('mousemove', (e) => {
+        const rect = el.getBoundingClientRect();
+        globeState.mouseX = e.clientX - rect.left;
+        globeState.mouseY = e.clientY - rect.top;
+        globeState.hoverActive = true;
+
         if (!globeState.isDragging) return;
         const deltaX = e.clientX - globeState.lastMouseX;
         const deltaY = e.clientY - globeState.lastMouseY;
@@ -1197,12 +1379,17 @@ window.toggleGlobeView = () => {
         globeState.lastMouseX = e.clientX;
         globeState.lastMouseY = e.clientY;
       });
+
+      el.addEventListener('mouseleave', () => {
+        globeState.hoverActive = false;
+      });
     }
   }
 
   if (globeState.active) {
     globeState.active = false;
     canvas.classList.add('hidden');
+    if (ctrlPanel) ctrlPanel.classList.add('hidden');
     mapEl.classList.remove('hidden');
     btn.innerHTML = '🌐 GLOBE_VIEW';
     if (topTitle) topTitle.textContent = 'Geospatial Topology // FMP';
@@ -1220,6 +1407,7 @@ window.toggleGlobeView = () => {
     globeState.active = true;
     mapEl.classList.add('hidden');
     canvas.classList.remove('hidden');
+    if (ctrlPanel) ctrlPanel.classList.remove('hidden');
     btn.innerHTML = '🧭 FLAT_MAP';
     if (topTitle) topTitle.textContent = '3D Planetary Holo-Globe // LIVE';
     logToTerminal('GEOSPATIAL::HOLOGRAM_GLOBE_ENGAGED', 'SYSTEM');
@@ -1785,11 +1973,6 @@ function startFastPriceSync() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  window.initTerminal('^GSPC');
-  fetchRegistryPrices();
-  startBackgroundSync();
-  startFastPriceSync();
-
   const symbolInput = document.getElementById('symbol-input');
   if (symbolInput) {
     symbolInput.addEventListener('keyup', (e) => {
@@ -1810,9 +1993,96 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+window.bootCompleteAndInitAll = () => {
+  // Prevent double boot init runs
+  if (window.systemBootedAlready) return;
+  window.systemBootedAlready = true;
+
+  // Immediately hide the boot overlay
+  const overlay = document.getElementById('terminal-boot-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+
+  // Load everything after the chart finishes loading
+  window.initTerminal('^GSPC');
+  fetchRegistryPrices();
+  startBackgroundSync();
+  startFastPriceSync();
+};
+
 // Telemetry ECharts Initialization Engine
 (function initEChartsEngine() {
   let chart = null;
+
+  // Layer controls for custom active Hologram Globe
+  window.toggleGlobeLayer = (layer) => {
+    if (layer === 'grid') {
+      globeState.showGrid = !globeState.showGrid;
+      const btn = document.getElementById('glow-grid-btn');
+      if (btn) btn.className = globeState.showGrid 
+        ? "bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer"
+        : "bg-black border border-gray-900 px-1 py-0.5 text-center text-[7px] font-bold text-gray-600 hover:text-emerald-400 transition-all cursor-pointer";
+    } else if (layer === 'land') {
+      globeState.showLand = !globeState.showLand;
+      const btn = document.getElementById('glow-land-btn');
+      if (btn) btn.className = globeState.showLand 
+        ? "bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer"
+        : "bg-black border border-gray-900 px-1 py-0.5 text-center text-[7px] font-bold text-gray-600 hover:text-emerald-400 transition-all cursor-pointer";
+    } else if (layer === 'hubs') {
+      globeState.showHubs = !globeState.showHubs;
+      const btn = document.getElementById('glow-hubs-btn');
+      if (btn) btn.className = globeState.showHubs 
+        ? "bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer"
+        : "bg-black border border-gray-900 px-1 py-0.5 text-center text-[7px] font-bold text-gray-600 hover:text-emerald-400 transition-all cursor-pointer";
+    } else if (layer === 'scan') {
+      globeState.showScanner = !globeState.showScanner;
+      const btn = document.getElementById('glow-scan-btn');
+      if (btn) btn.className = globeState.showScanner 
+        ? "bg-emerald-900/20 border border-emerald-800 px-1 py-0.5 text-center text-[7px] font-bold text-emerald-400 transition-all cursor-pointer"
+        : "bg-black border border-gray-900 px-1 py-0.5 text-center text-[7px] font-bold text-gray-600 hover:text-emerald-400 transition-all cursor-pointer";
+    }
+  };
+
+  window.toggleGlobeMotion = () => {
+    globeState.autoRotate = !globeState.autoRotate;
+    const btn = document.getElementById('globe-motion-btn');
+    if (btn) {
+      if (globeState.autoRotate) {
+        btn.textContent = "AUTO_ROTATION: ON";
+        btn.className = "bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-800 px-1.5 py-0.5 text-[7px] font-bold text-cyan-300 transition-all cursor-pointer flex-grow text-center";
+      } else {
+        btn.textContent = "AUTO_ROTATION: OFF";
+        btn.className = "bg-black border border-gray-900 px-1.5 py-0.5 text-[7px] font-bold text-gray-500 hover:text-cyan-400 hover:border-cyan-900 transition-all cursor-pointer flex-grow text-center";
+      }
+    }
+  };
+
+  window.resetGlobeToHQ = () => {
+    if (state.currentTicker) {
+      const activeH = GLOBAL_HUBS.find(h => h.symbol === state.currentTicker);
+      if (activeH) {
+        globeState.rotationY = -(activeH.coords[1] * Math.PI / 180) - Math.PI / 2;
+        globeState.rotationX = (activeH.coords[0] * Math.PI / 180);
+        logToTerminal(`GEOSPATIAL::CAMERA_LOCKED_HQ :: ${activeH.company}`, 'SYSTEM');
+      } else {
+        globeState.rotationX = 0.3;
+        globeState.rotationY = 0;
+        logToTerminal(`GEOSPATIAL::CAMERA_RESET_DEFAULT`, 'SYSTEM');
+      }
+    } else {
+      globeState.rotationX = 0.3;
+      globeState.rotationY = 0;
+    }
+  };
+
+  window.nudgeGlobe = (direction) => {
+    const step = 0.15;
+    if (direction === 'left') globeState.rotationY -= step;
+    else if (direction === 'right') globeState.rotationY += step;
+    else if (direction === 'up') globeState.rotationX = Math.min(Math.PI / 2.1, globeState.rotationX + step);
+    else if (direction === 'down') globeState.rotationX = Math.max(-Math.PI / 2.1, globeState.rotationX - step);
+  };
 
   // Timeframe and resolution control helper
   window.setResolution = (res) => {
@@ -1910,6 +2180,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const dom = document.getElementById("terminal-chart-container");
     if (!dom) return;
 
+    const echartsStatus = document.getElementById('boot-echarts-status');
+    const canvasStatus = document.getElementById('boot-canvas-status');
+    const hubsStatus = document.getElementById('boot-hubs-status');
+
+    if (window.echarts) {
+      if (echartsStatus) {
+        echartsStatus.textContent = '[OK]';
+        echartsStatus.className = 'text-emerald-300 font-bold';
+      }
+      if (canvasStatus && canvasStatus.textContent === '[WAITING...]') {
+        canvasStatus.textContent = '[INIT...]';
+        canvasStatus.className = 'text-cyan-400 font-bold animate-pulse';
+      }
+    } else {
+      if (echartsStatus) {
+        echartsStatus.textContent = `[LOADING (ATTEMPT ${attempt})...]`;
+      }
+    }
+
     const width = dom.clientWidth || dom.getBoundingClientRect().width;
     if (width === 0) {
       if (attempt < 10) {
@@ -1923,6 +2212,15 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => initChartWithRetry(attempt + 1), 250);
       }
       return;
+    }
+
+    if (canvasStatus) {
+      canvasStatus.textContent = '[OK]';
+      canvasStatus.className = 'text-emerald-300 font-bold';
+    }
+    if (hubsStatus && hubsStatus.textContent === '[WAITING...]') {
+      hubsStatus.textContent = '[CONNECTING...]';
+      hubsStatus.className = 'text-cyan-400 font-bold animate-pulse';
     }
 
     chart = window.echarts.init(dom, 'dark');
@@ -2029,9 +2327,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chart.setOption(option, true);
         chart.hideLoading();
+
+        // Successful paint - verify and run first boot
+        const bootHubs = document.getElementById('boot-hubs-status');
+        if (bootHubs) {
+          bootHubs.textContent = '[OK]';
+          bootHubs.className = 'text-emerald-300 font-bold';
+        }
+
+        setTimeout(() => {
+          if (typeof window.bootCompleteAndInitAll === 'function') {
+            window.bootCompleteAndInitAll();
+          }
+        }, 400);
+
       } catch (err) {
         console.error('Failed to update ECharts telemetry chart', err);
         chart.hideLoading();
+        // Fallback boot even if error to prevent bricking the tab
+        setTimeout(() => {
+          if (typeof window.bootCompleteAndInitAll === 'function') {
+            window.bootCompleteAndInitAll();
+          }
+        }, 1000);
       }
     };
 
