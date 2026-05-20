@@ -107,6 +107,7 @@ interface MapLayerProps {
   marketData?: Record<string, any>;
   allNewsData?: any[];
   sentiment?: any;
+  onInjectLiveNews?: () => void;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({ 
@@ -121,7 +122,8 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   activeTab,
   marketData = {},
   allNewsData = [],
-  sentiment
+  sentiment,
+  onInjectLiveNews
 }) => {
   const [is3DMode, setIs3DMode] = useState(true);
   const [showNewsSummary, setShowNewsSummary] = useState(false);
@@ -420,6 +422,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           newsData={allNewsData}
           sentiment={sentiment}
           showAllConnections={showGlobalNetwork}
+          onInjectLiveNews={onInjectLiveNews}
         />
       ) : (
         <MapContainer

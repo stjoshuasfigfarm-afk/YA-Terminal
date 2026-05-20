@@ -330,7 +330,8 @@ export default function App() {
         setQuote(q);
       }
 
-      setNews(n);
+      const newsWithSymbol = Array.isArray(n) ? n.map((item: any) => ({ ...item, symbol })) : [];
+      setNews(newsWithSymbol);
       setProfile(p);
       setFinancials(f);
       setHistory(h?.historical || []);
@@ -511,6 +512,78 @@ export default function App() {
     if (isAutopilot) setIsAutopilot(false);
   }, [isAutopilot, fetchData]);
 
+  // Live Simulated Break News Pipeline
+  const injectLiveNews = useCallback(() => {
+    const randomCompany = COMPANIES[Math.floor(Math.random() * COMPANIES.length)];
+    const templatesBySector: Record<string, string[]> = {
+      "Technology": [
+        "deploys high-volume optical switches at primary data node.",
+        "announces next-generation quantum key exchange deployment.",
+        "integrates multi-regional mesh clusters to optimize latency.",
+        "completes backup server architecture uplink at coordinate nodes."
+      ],
+      "Semiconductors": [
+        "completes mass production trial of 2nm high-precision neuromorphic dies.",
+        "registers peak extreme ultraviolet lithography yield metrics.",
+        "secures long-term silicon base material sourcing agreements.",
+        "ships primary enterprise-level AI accelerator nodes to suppliers."
+      ],
+      "Financial Services": [
+        "verifies secure settlement protocol for high-volume trade pipelines.",
+        "clears ultra-high velocity liquidity buffer pool optimization.",
+        "launches algorithmic cross-regional bond sync matching node.",
+        "secures sovereign infrastructure clearance for digital clearance hub."
+      ],
+      "Automotive": [
+        "completes hardware stress tests on automated guidance microkernels.",
+        "deploys solid-state power buffer backups across primary fleets.",
+        "secures raw cobalt and lithium supply chain corridor routing."
+      ],
+      "Energy": [
+        "unveils hydrogen-fueled grid buffer array to combat transmission leaks.",
+        "starts dynamic grid-tier supply synchronization for corporate nodes.",
+        "re-routes deep-sea active undersea conduits following safety review."
+      ],
+      "Consumer Cyclical": [
+        "streamlines next-gen real-time logistical tracking across central nodes.",
+        "partners with high-speed automated sorting suppliers to lower latency.",
+        "implements carbon-neutral high-security freight corridors in EU."
+      ]
+    };
+
+    const sectorTemplates = templatesBySector[randomCompany.sector] || [
+      "initiates system-wide optimization of business relationships.",
+      "achieves localized peak processing telemetry at main offices.",
+      "establishes alternative satellite-backed communication channels."
+    ];
+
+    const template = sectorTemplates[Math.floor(Math.random() * sectorTemplates.length)];
+    const headline = `${randomCompany.name} (${randomCompany.symbol}) // ${template}`;
+
+    const liveStory = {
+      symbol: randomCompany.symbol,
+      title: headline,
+      description: `Intercepted real-time broadcast. Corporate nodes registered peak activity flags at ${randomCompany.name} (sector: ${randomCompany.sector}).`,
+      published_at: new Date().toISOString(),
+      url: "https://example.com",
+      image: "",
+      intelligence: {
+        translatedTitle: headline
+      }
+    };
+
+    setNews(prev => [liveStory, ...prev]);
+    addLog(`NEWS_INJECTED: ${randomCompany.symbol} // BROADCAST SECURED`);
+  }, [addLog]);
+
+  // Dynamic automatic news feeding trigger
+  useEffect(() => {
+    // Every 18 seconds, auto-inject a live news event to make the globe highly active and live
+    const newsTimer = setInterval(() => {
+      injectLiveNews();
+    }, 18000);
+    return () => clearInterval(newsTimer);
+  }, [injectLiveNews]);
 
   // Intelligence Stream Cycle (Neural Stream)
   useEffect(() => {
@@ -557,6 +630,7 @@ export default function App() {
             marketData={allMarketData}
             allNewsData={news}
             sentiment={sentiment}
+            onInjectLiveNews={injectLiveNews}
           />
         </div>
 

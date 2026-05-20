@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, cn } from "../lib/utils";
 import { TelemetryChart } from "./TelemetryChart";
+import { YieldCurveMonitor } from "./YieldCurveMonitor";
 
 interface IntelligenceSidebarProps {
   selectedStock: Company | null;
@@ -36,46 +37,7 @@ interface IntelligenceSidebarProps {
   onGenerateBriefing: () => void;
 }
 
-const YieldAnalysis = ({ yields }: { yields: any }) => {
-  if (!yields) return null;
-  
-  return (
-    <div className="p-2 border-b border-zinc-800 bg-zinc-900/10 shrink-0">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-[8px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
-          <TrendingUp className="w-2 h-2" /> Yield_Analysis
-        </div>
-        <div className="text-[8px] font-mono text-zinc-600 uppercase italic">
-          {yields.country}_BENCHMARK
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex-col flex">
-          <span className="text-[7px] font-mono uppercase" style={{ color: "#22ab94" }}>CB_RATE</span>
-          <span className="text-[11px] font-mono font-bold text-white tracking-widest">
-            {yields.interestRate.toFixed(2)}%
-          </span>
-        </div>
-        <div className="h-6 w-[1px] bg-zinc-800 mx-2" />
-        <div className="flex-1 flex justify-between items-end gap-1 h-6">
-          {yields.treasuries && Object.entries(yields.treasuries).map(([key, val]: [string, any]) => (
-            <div key={key} className="flex-1 flex flex-col items-center group relative">
-              <div 
-                className="w-full bg-white/40 hover:bg-white transition-all shadow-[0_0_8px_rgba(34,171,148,0.2)]" 
-                style={{ height: `${(val / 10) * 100}%`, backgroundColor: "#22ab94" }}
-              />
-              <span className="text-[6px] font-mono mt-0.5" style={{ color: "#22ab94" }}>{key}</span>
-              <div className="absolute bottom-full mb-1 bg-white text-black text-[6px] font-bold px-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {val}%
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 const NeuralPacketStream = () => {
   const [packets, setPackets] = React.useState<number[]>([]);
@@ -309,7 +271,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
         </div>
 
         {/* Yield Analysis Section */}
-        <YieldAnalysis yields={yields} />
+        <YieldCurveMonitor yields={yields} />
 
         {/* Tab Selection */}
         <div className="flex border-b border-zinc-850 bg-black shrink-0">

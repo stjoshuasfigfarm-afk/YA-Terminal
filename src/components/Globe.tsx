@@ -1,32 +1,9 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Stars, Line } from "@react-three/drei";
+import { OrbitControls, PerspectiveCamera, Stars, Line, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import { COMPANIES, Company } from "../data/companies";
-
-const ScanningHorizon = () => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
-    if (meshRef.current) {
-      const t = (state.clock.elapsedTime * 0.5) % 4; // 4 is double the radius+padding approx
-      meshRef.current.position.y = 2 - t;
-    }
-  });
-
-  return (
-    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[1.9, 2.1, 64]} />
-      <meshBasicMaterial 
-        color="#10b981" 
-        transparent 
-        opacity={0.1} 
-        side={THREE.DoubleSide} 
-      />
-    </mesh>
-  );
-};
 
 // Helper to convert lat/lng to 3D coordinates on a sphere
 const latLngToVector3 = (lat: number, lng: number, radius: number) => {
@@ -476,6 +453,7 @@ interface GlobeProps {
   newsData?: any[];
   sentiment?: any;
   showAllConnections?: boolean;
+  onInjectLiveNews?: () => void;
 }
 
 export interface Vessel {
@@ -629,13 +607,75 @@ const CameraFocus = ({ selectedStock }: { selectedStock: Company | null }) => {
   return null;
 };
 
+const NewsBillboard = ({ 
+  story, 
+  company, 
+  globalOpacity = 1 
+}: { 
+  story: any; 
+  company: Company; 
+  globalOpacity?: number;
+}) => {
+  const position = useMemo(() => latLngToVector3(company.lat, company.lng, 2.05), [company]);
+  const [pulse, setPulse] = React.useState(true);
+  
+  useEffect(() => {
+    const int = setInterval(() => {
+      setPulse(p => !p);
+    }, 1500);
+    return () => clearInterval(int);
+  }, []);
+
+  if (globalOpacity < 0.2) return null;
+
+  const timeStr = story.published_at 
+    ? new Date(story.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : "LIVE";
+
+  return (
+    <group position={position}>
+      {/* Visual glowing pin indicator */}
+      <mesh>
+        <sphereGeometry args={[0.015, 8, 8]} />
+        <meshBasicMaterial color="#ef4444" transparent opacity={0.9 * globalOpacity} />
+      </mesh>
+      
+      {/* Interactive Floating HTML Billboard */}
+      <Html 
+        distanceFactor={4} 
+        position={[0, 0.05, 0]}
+        center
+        className="pointer-events-auto select-none font-mono"
+      >
+        <div className={`flex flex-col bg-black/95 border border-red-500/40 p-1.5 rounded-sm w-44 shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all duration-300 ${pulse ? 'border-red-500/70' : 'border-red-500/30'}`}>
+          <div className="flex items-center justify-between border-b border-red-950 pb-1 mb-1 text-[6px] text-red-500 font-bold tracking-wider">
+            <span>[NEWS_UPLINK]</span>
+            <span className="animate-pulse flex items-center gap-0.5">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+              {timeStr}
+            </span>
+          </div>
+          <div className="text-[7.5px] text-white font-bold leading-tight uppercase line-clamp-2">
+            {story.intelligence?.translatedTitle || story.title}
+          </div>
+          <div className="text-[5.5px] text-zinc-500 mt-1 flex justify-between items-center">
+            <span>REF: {company.symbol}</span>
+            <span>[{company.lat.toFixed(1)}N, {company.lng.toFixed(1)}W]</span>
+          </div>
+        </div>
+      </Html>
+    </group>
+  );
+};
+
 export const Globe: React.FC<GlobeProps> = ({ 
   selectedStock, 
   onSelectNode,
   marketData,
   newsData,
   sentiment,
-  showAllConnections = false
+  showAllConnections = false,
+  onInjectLiveNews
 }) => {
   const [geoJsonData, setGeoJsonData] = React.useState<any>(null);
   const [countryPaths, setCountryPaths] = React.useState<THREE.Vector3[][]>([]);
@@ -645,6 +685,10 @@ export const Globe: React.FC<GlobeProps> = ({
   const [hoveredVessel, setHoveredVessel] = React.useState<Vessel | null>(null);
   const [hoveredPos, setHoveredPos] = React.useState<{ x: number; y: number } | null>(null);
   const [selectedVessel, setSelectedVessel] = React.useState<Vessel | null>(null);
+
+  // Gimbal and navigation unlocked states
+  const [viewportLock, setViewportLock] = React.useState(false);
+  const [autoRotateEnabled, setAutoRotateEnabled] = React.useState(true);
 
   // Transition opacity for seamless fading out when Corporate Network layout is active
   const [vesselOpacity, setVesselOpacity] = React.useState(showAllConnections ? 0 : 1);
@@ -770,7 +814,7 @@ export const Globe: React.FC<GlobeProps> = ({
     <div className="w-full h-full bg-black relative">
       <Canvas dpr={[1, 2]}>
         <PerspectiveCamera makeDefault position={[0, 0, 6]} fov={45} />
-        <CameraFocus selectedStock={selectedStock} />
+        {viewportLock && <CameraFocus selectedStock={selectedStock} />}
         <OrbitControls 
           enablePan={false} 
           enableZoom={true} 
@@ -784,7 +828,7 @@ export const Globe: React.FC<GlobeProps> = ({
         
         <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
         
-        <RotatingGroup autoRotate={!selectedStock && !selectedVessel}>
+        <RotatingGroup autoRotate={autoRotateEnabled && (!viewportLock || (!selectedStock && !selectedVessel))}>
           <GlobeSphere texture={globeTexture} />
           
           {/* Render parsed boundaries */}
@@ -814,7 +858,6 @@ export const Globe: React.FC<GlobeProps> = ({
           </group>
 
           <DataPoints />
-          <ScanningHorizon />
           <GlobePoints 
             companies={COMPANIES} 
             selectedSymbol={selectedStock?.symbol} 
@@ -841,6 +884,20 @@ export const Globe: React.FC<GlobeProps> = ({
             companies={COMPANIES} 
             showAllConnections={showAllConnections}
           />
+
+          {/* Pinned News Headlines on the 3D globe linked to respective company location */}
+          {newsData && newsData.slice(0, 1).map((story, idx) => {
+            const company = COMPANIES.find(c => c.symbol === story.symbol);
+            if (!company) return null;
+            return (
+              <NewsBillboard 
+                key={`globe-news-${idx}-${story.published_at || idx}`} 
+                story={story} 
+                company={company} 
+                globalOpacity={vesselOpacity}
+              />
+            );
+          })}
         </RotatingGroup>
 
         <EffectComposer>
@@ -906,6 +963,64 @@ export const Globe: React.FC<GlobeProps> = ({
           <div className="bg-emerald-950/20 border border-emerald-500/10 p-2">
             <div className="text-[6px] text-emerald-500/30 uppercase mb-1">Latency</div>
             <div className="text-[8px] text-emerald-500 font-mono">14ms</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Viewport Control Panel - Positioned at Top Right of Earth Coordinate Sphere */}
+      <div className="absolute top-4 right-4 z-20 pointer-events-auto select-none w-48 font-mono text-[8px] uppercase tracking-wide">
+        <div className="bg-black/85 backdrop-blur-md border border-emerald-500/20 p-2.5 space-y-2">
+          <div className="flex items-center justify-between border-b border-emerald-950 pb-1 text-emerald-500 font-bold uppercase tracking-wider">
+            <span>Control_Gimbal</span>
+            <span className="text-[6px] text-zinc-500">SYS_V1.9</span>
+          </div>
+          
+          <div className="flex flex-col gap-1.5">
+            {/* Viewport Lock toggle */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-zinc-500 text-[7px] font-bold">Orbit_Lock:</span>
+              <button
+                onClick={() => setViewportLock(!viewportLock)}
+                className={`px-1.5 py-0.5 border text-[7px] font-bold tracking-tighter uppercase transition-colors rounded-sm cursor-pointer ${
+                  viewportLock 
+                    ? "bg-emerald-950/80 border-emerald-500 text-emerald-400" 
+                    : "bg-zinc-900 border-zinc-750 text-zinc-400"
+                }`}
+              >
+                {viewportLock ? "LOCKED" : "UNLOCKED"}
+              </button>
+            </div>
+
+            {/* Auto-Rotation toggle */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-zinc-500 text-[7px] font-bold">Auto_Spin:</span>
+              <button
+                onClick={() => setAutoRotateEnabled(!autoRotateEnabled)}
+                className={`px-1.5 py-0.5 border text-[7px] font-bold tracking-tighter uppercase transition-colors rounded-sm cursor-pointer ${
+                  autoRotateEnabled 
+                    ? "bg-emerald-950/80 border-emerald-500 text-emerald-400" 
+                    : "bg-zinc-900 border-zinc-750 text-zinc-400"
+                }`}
+              >
+                {autoRotateEnabled ? "ON" : "OFF"}
+              </button>
+            </div>
+          </div>
+
+          {!viewportLock && (
+            <div className="text-[6px] text-amber-500 font-bold tracking-tighter uppercase bg-amber-500/5 border border-amber-500/15 p-1 text-center rounded-sm animate-pulse">
+              [DRAG/SWIPE GLOBE TO SPIN]
+            </div>
+          )}
+
+          {/* Quick manual simulation injector */}
+          <div className="flex flex-col gap-1 border-t border-emerald-950/50 pt-2 mt-1">
+            <button
+              onClick={() => onInjectLiveNews?.()}
+              className="w-full py-1.5 bg-red-950/80 hover:bg-red-900 border border-red-500/50 hover:border-red-500 text-red-400 hover:text-white font-bold tracking-tight text-[7.5px] uppercase transition-all rounded-sm cursor-pointer text-center"
+            >
+              [! BROADCAST NEWS !]
+            </button>
           </div>
         </div>
       </div>
