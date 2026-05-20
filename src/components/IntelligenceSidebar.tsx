@@ -115,52 +115,58 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             <div className="text-[8px] bg-white/10 text-white px-1 py-0.5 border border-white/20 font-mono font-bold uppercase animate-pulse">LOCKED</div>
           </div>
         </div>
-        <div className="flex items-end justify-between mb-3">
+        <div className="flex items-start justify-between mb-2 pb-2 border-b border-zinc-900">
           <div>
-            <h2 className="font-mono text-lg text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
-            <div className="text-[7px] text-zinc-600 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[90px]">{profile?.companyName || selectedStock.name}</div>
+            <h2 className="font-mono text-base text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
+            <div className="text-[7px] text-zinc-500 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[85px]">
+              {profile?.companyName || selectedStock.name}
+            </div>
           </div>
           <div className="text-right">
             <div 
               id="price-feed" 
-              className="text-[8px] font-mono text-white font-bold leading-none tracking-tighter cursor-pointer hover:text-emerald-400 transition-colors flex items-center justify-end gap-1"
+              className="text-[11px] font-mono text-white font-bold leading-none tracking-tighter cursor-pointer hover:text-emerald-400 transition-colors flex items-center justify-end gap-1"
               onClick={() => navigator.clipboard.writeText(quote?.price?.toFixed(2) || "")}
               title="Click to copy price"
             >
               ${quote?.price?.toFixed(2) || "---"}
-              <span className="text-[6px] text-zinc-600">📋</span>
+              <span className="text-[6px] text-zinc-650">📋</span>
             </div>
             <div className={cn(
-              "text-[7px] font-mono font-bold mt-0.5 flex items-center gap-1",
-              (quote?.changes || 0) >= 0 ? "text-white" : "text-red-500"
+              "text-[7px] font-mono font-bold mt-1 flex items-center justify-end gap-1",
+              (quote?.changes || 0) >= 0 ? "text-emerald-400" : "text-red-500"
             )}>
-              {(quote?.changes || 0) >= 0 ? <TrendingUp className="w-2 h-2" /> : <Activity className="w-2 h-2" />}
+              {(quote?.changes || 0) >= 0 ? <TrendingUp className="w-1.5 h-1.5" /> : <Activity className="w-1.5 h-1.5" />}
               {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)}
             </div>
-            <div className="flex items-center justify-between mb-0.5">
-              <span className="text-[7px] text-zinc-600 font-mono uppercase">Mkt_Trend</span>
-            </div>
-            <div className="h-16 w-full max-w-[100px] group relative border border-zinc-800">
-              <TelemetryChart data={history} />
-              <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-            </div>
-            <div className="flex gap-1 mt-1 justify-end">
-              {['60', 'D', 'W'].map((res) => (
-                <button
-                  key={res}
-                  onClick={() => setHistoryResolution(res)}
-                  className={cn(
-                    "text-[7px] font-mono px-1.5 py-0.5 transition-all",
-                    historyResolution === res 
-                      ? "text-white bg-zinc-800" 
-                      : "text-zinc-600 hover:text-zinc-400"
-                  )}
-                >
-                  {res === '60' ? '1H' : res === 'D' ? '1D' : '1W'}
-                </button>
-              ))}
-            </div>
           </div>
+        </div>
+
+        <div className="mt-2 border border-zinc-900 bg-black/40">
+          <div className="p-1 px-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/40">
+             <span className="text-[7px] font-mono uppercase text-zinc-400 tracking-wider">Live_Telemetry</span>
+             <span className="text-[6px] font-mono text-zinc-505 uppercase">MKT_TREND</span>
+          </div>
+          <div className="h-28 w-full p-1">
+            <TelemetryChart data={history} />
+          </div>
+        </div>
+
+        <div className="flex gap-1 mt-1 justify-end">
+          {['60', 'D', 'W'].map((res) => (
+            <button
+              key={res}
+              onClick={() => setHistoryResolution(res)}
+              className={cn(
+                "text-[7px] font-mono px-1.5 py-0.5 transition-all border border-transparent",
+                historyResolution === res 
+                  ? "text-white bg-zinc-800 border-zinc-700" 
+                  : "text-zinc-600 hover:text-zinc-400"
+              )}
+            >
+              {res === '60' ? '1H' : res === 'D' ? '1D' : '1W'}
+            </button>
+          ))}
         </div>
 
       </section>

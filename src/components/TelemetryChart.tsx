@@ -85,12 +85,14 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({ data }) => {
             }
           },
           grid: {
-            top: 5,
-            bottom: 0,
-            left: 0,
-            right: 0,
+            top: 10,
+            bottom: 10,
+            left: 5,
+            right: 5,
             containLabel: false
           },
+          animationDuration: 1000,
+          animationEasing: 'cubicOut' as any,
           xAxis: {
             type: 'time',
             show: false,
