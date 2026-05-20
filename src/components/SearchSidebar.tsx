@@ -46,7 +46,8 @@ export const SearchSidebar: React.FC<SearchSidebarProps> = ({
         <div className="px-2 py-1 bg-zinc-900/50 border-b border-zinc-800 text-[8px] font-mono text-white font-bold tracking-widest uppercase transition-colors hover:bg-zinc-800 cursor-default">
           Global_Registry
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-zinc-900 font-mono text-[9px]">
+        <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-zinc-900 font-mono text-[9px] relative">
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(to bottom, #fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
           {filtered.map((company) => (
             <div
               key={company.symbol}

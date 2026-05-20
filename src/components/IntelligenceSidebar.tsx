@@ -215,7 +215,8 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col bg-black">
+        <div className="flex-1 flex flex-col bg-black relative">
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(to bottom, #fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
           {activeTab === "INTEL" ? (
             <div className="flex flex-col h-full">
               <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20 relative overflow-hidden">
