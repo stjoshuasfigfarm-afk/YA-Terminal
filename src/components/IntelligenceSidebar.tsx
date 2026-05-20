@@ -149,11 +149,11 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             <div className="text-[7px] text-zinc-600 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[90px]">{profile?.companyName || selectedStock.name}</div>
           </div>
           <div className="text-right">
-            <div id="price-feed" className="text-[8px] font-mono text-white font-bold leading-none tracking-tighter">
+            <div id="price-feed" className="text-[16px] font-mono text-white font-bold leading-none tracking-tighter">
               ${quote?.price?.toFixed(2) || "---"}
             </div>
             <div className={cn(
-              "text-[7px] font-mono font-bold mt-0.5",
+              "text-[9px] font-mono font-bold mt-0.5",
               (quote?.changes || 0) >= 0 ? "text-emerald-500" : "text-red-500"
             )}>
               {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)}
@@ -168,10 +168,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
           <div className="p-2 border-b border-zinc-900 bg-black/20">
             <div className="p-1.5 bg-white/5 border border-white/10 flex items-center justify-between">
               <div>
-                <div className="text-[6px] text-zinc-600 font-mono uppercase mb-0.5">Sentiment_Signal</div>
+                <div className="text-[7px] text-zinc-600 font-mono uppercase mb-0.5">Sentiment_Signal</div>
                 <div 
                   className={cn(
-                    "text-[8.5px] font-mono font-bold tracking-tighter uppercase",
+                    "text-[10px] font-mono font-bold tracking-tighter uppercase",
                     sentiment.score > 0.3 ? "text-emerald-500" : sentiment.score < -0.3 ? "text-red-500" : "text-yellow-500"
                   )}
                 >
@@ -179,7 +179,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[10px] font-mono text-white font-bold">{(sentiment.score * 100).toFixed(0)}%</div>
+                <div className="text-[11px] font-mono text-white font-bold">{(sentiment.score * 100).toFixed(0)}%</div>
                 <div className="w-12 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
                   <div 
                     className={cn(
@@ -197,10 +197,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
         {/* Chart Section */}
         <div className="p-2 border-b border-zinc-900 bg-black/10">
           <div className="flex justify-between items-center mb-1">
-            <div className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+            <div className="text-[8px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
               <Activity className="w-2 h-2 text-zinc-400" /> Historical_Data
             </div>
-            <div className="text-[6px] font-mono text-zinc-700 uppercase">60_Cycle_Pulse</div>
+            <div className="text-[7px] font-mono text-zinc-700 uppercase">60_Cycle_Pulse</div>
           </div>
           <div className="h-32 relative overflow-hidden shrink-0 flex flex-col bg-zinc-950/20 border border-zinc-900/40">
             <TelemetryChart data={history} />
@@ -208,22 +208,22 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
         </div>
 
         {/* Financials Section - right under the chart! */}
-        <div className="p-2 border-b border-zinc-900 bg-black/40 font-mono text-[9px]">
-          <div className="text-[8px] text-emerald-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-1 border-b border-zinc-900 pb-1">
+        <div className="p-2 border-b border-zinc-900 bg-black/40 font-mono text-[10px]">
+          <div className="text-[9px] text-emerald-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-1 border-b border-zinc-900 pb-1">
             Financial_Metrics
           </div>
           
           <div className="space-y-1.5">
             <div className="flex justify-between border-b border-zinc-900 pb-1">
               <span className="text-zinc-600 uppercase">MKT_CAP</span>
-              <span className="text-zinc-300 font-semibold text-[8.5px]">
+              <span className="text-zinc-300 font-semibold text-[9.5px]">
                 {profile?.mktCap ? formatCurrency(profile.mktCap) : "---"}
               </span>
             </div>
             
             <div className="flex justify-between border-b border-zinc-900 pb-1">
               <span className="text-zinc-600 uppercase">VAL_PRICE</span>
-              <span className="text-emerald-500 font-bold">
+              <span className="text-emerald-500 font-bold text-[15px]">
                 {quote?.price ? `$${quote.price.toFixed(2)}` : "---"}
               </span>
             </div>
