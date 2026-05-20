@@ -67,9 +67,6 @@ export default async function handler(req, res) {
         return res.status(200).json(core);
       case 'ai':
         const aiResult = await handleAiService(req, keys);
-        if (aiResult.error) {
-          return res.status(aiResult.error === 'AI_QUOTA_EXHAUSTED' ? 429 : 500).json(aiResult);
-        }
         return res.status(200).json(aiResult);
       case 'logistics':
         const logistics = await fetchLogisticsMetrics(ticker, keys);
@@ -476,207 +473,62 @@ async function fetchRegulatoryChecks(symbol, keys) {
   };
 }
 
-// Helper to sleep
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Retry wrapper for AI calls with exponential backoff and specialized rate-limit handling
-async function withRetry(fn, maxRetries = 5, initialDelay = 2000) {
-  let lastError;
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn(i); // Pass attempt index to function
-    } catch (error) {
-      lastError = error;
-      
-      const status = error.status || error.code || (error.response && error.response.status);
-      
-      // Attempt to get the actual error message from the object structure
-      let errorMessage = error.message || "";
-      if (typeof error === 'object' && error.error && typeof error.error === 'string') {
-        errorMessage = error.error;
-      }
-      // If error is stringified JSON, try to parse it
-      const errorString = error.toString().toLowerCase();
-      
-      const message = (errorMessage || errorString).toLowerCase();
-      
-      // Determine retry delay from structured details or message
-      let delay = 0;
-      let isRateLimit = status === 429 || message.includes('429');
-      
-      if (isRateLimit) {
-        // Try to find RetryInfo in details
-        if (error.details && Array.isArray(error.details)) {
-          const retryInfo = error.details.find(d => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
-          if (retryInfo && retryInfo.retryDelay) {
-            // Parse "23s" -> 23000ms
-            delay = parseInt(retryInfo.retryDelay) * 1000;
-          }
-        }
-        
-        // Fallback to regex
-        if (delay === 0) {
-          const retryMatch = message.match(/retry in ([\d.]+)s/);
-          delay = retryMatch ? parseFloat(retryMatch[1]) * 1000 : 21000;
-        }
-        
-        // Ensure at least 60s cooldown if just generic rate limit without specific info
-        delay = Math.max(delay, 60000);
-        console.warn(`[AI_RATE_LIMIT] Attempt ${i + 1} hit quota. Waiting ${Math.round(delay/1000)}s before retry...`);
-      } else {
-        // Standard exponential backoff: 2s, 4s, 8s... + jitter
-        delay = (initialDelay * Math.pow(2, i)) + (Math.random() * 2000);
-        console.warn(`[AI_RETRY] Attempt ${i + 1} failed with ${status || 'transient error'}. Retrying in ${Math.round(delay)}ms...`);
-      }
-
-      const isQuotaExhausted = message.includes('quota') || message.includes('resource_exhausted') || message.includes('day') || status === 429;
-      const isServerOverload = status === 503 || message.includes('503') || message.includes('overloaded') || message.includes('busy');
-      const isTransient = (isRateLimit && !isQuotaExhausted) || isServerOverload || status === 500 || status === 504 || message.includes('timeout') || message.includes('unavailable');
-      
-      // If quota exhausted, DO NOT retry
-      if (isQuotaExhausted) {
-        console.error(`[AI_QUOTA_EXHAUSTED] Stopping retries.`);
-        throw error;
-      }
-
-      if (isTransient && i < maxRetries - 1) {
-        await sleep(delay);
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw lastError;
-}
-
-let lastQuotaExhaustedTime = 0;
-const QUOTA_BLOCK_TIME = 60 * 1000; // 60 seconds
-
 /**
  * AI Service Handler
  */
 async function handleAiService(req, keys) {
-  if (lastQuotaExhaustedTime > 0 && Date.now() - lastQuotaExhaustedTime < QUOTA_BLOCK_TIME) {
-    return { error: "AI_QUOTA_EXHAUSTED", message: "Quota exhausted. Please wait 60 seconds." };
-  }
-  
   const { action, symbol, data } = req.query.action ? req.query : (req.body || {});
   const ai = getAiClient(keys.gemini);
   
   if (!ai) {
-    return { error: "AI_LINK_DISCONNECTED", message: "Gemini API key missing or invalid." };
+    throw new Error("AI_LINK_DISCONNECTED: Gemini API key missing or invalid.");
   }
 
-  // Use stable models: gemini-flash-latest as primary, with fallbacks
-  const getModelForAttempt = (attempt) => {
-    if (attempt === 0) return "gemini-flash-latest";
-    if (attempt === 1) return "gemini-3-flash-preview";
-    if (attempt === 2) return "gemini-flash-latest"; // Redundant but safe
-    return "gemini-3-flash-preview"; 
-  };
+  const model = "gemini-3-flash-preview";
 
-  try {
-    if (action === 'enrich-news') {
-      return await withRetry(async (attempt) => {
-        const modelName = getModelForAttempt(attempt);
-        const prompt = `
-          Analyze these news headlines/summaries.
-          Translate to professional English if needed.
-          Summarize into a concise "Neural Link" headline (max 80 chars).
-          Return JSON array: [{ "translatedTitle": string }]
-          News:
-          ${data.map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
-        `;
+  if (action === 'enrich-news') {
+    const prompt = `
+      Analyze these news headlines/summaries.
+      Translate to professional English if needed.
+      Summarize into a concise "Neural Link" headline (max 80 chars).
+      Return JSON array: [{ "translatedTitle": string }]
+      News:
+      ${data.map((n, i) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+    `;
 
-        const result = await ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: { responseMimeType: "application/json" }
-        });
+    const result = await ai.models.generateContent({
+      model,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { responseMimeType: "application/json" }
+    });
 
-        const text = result.text;
-
-        if (!text) {
-          throw new Error("AI_RESPONSE_EMPTY: Model returned no text.");
-        }
-
-        return JSON.parse(text);
-      }, 5, 2000);
-    }
-
-    if (action === 'analyze-sentiment') {
-      return await withRetry(async (attempt) => {
-        const modelName = getModelForAttempt(attempt);
-
-        const prompt = `
-          Analyze the overall market sentiment for ${symbol} based on this data: ${JSON.stringify(data)}.
-          Return a JSON object with:
-          - score: number between -1 (extremely bearish/dangerous) and 1 (extremely bullish/stable)
-          - label: string (e.g., "NEURAL_STABLE", "VOLATILE_OUTFLOW", "BULLISH_SIGNAL")
-          - reason: string (max 10 words)
-        `;
-
-        const result = await ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: { responseMimeType: "application/json" }
-        });
-
-        const text = result.text;
-
-        if (!text) {
-          throw new Error("SENTIMENT_RESPONSE_EMPTY: Model returned no text.");
-        }
-
-        return JSON.parse(text);
-      }, 5, 2000);
-    }
-
-    if (action === 'generate-briefing') {
-      return await withRetry(async (attempt) => {
-        const modelName = getModelForAttempt(attempt);
-
-        const prompt = `
-          You are a strategic intelligence officer for a multi-national investment firm.
-          Generate a highly concise, tactical "Intelligence Brief" for the company: ${symbol}. 
-          Use a technical, cyberpunk Terminal aesthetic (e.g., using terms like Nodes, Silos, Uplink, Vulnerabilities).
-          
-          Focus on 3 areas:
-          1. Strategic Positioning (Current market dominance or threat)
-          2. Supply Chain Integrity (Recent disruptions or key partners)
-          3. Intelligence Alpha (A non-obvious tactical insight)
-
-          Format: Keep it under 200 words total. Use short, punchy bullet points.
-          Current Context Data: ${JSON.stringify(data)}
-        `;
-
-        const result = await ai.models.generateContent({
-          model: modelName,
-          contents: prompt
-        });
-
-        const text = result.text;
-
-        if (!text) {
-          throw new Error("BRIEFING_RESPONSE_EMPTY: Model returned no text.");
-        }
-
-        return { briefing: text };
-      }, 5, 2000);
-    }
-    return { error: "UNKNOWN_AI_ACTION", message: "Invalid action requested" };
-  } catch (error) {
-    console.error(`[AI_SERVICE_ERROR] Action: ${action} | Symbol: ${symbol}`, error);
-    
-    // Check for quota exhaustion
-    const msg = (error.message || "").toString().toLowerCase();
-    if (msg.includes('429') || msg.includes('quota') || msg.includes('resource_exhausted')) {
-      lastQuotaExhaustedTime = Date.now();
-      return { error: "AI_QUOTA_EXHAUSTED", message: "Quota exhausted. Please wait." };
-    }
-    
-    return { error: "AI_SERVICE_ERROR", message: error.message };
+    return JSON.parse(result.text || "[]");
   }
+
+  if (action === 'generate-briefing') {
+    const prompt = `
+      You are a strategic intelligence officer for a multi-national investment firm.
+      Generate a highly concise, tactical "Intelligence Brief" for the company: ${symbol}. 
+      Use a technical, cyberpunk Terminal aesthetic (e.g., using terms like Nodes, Silos, Uplink, Vulnerabilities).
+      
+      Focus on 3 areas:
+      1. Strategic Positioning (Current market dominance or threat)
+      2. Supply Chain Integrity (Recent disruptions or key partners)
+      3. Intelligence Alpha (A non-obvious tactical insight)
+
+      Format: Keep it under 200 words total. Use short, punchy bullet points.
+      Current Context Data: ${JSON.stringify(data)}
+    `;
+
+    const result = await ai.models.generateContent({
+      model,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    return { briefing: result.text };
+  }
+
+  throw new Error("UNKNOWN_AI_ACTION");
 }
 
 /**
@@ -702,29 +554,33 @@ async function fetchYieldData(country, keys) {
 
   try {
     if (isKeyReady(keys.fmp)) {
-      // Treasury fetch
-      const res = await fetch(`https://financialmodelingprep.com/api/v4/treasury?from=2024-01-01&apikey=${keys.fmp}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const latest = data[0];
-          results.treasuries = {
-            '2Y': latest.twoYear || 4.82,
-            '5Y': latest.fiveYear || 4.45,
-            '10Y': latest.tenYear || 4.42,
-            '30Y': latest.thirtyYear || 4.56
-          };
-        }
-      }
+      // Parallel fetch for US Treasuries
+      const fetches = Object.keys(treasuryMap).map(async (key) => {
+        try {
+          const res = await fetch(`https://financialmodelingprep.com/api/v4/treasury?from=2024-01-01&apikey=${keys.fmp}`);
+          const data = await res.json();
+          // FMP returns a list of all treasury rates, find the latest
+          if (data && data.length > 0) {
+            const latest = data[0];
+            const fieldMap = { '2Y': 'twoYear', '5Y': 'fiveYear', '10Y': 'tenYear', '30Y': 'thirtyYear' };
+            return { key, val: latest[fieldMap[key]] };
+          }
+        } catch (e) { return { key, val: treasuryMap[key].val }; }
+      });
+      
+      const treasuryData = await Promise.all(fetches);
+      treasuryData.forEach(d => {
+        if (d) results.treasuries[d.key] = d.val;
+      });
+    } else {
+      // Simulated precision movement
+      Object.keys(treasuryMap).forEach(k => {
+        results.treasuries[k] = treasuryMap[k].val + (Math.random() - 0.5) * 0.05;
+      });
     }
   } catch (e) {
-    console.warn('[SILO_FAIL] Yield Telemetry using synthetic fallback.', e.message);
-  }
-
-  // Fallback to synthetic if FMP failed or keys missing
-  if (Object.keys(results.treasuries).length === 0) {
     Object.keys(treasuryMap).forEach(k => {
-      results.treasuries[k] = treasuryMap[k].val + (Math.random() - 0.5) * 0.05;
+      results.treasuries[k] = treasuryMap[k].val;
     });
   }
 

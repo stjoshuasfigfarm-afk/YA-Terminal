@@ -10,12 +10,11 @@ dotenv.config();
 import handler from "./api/index.js";
 
 const app = express();
-app.use(express.json());
 export default app;
 const PORT = 3000;
 
 // API Routes
-app.all("/api", async (req, res) => {
+app.get("/api", async (req, res) => {
   // Wrap the serverless handler
   try {
     // Vercel handlers are (req, res) => void | Promise<void>
@@ -30,7 +29,6 @@ app.all("/api", async (req, res) => {
 
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
-const ITIC_KEY = process.env.ITIC_API_KEY || "";
 
 app.get("/api/search", async (req, res) => {
   try {
@@ -66,70 +64,16 @@ app.get("/api/quote/:symbol?", async (req, res) => {
     if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     
     let data: any = {};
-    let source = "NONE";
-
-    // Try FMP
     if (FMP_KEY && FMP_KEY.length > 5 && !FMP_KEY.includes('YOUR_')) {
-      try {
-        const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`);
-        const fmpData = await response.json();
-        if (fmpData && fmpData[0]) {
-          data = fmpData[0];
-          source = "FMP";
-        }
-      } catch (e) {
-        console.warn("FMP quote fetch failed", e.message);
+      const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`);
+      const fmpData = await response.json();
+      if (fmpData && fmpData[0]) {
+        data = fmpData[0];
+      } else {
+        throw new Error("No FMP data");
       }
-    }
-
-    // Try Finnhub if preceding failed or missing
-    if (source === "NONE" && FINNHUB_KEY && FINNHUB_KEY.length > 5 && !FINNHUB_KEY.includes('YOUR_')) {
-      try {
-        const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`);
-        const fhData = await response.json();
-        if (fhData && fhData.c) {
-          data = {
-            price: fhData.c,
-            change: fhData.d,
-            changesPercentage: fhData.dp,
-            dayHigh: fhData.h,
-            dayLow: fhData.l,
-            open: fhData.o,
-            previousClose: fhData.pc
-          };
-          source = "FINNHUB";
-        }
-      } catch (e) {
-        console.warn("Finnhub quote fetch failed", e.message);
-      }
-    }
-
-    // Try ITICK for ultra-low latency
-    if (source === "NONE" && ITIC_KEY && ITIC_KEY.length > 5 && !ITIC_KEY.includes('YOUR_')) {
-      try {
-        const response = await fetch(`https://api.itick.io/v1/quote?symbol=${symbol}&token=${ITIC_KEY}`);
-        if (response.ok) {
-          const itkData = await response.json();
-          if (itkData && itkData.price) {
-            data = {
-              price: itkData.price,
-              change: itkData.change,
-              changesPercentage: itkData.changePercent || 0,
-              dayHigh: itkData.high || itkData.price,
-              dayLow: itkData.low || itkData.price,
-              open: itkData.open || itkData.price,
-              previousClose: itkData.prevClose || itkData.price
-            };
-            source = "ITICK";
-          }
-        }
-      } catch (e) {
-        console.warn("ITICK quote fetch failed", e.message);
-      }
-    }
-
-    if (source === "NONE") {
-      throw new Error("No valid telemetry source available");
+    } else {
+      throw new Error("No valid FMP Key");
     }
 
     res.json({
@@ -140,8 +84,7 @@ app.get("/api/quote/:symbol?", async (req, res) => {
       low: data.dayLow,
       open: data.open,
       previousClose: data.previousClose,
-      symbol,
-      source
+      symbol
     });
   } catch (err) {
     const symbol = (req.params.symbol || req.query.symbol as string || "UNKNOWN").toUpperCase();
@@ -198,24 +141,12 @@ app.get("/api/news/:symbol?", async (req, res) => {
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     const fromDate = lastMonth.toISOString().split('T')[0];
     
-    if (!FINNHUB_KEY || FINNHUB_KEY.includes('YOUR_')) {
-      return res.json([]);
-    }
-
     const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
     const response = await fetch(url);
-    if (!response.ok) {
-        if (response.status === 403) {
-            console.warn("News fetch API: Access forbidden (403). Check Finnhub API key permissions.");
-        } else {
-            console.error("News fetch API error:", response.status, await response.text());
-        }
-        return res.json([]);
-    }
     const data = await response.json();
     
     // Map Finnhub news to existing structure: [{ title, description, published_at }]
-    const mappedNews = (Array.isArray(data) ? data : []).slice(0, 5).map((n: any) => ({
+    const mappedNews = (data || []).slice(0, 5).map((n: any) => ({
       title: n.headline,
       description: n.summary,
       published_at: new Date(n.datetime * 1000).toISOString(),
@@ -225,8 +156,7 @@ app.get("/api/news/:symbol?", async (req, res) => {
     
     res.json(mappedNews);
   } catch (err) {
-    console.error("News fetch error:", err);
-    res.json([]);
+    res.status(500).json({ error: "Failed to fetch news" });
   }
 });
 

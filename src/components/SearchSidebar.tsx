@@ -43,7 +43,7 @@ export const SearchSidebar: React.FC<SearchSidebarProps> = ({
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-2 py-1 bg-zinc-900/50 border-b border-zinc-800 text-[8px] font-mono text-white font-bold tracking-widest uppercase">
+        <div className="px-2 py-1 bg-zinc-900/50 border-b border-zinc-800 text-[8px] font-mono text-white font-bold tracking-widest uppercase transition-colors hover:bg-zinc-800 cursor-default">
           Global_Registry
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-zinc-900 font-mono text-[9px]">
@@ -52,8 +52,8 @@ export const SearchSidebar: React.FC<SearchSidebarProps> = ({
               key={company.symbol}
               onClick={() => onSelect(company)}
               className={cn(
-                "px-2 py-1.5 hover:bg-zinc-900 cursor-pointer flex justify-between group transition-colors",
-                selectedSymbol === company.symbol ? "bg-zinc-800 text-white border-l-2 border-white" : "text-zinc-500"
+                "px-2 py-1.5 hover:bg-zinc-900/40 cursor-pointer flex justify-between group transition-all",
+                selectedSymbol === company.symbol ? "bg-zinc-800 text-white border-l-2 border-white shadow-[inset_1px_0_0_white]" : "text-zinc-500 hover:border-l-2 hover:border-zinc-700"
               )}
             >
               <span className={cn(selectedSymbol === company.symbol ? "text-white" : "group-hover:text-white")}>

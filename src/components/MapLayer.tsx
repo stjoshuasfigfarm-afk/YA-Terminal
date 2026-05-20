@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { COMPANIES, Company } from "../data/companies";
-import { TrendingUp, MessageSquare, Cpu, Newspaper, Globe as GlobeIcon, Map as MapIcon, Zap, Network } from "lucide-react";
+import { TrendingUp, MessageSquare, Cpu, Newspaper, Globe as GlobeIcon, Map as MapIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Globe } from "./Globe";
 
@@ -101,12 +101,7 @@ interface MapLayerProps {
   intelligenceFeed?: any[];
   isIntelligenceStream?: boolean;
   toggleIntelligenceStream?: () => void;
-  showGlobalNetwork?: boolean;
-  toggleGlobalNetwork?: () => void;
   activeTab?: string;
-  marketData?: Record<string, any>;
-  allNewsData?: any[];
-  sentiment?: any;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({ 
@@ -116,12 +111,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   intelligenceFeed,
   isIntelligenceStream,
   toggleIntelligenceStream,
-  showGlobalNetwork,
-  toggleGlobalNetwork,
-  activeTab,
-  marketData = {},
-  allNewsData = [],
-  sentiment
+  activeTab
 }) => {
   const [is3DMode, setIs3DMode] = useState(true);
   
@@ -204,34 +194,38 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             isIntelligenceStream ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
           )}
         >
-          <Zap className={cn("w-5 h-5 transition-transform text-amber-500", isIntelligenceStream ? "scale-110 animate-pulse" : "group-hover:rotate-12")} />
+          <Newspaper className={cn("w-5 h-5 transition-transform", isIntelligenceStream ? "scale-110" : "group-hover:rotate-12")} />
           <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
             {isIntelligenceStream ? "Neural_Stream_Enabled" : "Enable_Neural_Stream"}
           </div>
+          {isIntelligenceStream && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full border-2 border-black animate-pulse" />
+          )}
         </button>
 
         <button 
-          onClick={toggleGlobalNetwork}
+          onClick={() => setIs3DMode(true)}
           className={cn(
             "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative",
-            showGlobalNetwork ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
+            is3DMode ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
           )}
         >
-          <Network className={cn("w-5 h-5 transition-transform text-blue-500", showGlobalNetwork ? "scale-110" : "group-hover:rotate-12")} />
+          <GlobeIcon className="w-5 h-5" />
           <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
-            {showGlobalNetwork ? "Hide_Global_Network" : "Visualize_Global_Network"}
+            Globe_View
           </div>
         </button>
 
         <button 
-          onClick={() => setIs3DMode(!is3DMode)}
+          onClick={() => setIs3DMode(false)}
           className={cn(
-            "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
+            "w-10 h-10 border flex items-center justify-center transition-all backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] group relative",
+            !is3DMode ? "bg-white text-black border-white shadow-[0_0_15px_white]" : "bg-zinc-900/90 border-zinc-800 text-white hover:bg-white hover:text-black"
           )}
         >
-          {is3DMode ? <MapIcon className="w-5 h-5" /> : <GlobeIcon className="w-5 h-5" />}
+          <MapIcon className="w-5 h-5" />
           <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
-            {is3DMode ? "Switch_to_2D_Projection" : "Initialize_3D_Globe"}
+            Map_View
           </div>
         </button>
       </div>
@@ -246,10 +240,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         <Globe 
           selectedStock={selectedStock} 
           onSelectNode={onSelectNode} 
-          marketData={marketData}
-          newsData={allNewsData}
-          sentiment={sentiment}
-          showAllConnections={showGlobalNetwork}
         />
       ) : (
         <MapContainer
@@ -273,22 +263,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             const isFocus = focusStock?.symbol === company.symbol;
             const hasNews = isFocus && intelligenceFeed && intelligenceFeed.length > 0;
             
-            // Calculate activity score for 2D icons
-            const quote = marketData[company.symbol];
-            const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
-            const companyNewsCount = allNewsData.filter(n => n.symbol === company.symbol).length;
-            const activityScore = Math.min(1, (volatility / 5) + (companyNewsCount / 10));
-
-            const iconColor = activityScore > 0.7 ? "#f59e0b" : activityScore > 0.4 ? "#3b82f6" : "#10b981";
-            const pulseSpeed = 2 / (1 + activityScore * 3);
-            
-            const customIcon = L.divIcon({
-              className: "custom-pulsing-icon",
-              html: `<div style="background-color: ${isSelected ? '#ffffff' : iconColor}; width: ${isSelected ? '14px' : '10px'}; height: ${isSelected ? '14px' : '10px'}; border-radius: 50%; box-shadow: 0 0 ${isSelected ? '15px #ffffff' : (activityScore * 15 + 'px ' + iconColor)}; animation: pulse ${pulseSpeed}s infinite;"></div>`,
-              iconSize: [14, 14],
-              iconAnchor: [7, 7]
-            });
-
             const pos = safeLatLng(company.lat, company.lng);
             if (!pos) return null;
             
@@ -297,7 +271,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                 <Marker
                   ref={(el) => { markerRefs.current[company.symbol] = el; }}
                   position={pos}
-                  icon={customIcon}
+                  icon={isSelected ? activeIcon : defaultIcon}
                   eventHandlers={{
                     click: (e) => {
                       onSelectNode(company);

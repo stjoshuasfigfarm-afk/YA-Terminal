@@ -18,9 +18,13 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, yields }) => {
   const treasuryData = yields?.treasuries || { '2Y': 4.82, '10Y': 4.42, '30Y': 4.56 };
 
   return (
-    <header className="h-12 border-b border-zinc-800 flex items-center bg-black shrink-0 relative overflow-hidden z-20 px-6">
-      <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
-      <div className="flex-1 flex items-center h-full px-6 overflow-hidden">
+    <header className="h-7 border-b border-zinc-800 flex items-center bg-black shrink-0 relative overflow-hidden z-20">
+      <div className="flex items-center px-3 h-full border-r border-zinc-800 bg-zinc-900 z-10 space-x-2 shrink-0">
+        <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" referrerPolicy="no-referrer" />
+        <span className="text-white font-black tracking-tighter text-xs whitespace-nowrap uppercase">Y ANALYSIS TERMINAL</span>
+      </div>
+      
+      <div className="flex-1 flex items-center h-full px-0 overflow-hidden bg-zinc-950/50">
         <div className="flex h-full items-center overflow-hidden">
           <div className="ticker-scroll flex items-center space-x-6 px-3 whitespace-nowrap">
             {[1, 2, 3].map(i => (
@@ -66,6 +70,11 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, yields }) => {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="px-3 flex items-center space-x-2 border-l border-zinc-800 h-full bg-black/80">
+        <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+        <span className="text-[9px] font-mono text-white uppercase tracking-tighter opacity-80">Link_Active</span>
       </div>
     </header>
   );

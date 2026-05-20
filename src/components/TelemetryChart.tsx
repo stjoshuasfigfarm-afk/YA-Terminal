@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useMemo } from "react";
 import * as echarts from "echarts";
-import { Activity } from "lucide-react";
 
 interface TelemetryChartProps {
   data: any[];
@@ -25,89 +24,138 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({ data }) => {
   }, [data]);
 
   useEffect(() => {
-    if (!chartRef.current) return;
+    let retryCount = 0;
+    const maxRetries = 5;
 
-    const timer = setTimeout(() => {
-      if (!chartRef.current) return;
-      if (!chartInstance.current) {
-        chartInstance.current = echarts.init(chartRef.current, 'dark');
+    const initChart = () => {
+      const dom = chartRef.current;
+      if (!dom) {
+        console.warn("[CHART_DEBUG] NO_DOM_REF");
+        return;
       }
 
-      const option = {
-        backgroundColor: 'transparent',
-        animation: false,
-        grid: {
-          top: 0,
-          bottom: 0,
-          left: 0,
-          right: 0,
-          containLabel: false
-        },
-        xAxis: {
-          type: 'time',
-          show: false,
-          boundaryGap: false
-        },
-        yAxis: {
-          type: 'value',
-          show: false,
-          scale: true
-        },
-        series: [
-          {
-            name: 'Price',
-            type: 'line',
-            smooth: true,
-            symbol: 'none',
-            data: chartData,
-            lineStyle: { 
-              color: '#10b981', 
-              width: 2,
-              shadowBlur: 10,
-              shadowColor: 'rgba(16, 185, 129, 0.4)'
-            },
-            areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(16, 185, 129, 0.5)' },
-                { offset: 1, color: 'rgba(16, 185, 129, 0)' }
-              ])
+      // 2. CONTAINER VISIBILITY VALIDATION
+      console.log('[CHART_DEBUG] Container dimensions:', dom.clientWidth, dom.clientHeight);
+      
+      if (dom.clientHeight < 50 || dom.clientWidth < 50) {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`[CHART_DEBUG] Collapsed or tiny container detected (${dom.clientWidth}x${dom.clientHeight}). Retry ${retryCount}/${maxRetries} in 100ms...`);
+          setTimeout(initChart, 100);
+          return;
+        }
+        console.error("[CHART_DEBUG] INITIALIZATION_ATTEMPT :: FAIL (Container too small after retries)");
+        return;
+      }
+
+      try {
+        if (!chartInstance.current) {
+          chartInstance.current = echarts.init(dom, 'dark');
+          console.log("[CHART_DEBUG] INITIALIZATION_ATTEMPT :: SUCCESS");
+        }
+
+        const option = {
+          backgroundColor: 'transparent',
+          tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            borderColor: '#333',
+            textStyle: { color: '#fff', fontSize: 10, fontFamily: 'JetBrains Mono' },
+            formatter: (params: any) => {
+              const [val] = params;
+              const date = new Date(val.value[0]);
+              return `<div style="padding: 2px;">
+                <div style="color: #666; font-size: 8px;">${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                <div style="font-weight: bold;">$${val.value[1].toLocaleString()}</div>
+              </div>`;
             }
-          }
-        ]
-      };
+          },
+          grid: {
+            top: 5,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            containLabel: false
+          },
+          xAxis: {
+            type: 'time',
+            show: false,
+            boundaryGap: false
+          },
+          yAxis: {
+            type: 'value',
+            show: false,
+            scale: true,
+            boundaryGap: false
+          },
+          series: [
+            {
+              name: 'Price',
+              type: 'line',
+              smooth: true,
+              symbol: 'none',
+              data: chartData,
+              lineStyle: { color: '#ffffff', width: 1 },
+              areaStyle: {
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: 'rgba(255, 255, 255, 0.3)' },
+                  { offset: 1, color: 'rgba(255, 255, 255, 0)' }
+                ])
+              }
+            }
+          ]
+        };
 
-      chartInstance.current.setOption(option, true);
-      chartInstance.current.resize();
-    }, 100);
+        chartInstance.current.setOption(option);
+      } catch (err) {
+        console.error("[CHART_DEBUG] INITIALIZATION_ATTEMPT :: FAIL", err);
+      }
+    };
 
-    const resizeObserver = new ResizeObserver(() => {
+    // 1. DOM CONTENT READINESS
+    const timer = setTimeout(initChart, 100);
+
+    // 4. CLEANUP & LOGGING
+    const handleResize = () => {
       chartInstance.current?.resize();
-    });
-    
-    if (chartRef.current) {
-      resizeObserver.observe(chartRef.current);
-    }
+    };
+    window.addEventListener('resize', handleResize);
 
     return () => {
       clearTimeout(timer);
-      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
+      if (chartInstance.current) {
+        chartInstance.current.dispose();
+        chartInstance.current = null;
+      }
     };
   }, [chartData]);
 
   if (!data || data.length < 2) return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 bg-zinc-900/30">
-      <Activity className="w-10 h-10 text-zinc-800 mb-3 animate-pulse" />
-      <div className="font-mono text-[9px] text-zinc-600 uppercase tracking-widest text-center">
-        Establishing_Neural_Sync...
-      </div>
+    <div className="flex-1 flex items-center justify-center font-mono text-[8px] text-zinc-500 uppercase tracking-widest animate-pulse p-4 text-center">
+      Establishing_Neural_Link...
     </div>
   );
 
   return (
-    <div 
-      ref={chartRef} 
-      className="w-full h-full bg-black/40 relative z-10" 
-      style={{ minHeight: '200px' }}
-    />
+    <>
+      {/* 3. Z-INDEX & DISPLAY OVERRIDES */}
+      <style>{`
+        #terminal-chart-container {
+          display: block !important;
+          visibility: visible !important;
+          min-height: 180px !important;
+          width: 100% !important;
+          height: 100% !important;
+          z-index: 40;
+          position: relative;
+        }
+      `}</style>
+      <div 
+        ref={chartRef} 
+        id="terminal-chart-container" 
+        className="w-full h-full bg-zinc-950/20" 
+      />
+    </>
   );
 };
