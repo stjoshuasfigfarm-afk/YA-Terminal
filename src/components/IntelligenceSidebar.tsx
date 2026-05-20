@@ -22,33 +22,37 @@ interface IntelligenceSidebarProps {
   financials: any[];
   profile: any;
   history: any[];
-  historyResolution: string;
-  setHistoryResolution: (res: string) => void;
   isAiProcessing: boolean;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onSelectNode: (c: Company) => void;
   relationships?: { suppliers: any[], customers: any[] };
   briefing?: string | null;
+  sentiment?: any;
   yields?: any;
+  logs?: string[];
+  quotaExhausted: boolean;
+  onEnrichNews: () => void;
+  onGenerateBriefing: () => void;
 }
 
 const YieldAnalysis = ({ yields }: { yields: any }) => {
   if (!yields) return null;
   
   return (
-    <div className="p-2 border-b border-zinc-800 bg-black/40 shrink-0 hover:bg-zinc-900/20 transition-colors">
+    <div className="p-2 border-b border-zinc-800 bg-zinc-900/10 shrink-0">
       <div className="flex items-center justify-between mb-2">
         <div className="text-[8px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
           <TrendingUp className="w-2 h-2" /> Yield_Analysis
         </div>
-        <div className="text-[7px] font-mono text-zinc-600 uppercase italic">
+        <div className="text-[8px] font-mono text-zinc-600 uppercase italic">
           {yields.country}_BENCHMARK
         </div>
       </div>
       
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex-col flex">
-          <span className="text-[7px] font-mono uppercase text-zinc-500">CB_RATE</span>
+          <span className="text-[7px] font-mono uppercase" style={{ color: "#22ab94" }}>CB_RATE</span>
           <span className="text-[11px] font-mono font-bold text-white tracking-widest">
             {yields.interestRate.toFixed(2)}%
           </span>
@@ -61,7 +65,10 @@ const YieldAnalysis = ({ yields }: { yields: any }) => {
                 className="w-full bg-white/40 hover:bg-white transition-all shadow-[0_0_8px_rgba(34,171,148,0.2)]" 
                 style={{ height: `${(val / 10) * 100}%`, backgroundColor: "#22ab94" }}
               />
-              <span className="text-[6px] font-mono mt-0.5 text-zinc-500 group-hover:text-emerald-400">{key}</span>
+              <span className="text-[6px] font-mono mt-0.5" style={{ color: "#22ab94" }}>{key}</span>
+              <div className="absolute bottom-full mb-1 bg-white text-black text-[6px] font-bold px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {val}%
+              </div>
             </div>
           ))}
         </div>
@@ -70,6 +77,56 @@ const YieldAnalysis = ({ yields }: { yields: any }) => {
   );
 }
 
+const NeuralPacketStream = () => {
+  const [packets, setPackets] = React.useState<number[]>([]);
+  
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setPackets(prev => [...prev.slice(-10), Math.random()]);
+    }, 800);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex gap-0.5 h-4 items-end overflow-hidden">
+      {packets.map((p, i) => (
+        <div 
+          key={i} 
+          className="w-1 bg-emerald-500/30" 
+          style={{ height: `${p * 100}%`, opacity: (i + 1) / packets.length }}
+        />
+      ))}
+    </div>
+  );
+};
+
+const Typewriter = ({ text }: { text: string }) => {
+  const [displayedText, setDisplayedText] = React.useState("");
+  const [index, setIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    setDisplayedText("");
+    setIndex(0);
+  }, [text]);
+
+  React.useEffect(() => {
+    if (index < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayedText((prev) => prev + text[index]);
+        setIndex((prev) => prev + 1);
+      }, 5);
+      return () => clearTimeout(timeout);
+    }
+  }, [index, text]);
+
+  return (
+    <div className="markdown-body font-mono text-[9px] text-emerald-500/80 leading-relaxed space-y-2">
+      <Markdown>{displayedText}</Markdown>
+      {index < text.length && <span className="inline-block w-1 h-3 bg-emerald-500 animate-pulse ml-0.5" />}
+    </div>
+  );
+};
+
 export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({ 
   selectedStock, 
   quote,
@@ -77,14 +134,18 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   financials = [], 
   profile, 
   history = [],
-  historyResolution,
-  setHistoryResolution,
   isAiProcessing,
   activeTab,
   setActiveTab,
+  onSelectNode,
   relationships = { suppliers: [], customers: [] },
   briefing,
-  yields
+  sentiment,
+  yields,
+  logs = [],
+  quotaExhausted,
+  onEnrichNews,
+  onGenerateBriefing
 }) => {
 
   if (!selectedStock) {
@@ -107,68 +168,75 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
     <aside className="w-44 h-full border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
       <section className="p-2 border-b border-zinc-800 bg-black shrink-0">
         <div className="flex justify-between items-start mb-0.5">
-          <div className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-            <GlobeIcon className="w-2 h-2" /> Live_Protocol
+          <div className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest flex flex-col gap-1">
+            <div className="flex items-center gap-1">
+              <GlobeIcon className="w-2 h-2 text-emerald-500" /> 
+              <span className="text-emerald-500/80">Live_Protocol</span>
+            </div>
+            <NeuralPacketStream />
           </div>
           <div className="flex items-center gap-1">
-            {isAiProcessing && <Zap className="w-1.5 h-1.5 text-white animate-pulse" />}
-            <div className="text-[8px] bg-white/10 text-white px-1 py-0.5 border border-white/20 font-mono font-bold uppercase animate-pulse">LOCKED</div>
+            {isAiProcessing && <Zap className="w-1.5 h-1.5 text-emerald-400 animate-pulse" />}
+            <div className="text-[8px] bg-emerald-500/10 text-emerald-500 px-1 py-0.5 border border-emerald-500/20 font-mono font-bold uppercase tracking-tighter">SECURE_LINK</div>
           </div>
         </div>
-        <div className="flex items-start justify-between mb-2 pb-2 border-b border-zinc-900">
+        <div className="flex items-end justify-between mb-3">
           <div>
-            <h2 className="font-mono text-base text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
-            <div className="text-[7px] text-zinc-500 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[85px]">
-              {profile?.companyName || selectedStock.name}
-            </div>
+            <h2 className="font-mono text-lg text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
+            <div className="text-[7px] text-zinc-600 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[90px]">{profile?.companyName || selectedStock.name}</div>
           </div>
           <div className="text-right">
-            <div 
-              id="price-feed" 
-              className="text-[11px] font-mono text-white font-bold leading-none tracking-tighter cursor-pointer hover:text-emerald-400 transition-colors flex items-center justify-end gap-1"
-              onClick={() => navigator.clipboard.writeText(quote?.price?.toFixed(2) || "")}
-              title="Click to copy price"
-            >
+            <div id="price-feed" className="text-[8px] font-mono text-white font-bold leading-none tracking-tighter">
               ${quote?.price?.toFixed(2) || "---"}
-              <span className="text-[6px] text-zinc-650">📋</span>
             </div>
             <div className={cn(
-              "text-[7px] font-mono font-bold mt-1 flex items-center justify-end gap-1",
-              (quote?.changes || 0) >= 0 ? "text-emerald-400" : "text-red-500"
+              "text-[7px] font-mono font-bold mt-0.5",
+              (quote?.changes || 0) >= 0 ? "text-white" : "text-red-500"
             )}>
-              {(quote?.changes || 0) >= 0 ? <TrendingUp className="w-1.5 h-1.5" /> : <Activity className="w-1.5 h-1.5" />}
               {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)}
             </div>
           </div>
         </div>
 
-        <div className="mt-2 border border-zinc-900 bg-black/40">
-          <div className="p-1 px-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/40">
-             <span className="text-[7px] font-mono uppercase text-zinc-400 tracking-wider">Live_Telemetry</span>
-             <span className="text-[6px] font-mono text-zinc-505 uppercase">MKT_TREND</span>
+        {sentiment && (
+          <div className="mb-3 p-1.5 bg-white/5 border border-white/10 flex items-center justify-between">
+            <div>
+              <div className="text-[6px] text-zinc-600 font-mono uppercase mb-0.5">Sentiment_Signal</div>
+              <div 
+                className={cn(
+                  "text-[9px] font-mono font-bold tracking-tighter uppercase",
+                  sentiment.score > 0.3 ? "text-emerald-500" : sentiment.score < -0.3 ? "text-red-500" : "text-yellow-500"
+                )}
+              >
+                {sentiment.label}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-mono text-white font-bold">{(sentiment.score * 100).toFixed(0)}%</div>
+              <div className="w-12 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
+                <div 
+                  className={cn(
+                    "h-full transition-all duration-1000",
+                    sentiment.score > 0.3 ? "bg-emerald-500" : sentiment.score < -0.3 ? "bg-red-500" : "bg-yellow-500"
+                  )}
+                  style={{ width: `${Math.abs(sentiment.score) * 100}%`, marginLeft: sentiment.score < 0 ? '0' : 'auto' }}
+                />
+              </div>
+            </div>
           </div>
-          <div className="h-28 w-full p-1">
+        )}
+
+        <div className="border-t border-zinc-900/50 pt-2 mt-2">
+          <div className="flex justify-between items-center mb-1">
+            <div className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
+              <Activity className="w-2 h-2" /> Historical_Data
+            </div>
+            <div className="text-[6px] font-mono text-zinc-700 uppercase">60_Cycle_Pulse</div>
+          </div>
+          <div className="h-64 relative overflow-hidden shrink-0 flex flex-col bg-zinc-950/20 border border-zinc-900/50">
             <TelemetryChart data={history} />
           </div>
         </div>
-
-        <div className="flex gap-1 mt-1 justify-end">
-          {['60', 'D', 'W'].map((res) => (
-            <button
-              key={res}
-              onClick={() => setHistoryResolution(res)}
-              className={cn(
-                "text-[7px] font-mono px-1.5 py-0.5 transition-all border border-transparent",
-                historyResolution === res 
-                  ? "text-white bg-zinc-800 border-zinc-700" 
-                  : "text-zinc-600 hover:text-zinc-400"
-              )}
-            >
-              {res === '60' ? '1H' : res === 'D' ? '1D' : '1W'}
-            </button>
-          ))}
-        </div>
-
       </section>
 
       {/* VERTICAL SEPARATION GAP */}
@@ -248,17 +316,37 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col bg-black relative">
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(to bottom, #fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+        <div className="flex-1 flex flex-col bg-black">
+          {/* Sys_Logs Section */}
+          <div className="p-2 border-b border-zinc-900 bg-zinc-950/50 shrink-0">
+            <div className="flex items-center gap-1 mb-1">
+              <div className="w-1 h-3 bg-emerald-500" />
+              <span className="font-mono text-[8px] text-zinc-500 uppercase tracking-widest">Sys_Logs</span>
+            </div>
+            <div className="h-16 overflow-y-auto scrollbar-hide space-y-1">
+              {logs.map((log, i) => (
+                <div key={i} className="font-mono text-[6px] leading-tight text-white/30 truncate">
+                  <span className="text-emerald-500/40">[{new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]</span> {log}
+                </div>
+              ))}
+              {isAiProcessing && (
+                <div className="font-mono text-[6px] text-emerald-500/60 animate-pulse">
+                  {">"} PROCESSING_ENCRYPTED_STREAM...
+                </div>
+              )}
+            </div>
+          </div>
+
           {activeTab === "INTEL" ? (
             <div className="flex flex-col h-full">
-              <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20 relative overflow-hidden">
-                <div className="absolute inset-0 bg-white/5 animate-[pulse_4s_ease-in-out_infinite]" />
-                <span className="relative z-10 text-[9px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#22ab94] animate-pulse" />
+              <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
+                <span className="text-[9px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
                   <Newspaper className="w-2.5 h-2.5" /> Intelligence_Sync
                 </span>
-                <span className="relative z-10 text-[7px] font-mono text-[#22ab94]/50">LIVE_FEED</span>
+                {!quotaExhausted && !isAiProcessing && (
+                   <button onClick={onEnrichNews} className="text-[7px] bg-emerald-500/20 px-1 py-0.5 border border-emerald-500/30 text-emerald-500 font-mono uppercase hover:bg-emerald-500 hover:text-black ml-2">Enrich</button>
+                )}
+                {quotaExhausted && <span className="text-[7px] text-red-500 font-mono uppercase">Quota_Exhausted</span>}
               </div>
               
               <div className="p-3 space-y-3">
@@ -309,7 +397,11 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 <div className="space-y-2">
                   {relationships.suppliers && relationships.suppliers.length > 0 ? (
                     relationships.suppliers.map((sup) => (
-                      <div key={sup.symbol} className="group flex items-center justify-between p-1.5 bg-zinc-900/40 border border-zinc-800/50 hover:border-red-900/40 transition-all cursor-default">
+                      <div 
+                        key={sup.symbol} 
+                        onClick={() => onSelectNode(sup)}
+                        className="group flex items-center justify-between p-1.5 bg-zinc-900/40 border border-zinc-800/50 hover:border-red-900/40 transition-all cursor-pointer"
+                      >
                         <div className="flex items-center gap-2">
                           <div className="w-5 h-5 flex items-center justify-center bg-black border border-red-900/30 text-[9px] font-bold text-red-500 font-mono">
                             {sup.symbol.slice(0, 2)}
@@ -337,7 +429,11 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 <div className="space-y-2">
                   {relationships.customers && relationships.customers.length > 0 ? (
                     relationships.customers.map((cust) => (
-                      <div key={cust.symbol} className="group flex items-center justify-between p-1.5 bg-zinc-900/40 border border-zinc-800/50 hover:border-blue-900/40 transition-all cursor-default">
+                      <div 
+                        key={cust.symbol} 
+                        onClick={() => onSelectNode(cust)}
+                        className="group flex items-center justify-between p-1.5 bg-zinc-900/40 border border-zinc-800/50 hover:border-blue-900/40 transition-all cursor-pointer"
+                      >
                         <div className="flex items-center gap-2">
                           <div className="w-5 h-5 flex items-center justify-center bg-black border border-blue-900/30 text-[9px] font-bold text-blue-500 font-mono">
                             {cust.symbol.slice(0, 2)}
@@ -377,6 +473,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 <span className="text-[9px] font-mono text-white uppercase tracking-widest flex items-center gap-1">
                   <ShieldAlert className="w-2.5 h-2.5" /> Operations_Order
                 </span>
+                {!quotaExhausted && !isAiProcessing && (
+                   <button onClick={onGenerateBriefing} className="text-[7px] bg-blue-500/20 px-1 py-0.5 border border-blue-500/30 text-blue-500 font-mono uppercase hover:bg-blue-500 hover:text-black">Generate_Brief</button>
+                )}
+                {quotaExhausted && <span className="text-[7px] text-red-500 font-mono uppercase">Quota_Exhausted</span>}
               </div>
               
               <div className="p-3 bg-white/5 border border-white/10 rounded-sm mb-4">
@@ -386,9 +486,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 </div>
                 
                 {briefing ? (
-                  <div className="markdown-body font-mono text-[9px] text-zinc-400 leading-relaxed space-y-2">
-                    <Markdown>{briefing}</Markdown>
-                  </div>
+                  <Typewriter text={briefing} />
                 ) : (
                    <div className="flex flex-col items-center justify-center py-8 opacity-20">
                     <Zap className="w-6 h-6 text-white mb-2 animate-bounce" />

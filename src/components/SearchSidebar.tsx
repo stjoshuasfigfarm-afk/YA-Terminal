@@ -32,36 +32,28 @@ export const SearchSidebar: React.FC<SearchSidebarProps> = ({
 
   return (
     <aside className="w-44 h-full border-r border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0">
-      <div className="p-2 border-b border-zinc-800 bg-black flex items-center gap-2">
-        <Search className="w-3 h-3 text-zinc-500" />
+      <div className="p-1 px-2 border-b border-zinc-800 bg-black">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && filtered.length > 0) {
-              onSelect(filtered[0]);
-            }
-          }}
-          placeholder="FILTER_ASSET_REGISTRY..."
-          className="w-full bg-transparent text-[9px] font-mono outline-none text-zinc-300 placeholder:text-zinc-600 focus:text-white"
+          placeholder="SEARCH_SYMBOLS_"
+          className="w-full bg-black border border-zinc-700 px-2 py-0.5 text-[9px] font-mono outline-none focus:border-white text-white"
         />
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-2 py-1 bg-zinc-900/50 border-b border-zinc-800 text-[8px] font-mono text-white font-bold tracking-widest uppercase transition-colors hover:bg-zinc-800 cursor-default flex items-center justify-between">
-          <span>Global_Registry</span>
-          <div className={cn("w-1 h-1 rounded-full animate-pulse", isAutopilot ? "bg-amber-400" : "bg-green-500")} />
+        <div className="px-2 py-1 bg-zinc-900/50 border-b border-zinc-800 text-[8px] font-mono text-white font-bold tracking-widest uppercase">
+          Global_Registry
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-zinc-900 font-mono text-[9px] relative">
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(to bottom, #fff 1px, transparent 1px), linear-gradient(to right, #fff 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+        <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-zinc-900 font-mono text-[9px]">
           {filtered.map((company) => (
             <div
               key={company.symbol}
               onClick={() => onSelect(company)}
               className={cn(
-                "px-2 py-1.5 hover:bg-zinc-900/40 cursor-pointer flex justify-between group transition-all",
-                selectedSymbol === company.symbol ? "bg-zinc-800 text-white border-l-2 border-white shadow-[inset_1px_0_0_white]" : "text-zinc-500 hover:border-l-2 hover:border-zinc-700"
+                "px-2 py-1.5 hover:bg-zinc-900 cursor-pointer flex justify-between group transition-colors",
+                selectedSymbol === company.symbol ? "bg-zinc-800 text-white border-l-2 border-white" : "text-zinc-500"
               )}
             >
               <span className={cn(selectedSymbol === company.symbol ? "text-white" : "group-hover:text-white")}>
