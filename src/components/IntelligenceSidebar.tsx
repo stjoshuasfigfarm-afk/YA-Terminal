@@ -22,6 +22,8 @@ interface IntelligenceSidebarProps {
   financials: any[];
   profile: any;
   history: any[];
+  historyResolution: string;
+  setHistoryResolution: (res: string) => void;
   isAiProcessing: boolean;
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -34,19 +36,19 @@ const YieldAnalysis = ({ yields }: { yields: any }) => {
   if (!yields) return null;
   
   return (
-    <div className="p-2 border-b border-zinc-800 bg-zinc-900/10 shrink-0">
+    <div className="p-2 border-b border-zinc-800 bg-black/40 shrink-0 hover:bg-zinc-900/20 transition-colors">
       <div className="flex items-center justify-between mb-2">
         <div className="text-[8px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
           <TrendingUp className="w-2 h-2" /> Yield_Analysis
         </div>
-        <div className="text-[8px] font-mono text-zinc-600 uppercase italic">
+        <div className="text-[7px] font-mono text-zinc-600 uppercase italic">
           {yields.country}_BENCHMARK
         </div>
       </div>
       
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between">
         <div className="flex-col flex">
-          <span className="text-[7px] font-mono uppercase" style={{ color: "#22ab94" }}>CB_RATE</span>
+          <span className="text-[7px] font-mono uppercase text-zinc-500">CB_RATE</span>
           <span className="text-[11px] font-mono font-bold text-white tracking-widest">
             {yields.interestRate.toFixed(2)}%
           </span>
@@ -59,10 +61,7 @@ const YieldAnalysis = ({ yields }: { yields: any }) => {
                 className="w-full bg-white/40 hover:bg-white transition-all shadow-[0_0_8px_rgba(34,171,148,0.2)]" 
                 style={{ height: `${(val / 10) * 100}%`, backgroundColor: "#22ab94" }}
               />
-              <span className="text-[6px] font-mono mt-0.5" style={{ color: "#22ab94" }}>{key}</span>
-              <div className="absolute bottom-full mb-1 bg-white text-black text-[6px] font-bold px-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {val}%
-              </div>
+              <span className="text-[6px] font-mono mt-0.5 text-zinc-500 group-hover:text-emerald-400">{key}</span>
             </div>
           ))}
         </div>
@@ -78,6 +77,8 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
   financials = [], 
   profile, 
   history = [],
+  historyResolution,
+  setHistoryResolution,
   isAiProcessing,
   activeTab,
   setActiveTab,
@@ -120,18 +121,44 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             <div className="text-[7px] text-zinc-600 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[90px]">{profile?.companyName || selectedStock.name}</div>
           </div>
           <div className="text-right">
-            <div id="price-feed" className="text-[8px] font-mono text-white font-bold leading-none tracking-tighter">
+            <div 
+              id="price-feed" 
+              className="text-[8px] font-mono text-white font-bold leading-none tracking-tighter cursor-pointer hover:text-emerald-400 transition-colors flex items-center justify-end gap-1"
+              onClick={() => navigator.clipboard.writeText(quote?.price?.toFixed(2) || "")}
+              title="Click to copy price"
+            >
               ${quote?.price?.toFixed(2) || "---"}
+              <span className="text-[6px] text-zinc-600">📋</span>
             </div>
             <div className={cn(
-              "text-[7px] font-mono font-bold mt-0.5",
+              "text-[7px] font-mono font-bold mt-0.5 flex items-center gap-1",
               (quote?.changes || 0) >= 0 ? "text-white" : "text-red-500"
             )}>
+              {(quote?.changes || 0) >= 0 ? <TrendingUp className="w-2 h-2" /> : <Activity className="w-2 h-2" />}
               {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)}
             </div>
-            <div className="h-16 w-full max-w-[100px] mt-2 group relative">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-[7px] text-zinc-600 font-mono uppercase">Mkt_Trend</span>
+            </div>
+            <div className="h-16 w-full max-w-[100px] group relative border border-zinc-800">
               <TelemetryChart data={history} />
               <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            </div>
+            <div className="flex gap-1 mt-1 justify-end">
+              {['60', 'D', 'W'].map((res) => (
+                <button
+                  key={res}
+                  onClick={() => setHistoryResolution(res)}
+                  className={cn(
+                    "text-[7px] font-mono px-1.5 py-0.5 transition-all",
+                    historyResolution === res 
+                      ? "text-white bg-zinc-800" 
+                      : "text-zinc-600 hover:text-zinc-400"
+                  )}
+                >
+                  {res === '60' ? '1H' : res === 'D' ? '1D' : '1W'}
+                </button>
+              ))}
             </div>
           </div>
         </div>

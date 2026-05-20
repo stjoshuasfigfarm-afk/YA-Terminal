@@ -23,6 +23,12 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({ data }) => {
       .slice(-60);
   }, [data]);
 
+  const isPositive = useMemo(() => {
+    if (chartData.length < 2) return true;
+    return chartData[chartData.length - 1][1] >= chartData[0][1];
+  }, [chartData]);
+  const color = isPositive ? '#22ab94' : '#ef4444';
+
   useEffect(() => {
     let retryCount = 0;
     const maxRetries = 5;
@@ -58,15 +64,23 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({ data }) => {
           backgroundColor: 'transparent',
           tooltip: {
             trigger: 'axis',
+            axisPointer: {
+              type: 'line',
+              lineStyle: {
+                color: '#3f3f46',
+                width: 1,
+                type: 'dashed'
+              }
+            },
             backgroundColor: 'rgba(0, 0, 0, 0.95)',
-            borderColor: '#333',
+            borderColor: isPositive ? '#22ab94' : '#ef4444',
             textStyle: { color: '#fff', fontSize: 10, fontFamily: 'JetBrains Mono' },
             formatter: (params: any) => {
               const [val] = params;
               const date = new Date(val.value[0]);
               return `<div style="padding: 2px;">
                 <div style="color: #666; font-size: 8px;">${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                <div style="font-weight: bold;">$${val.value[1].toLocaleString()}</div>
+                <div style="font-weight: bold; color: ${isPositive ? '#22ab94' : '#ef4444'}">$${val.value[1].toLocaleString()}</div>
               </div>`;
             }
           },
@@ -84,24 +98,40 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({ data }) => {
           },
           yAxis: {
             type: 'value',
-            show: false,
+            show: true,
             scale: true,
-            boundaryGap: false
+            boundaryGap: false,
+            splitLine: {
+              lineStyle: {
+                color: '#18181b', // Zinc-900
+                width: 1,
+                type: 'solid'
+              }
+            },
+            axisTick: { show: false },
+            axisLabel: { show: false }
           },
           series: [
             {
               name: 'Price',
               type: 'line',
               smooth: true,
-              symbol: 'none',
+              showSymbol: false,
               data: chartData,
-              lineStyle: { color: '#ffffff', width: 1 },
+              lineStyle: { color: color, width: 1 },
               areaStyle: {
                 color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                  { offset: 0, color: 'rgba(255, 255, 255, 0.3)' },
-                  { offset: 1, color: 'rgba(255, 255, 255, 0)' }
+                  { offset: 0, color: isPositive ? 'rgba(34, 171, 148, 0.3)' : 'rgba(239, 68, 68, 0.3)' },
+                  { offset: 1, color: isPositive ? 'rgba(34, 171, 148, 0)' : 'rgba(239, 68, 68, 0)' }
                 ])
               }
+            },
+            {
+              type: 'scatter',
+              data: [chartData[chartData.length - 1]],
+              symbol: 'circle',
+              symbolSize: 6,
+              itemStyle: { color: color }
             }
           ]
         };
@@ -144,7 +174,6 @@ export const TelemetryChart: React.FC<TelemetryChartProps> = ({ data }) => {
         #terminal-chart-container {
           display: block !important;
           visibility: visible !important;
-          min-height: 180px !important;
           width: 100% !important;
           height: 100% !important;
           z-index: 40;

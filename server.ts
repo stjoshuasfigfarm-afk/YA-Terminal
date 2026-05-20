@@ -215,9 +215,10 @@ app.get("/api/history/:symbol?", async (req, res) => {
     }
 
     const to = Math.floor(Date.now() / 1000);
-    const from = to - (60 * 24 * 60 * 60); // 60 days
+    const resolution = req.query.resolution || 'D';
+    const from = to - (resolution === 'D' ? 60 * 24 * 60 * 60 : 24 * 60 * 60); // 60 days if D, 1 day otherwise
     
-    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_KEY}`;
+    const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
     

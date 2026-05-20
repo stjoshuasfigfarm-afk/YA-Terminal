@@ -21,6 +21,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("INTEL");
+  const [historyResolution, setHistoryResolution] = useState<string>("60");
   const [relationships, setRelationships] = useState<{ suppliers: any[], customers: any[] }>({ suppliers: [], customers: [] });
   const [globalYields, setGlobalYields] = useState<any>(null);
   const [nodeYields, setNodeYields] = useState<any>(null);
@@ -78,7 +79,7 @@ export default function App() {
     }
   }, []);
 
-  const fetchData = useCallback(async (symbol: string) => {
+  const fetchData = useCallback(async (symbol: string, resolution: string = "60") => {
     if (!symbol) return;
     setIsLoading(true);
     
@@ -108,7 +109,7 @@ export default function App() {
           if (!res.ok) console.error(`Financials API alert: Status ${res.status}`);
           return res.json();
         }).catch(() => ([])),
-        fetch(`/api/history?symbol=${symbol}`, { headers }).then(res => {
+        fetch(`/api/history?symbol=${symbol}&resolution=${resolution}`, { headers }).then(res => {
           if (!res.ok) console.error(`History API alert: Status ${res.status}`);
           return res.json();
         }).catch(() => ({ historical: [] })),
@@ -222,9 +223,16 @@ export default function App() {
   const handleSelectNode = useCallback((company: Company) => {
     setSelectedStock(company);
     setMapFocusStock(company);
-    fetchData(company.symbol);
+    fetchData(company.symbol, historyResolution);
     if (isAutopilot) setIsAutopilot(false);
-  }, [isAutopilot, fetchData]);
+  }, [isAutopilot, fetchData, historyResolution]);
+
+  const handleSetResolution = useCallback((newRes: string) => {
+    setHistoryResolution(newRes);
+    if (selectedStock) {
+      fetchData(selectedStock.symbol, newRes);
+    }
+  }, [selectedStock, fetchData]);
 
 
   // Intelligence Stream Cycle (Neural Stream)
@@ -275,6 +283,8 @@ export default function App() {
           financials={financials}
           profile={profile}
           history={history}
+          historyResolution={historyResolution}
+          setHistoryResolution={handleSetResolution}
           isAiProcessing={isAiProcessing}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
