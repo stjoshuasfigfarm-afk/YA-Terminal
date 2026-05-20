@@ -222,8 +222,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
               <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20 relative overflow-hidden">
                 <div className="absolute inset-0 bg-white/5 animate-[pulse_4s_ease-in-out_infinite]" />
                 <span className="relative z-10 text-[9px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#22ab94] animate-pulse" />
                   <Newspaper className="w-2.5 h-2.5" /> Intelligence_Sync
                 </span>
+                <span className="relative z-10 text-[7px] font-mono text-[#22ab94]/50">LIVE_FEED</span>
               </div>
               
               <div className="p-3 space-y-3">
