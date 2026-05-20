@@ -669,6 +669,71 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                   )}
                 </div>
 
+                {/* 2.5 New Middle-Right Section: Supply Chain Inbound/Outbound vectors */}
+                <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-zinc-900/60 p-4 shrink-0 flex flex-col justify-between bg-zinc-950/20 font-mono">
+                  <div>
+                    <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-2 font-bold flex items-center justify-between select-none">
+                      <span>TOPOLOGY VECTORS</span>
+                      <span className="text-[7px] text-emerald-500/80 font-medium">REAL-TIME</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Inbound (Suppliers) -> Yellow */}
+                      <div>
+                        <div className="text-[7.5px] text-zinc-400 uppercase font-bold tracking-widest mb-1.5 flex items-center gap-1 select-none">
+                          <span className="w-1.5 h-1.5 bg-[#eab308] rounded-full inline-block" />
+                          <span>SUPPLIERS ({COMPANIES.filter(c => c.partners?.includes(activeCompany.symbol)).length})</span>
+                        </div>
+                        <div className="space-y-1 max-h-[85px] overflow-y-auto custom-scrollbar pr-1">
+                          {COMPANIES.filter(c => c.partners?.includes(activeCompany.symbol)).length > 0 ? (
+                            COMPANIES.filter(c => c.partners?.includes(activeCompany.symbol)).map(c => (
+                              <div 
+                                key={c.symbol} 
+                                onClick={() => onSelectNode(c)}
+                                className="flex items-center justify-between bg-zinc-900/50 p-1 border border-zinc-900 rounded-sm hover:border-[#eab308]/40 hover:bg-zinc-900 cursor-pointer transition-all text-[8px]"
+                              >
+                                <span className="text-zinc-300 font-bold">{c.symbol}</span>
+                                <span className="text-[7px] text-zinc-650 font-medium tracking-tight truncate max-w-[90px]">{c.sector.split(' ')[0]}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[7px] text-zinc-700 italic uppercase">NONE DETECTED</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Outbound (Customers) -> Green */}
+                      <div>
+                        <div className="text-[7.5px] text-zinc-400 uppercase font-bold tracking-widest mb-1.5 flex items-center gap-1 select-none">
+                          <span className="w-1.5 h-1.5 bg-[#22c55e] rounded-full inline-block" />
+                          <span>CUSTOMERS ({COMPANIES.filter(c => activeCompany.partners?.includes(c.symbol)).length})</span>
+                        </div>
+                        <div className="space-y-1 max-h-[85px] overflow-y-auto custom-scrollbar pr-1">
+                          {COMPANIES.filter(c => activeCompany.partners?.includes(c.symbol)).length > 0 ? (
+                            COMPANIES.filter(c => activeCompany.partners?.includes(c.symbol)).map(c => (
+                              <div 
+                                key={c.symbol}
+                                onClick={() => onSelectNode(c)}
+                                className="flex items-center justify-between bg-zinc-900/50 p-1 border border-zinc-900 rounded-sm hover:border-[#22c55e]/40 hover:bg-zinc-900 cursor-pointer transition-all text-[8px]"
+                              >
+                                <span className="text-zinc-350 font-bold">{c.symbol}</span>
+                                <span className="text-[7px] text-zinc-650 font-medium tracking-tight truncate max-w-[90px]">{c.sector.split(' ')[0]}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[7px] text-zinc-700 italic uppercase">NONE DETECTED</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-2 text-[7px] text-zinc-700 uppercase tracking-tight flex items-center gap-1 select-none">
+                    <span>RELATION STATUS:</span>
+                    <span className="text-zinc-550 font-bold">MULTILATERAL GLOBAL SUPPLY</span>
+                  </div>
+                </div>
+
                 {/* 3. Right Section: Controls */}
                 <div className="w-full md:w-44 border-t md:border-t-0 md:border-l border-zinc-900/60 p-4 shrink-0 flex md:flex-col justify-between items-center md:items-stretch bg-black/40 font-mono text-center">
                   <div className="hidden md:flex justify-between items-center mb-2 select-none">

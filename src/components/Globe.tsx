@@ -184,8 +184,8 @@ const GlobePoints = ({
         const isSelected = company.symbol === selectedSymbol;
         
         // Multi-tier supply chain vectors color coding
-        const isUpstream = selectedCompany && selectedCompany.partners?.includes(company.symbol);
-        const isDownstream = selectedCompany && company.partners?.includes(selectedCompany.symbol);
+        const isUpstream = selectedCompany && company.partners?.includes(selectedCompany.symbol);
+        const isDownstream = selectedCompany && selectedCompany.partners?.includes(company.symbol);
         
         let nodeColor = undefined;
         if (isSelected) {
@@ -478,6 +478,117 @@ interface GlobeProps {
   showAllConnections?: boolean;
 }
 
+export interface Vessel {
+  id: string;
+  name: string;
+  type: string;
+  coordinates: [number, number];
+  heading: number;
+  speed: number;
+  status: string;
+}
+
+const mockVesselRegistry: Vessel[] = [
+  { id: "V-101", name: "PACIFIC_TITAN", type: "Cargo", coordinates: [34.5, 155.0], heading: 85, speed: 18.4, status: "Transit" },
+  { id: "V-102", name: "ATLANTIC_MARINER", type: "Container", coordinates: [42.1, -35.2], heading: 270, speed: 21.0, status: "Transit" },
+  { id: "V-103", name: "SUEZ_CHIEF", type: "Tanker", coordinates: [29.8, 32.6], heading: 180, speed: 12.5, status: "Transit" },
+  { id: "V-104", name: "MALACCA_PIONEER", type: "Container", coordinates: [1.8, 102.3], heading: 135, speed: 19.8, status: "Transit" },
+  { id: "V-105", name: "PANAMA_VALOUR", type: "Cargo", coordinates: [9.1, -79.7], heading: 315, speed: 8.0, status: "Anchored" },
+  { id: "V-106", name: "GIBRALTAR_SENTRY", type: "Tanker", coordinates: [35.9, -5.4], heading: 90, speed: 14.2, status: "Transit" },
+  { id: "V-107", name: "HORN_NAVIGATOR", type: "Cargo", coordinates: [-34.5, 18.2], heading: 275, speed: 16.5, status: "Transit" },
+  { id: "V-108", name: "ADEN_EXPRESS", type: "Container", coordinates: [12.4, 43.5], heading: 310, speed: 22.1, status: "Transit" },
+  { id: "V-109", name: "ENGLISH_ROVER", type: "Cargo", coordinates: [50.2, -1.2], heading: 75, speed: 15.0, status: "Transit" },
+  { id: "V-110", name: "TOKYO_VOYAGER", type: "Tanker", coordinates: [33.8, 140.5], heading: 210, speed: 13.8, status: "Transit" },
+  { id: "V-111", name: "SINGAPORE_STAR", type: "Container", coordinates: [1.2, 103.9], heading: 0, speed: 0.0, status: "Anchored" },
+  { id: "V-112", name: "ROTTERDAM_GIANT", type: "Container", coordinates: [52.2, 4.1], heading: 180, speed: 11.2, status: "Transit" },
+  { id: "V-113", name: "RED_SEA_TRADER", type: "Cargo", coordinates: [23.5, 37.2], heading: 345, speed: 17.1, status: "Transit" },
+  { id: "V-114", name: "CALIFORNIA_WAVE", type: "Tanker", coordinates: [32.5, -120.4], heading: 160, speed: 15.4, status: "Transit" },
+  { id: "V-115", name: "CARIBBEAN_QUEEN", type: "Cargo", coordinates: [15.2, -75.5], heading: 45, speed: 14.8, status: "Transit" },
+  { id: "V-116", name: "PERSIAN_MAJESTY", type: "Tanker", coordinates: [26.4, 52.8], heading: 120, speed: 13.0, status: "Transit" },
+  { id: "V-117", name: "INDIAN_OCEAN_GEM", type: "Cargo", coordinates: [-5.0, 80.0], heading: 90, speed: 16.0, status: "Transit" },
+  { id: "V-118", name: "TASMAN_CLIPPER", type: "Container", coordinates: [-38.2, 160.4], heading: 195, speed: 20.5, status: "Transit" },
+  { id: "V-119", name: "BOSPHORUS_BARON", type: "Cargo", coordinates: [41.2, 29.1], heading: 205, speed: 9.5, status: "Transit" },
+  { id: "V-120", name: "SHANGHAI_PILOT", type: "Container", coordinates: [30.9, 122.5], heading: 0, speed: 0.0, status: "Anchored" }
+];
+
+const VesselNode = ({
+  vessel,
+  isSelected,
+  onSelect,
+  onHover,
+  onHoverOut,
+  globalOpacity = 1
+}: {
+  vessel: Vessel;
+  isSelected: boolean;
+  onSelect: () => void;
+  onHover: (e: any) => void;
+  onHoverOut: () => void;
+  globalOpacity: number;
+}) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const position = useMemo(() => latLngToVector3(vessel.coordinates[0], vessel.coordinates[1], 1.91), [vessel.coordinates]);
+  
+  const quat = useMemo(() => {
+    const normal = position.clone().normalize();
+    const qNorm = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    const qHeading = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -(vessel.heading * Math.PI) / 180);
+    return qNorm.multiply(qHeading);
+  }, [position, vessel.heading]);
+
+  const color = useMemo(() => {
+    if (vessel.status === "Anchored") return '#64748b'; // Dim gray
+    if (vessel.type === "Cargo" || vessel.type === "Container") return '#06b6d4'; // Cyan
+    if (vessel.type === "Tanker") return '#f59e0b'; // Warning Amber
+    return '#06b6d4';
+  }, [vessel.type, vessel.status]);
+
+  useFrame((state) => {
+    if (groupRef.current && vessel.status === "Transit" && globalOpacity > 0.05) {
+      const scale = 1 + Math.sin(state.clock.elapsedTime * 5) * 0.08;
+      groupRef.current.scale.set(scale, scale, scale);
+    }
+  });
+
+  if (globalOpacity < 0.05) return null;
+
+  return (
+    <group 
+      ref={groupRef}
+      position={position}
+      quaternion={quat}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        onHover(e);
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        onHoverOut();
+      }}
+    >
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.015, 0.045, 3]} />
+        <meshBasicMaterial 
+          color={color} 
+          transparent 
+          opacity={vessel.status === "Anchored" ? 0.3 * globalOpacity : 0.8 * globalOpacity} 
+        />
+      </mesh>
+      
+      {isSelected && (
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.035, 0.045, 16]} />
+          <meshBasicMaterial color={color} transparent opacity={0.6 * globalOpacity} />
+        </mesh>
+      )}
+    </group>
+  );
+};
+
 const RotatingGroup = ({ 
   children, 
   autoRotate = true 
@@ -529,6 +640,37 @@ export const Globe: React.FC<GlobeProps> = ({
   const [geoJsonData, setGeoJsonData] = React.useState<any>(null);
   const [countryPaths, setCountryPaths] = React.useState<THREE.Vector3[][]>([]);
   const [statePaths, setStatePaths] = React.useState<THREE.Vector3[][]>([]);
+
+  // State for vessel selections and tooltips
+  const [hoveredVessel, setHoveredVessel] = React.useState<Vessel | null>(null);
+  const [hoveredPos, setHoveredPos] = React.useState<{ x: number; y: number } | null>(null);
+  const [selectedVessel, setSelectedVessel] = React.useState<Vessel | null>(null);
+
+  // Transition opacity for seamless fading out when Corporate Network layout is active
+  const [vesselOpacity, setVesselOpacity] = React.useState(showAllConnections ? 0 : 1);
+  useEffect(() => {
+    let active = true;
+    const target = showAllConnections ? 0 : 1;
+    let prevTime = performance.now();
+    
+    const animate = () => {
+      if (!active) return;
+      const now = performance.now();
+      const dt = (now - prevTime) / 1000;
+      prevTime = now;
+      
+      setVesselOpacity(prev => {
+        const diff = target - prev;
+        if (Math.abs(diff) < 0.02) return target;
+        return prev + diff * Math.min(1, dt * 8);
+      });
+      requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+    return () => {
+      active = false;
+    };
+  }, [showAllConnections]);
 
   useEffect(() => {
     let isMounted = true;
@@ -642,7 +784,7 @@ export const Globe: React.FC<GlobeProps> = ({
         
         <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
         
-        <RotatingGroup autoRotate={!selectedStock}>
+        <RotatingGroup autoRotate={!selectedStock && !selectedVessel}>
           <GlobeSphere texture={globeTexture} />
           
           {/* Render parsed boundaries */}
@@ -680,6 +822,20 @@ export const Globe: React.FC<GlobeProps> = ({
             marketData={marketData}
             newsData={newsData}
           />
+          {mockVesselRegistry.map((vessel) => (
+            <VesselNode
+              key={vessel.id}
+              vessel={vessel}
+              isSelected={selectedVessel?.id === vessel.id}
+              onSelect={() => setSelectedVessel(vessel)}
+              onHover={(e) => {
+                setHoveredVessel(vessel);
+                setHoveredPos({ x: e.clientX, y: e.clientY });
+              }}
+              onHoverOut={() => setHoveredVessel(null)}
+              globalOpacity={vesselOpacity}
+            />
+          ))}
           <SupplyArcs 
             selectedStock={selectedStock} 
             companies={COMPANIES} 
@@ -696,36 +852,89 @@ export const Globe: React.FC<GlobeProps> = ({
         </EffectComposer>
       </Canvas>
 
+      {/* Telemetry Tooltip popup */}
+      {hoveredVessel && vesselOpacity > 0.1 && (
+        <div 
+          className="absolute z-50 pointer-events-none bg-black/95 border border-cyan-500/40 p-3 font-mono text-[9px] w-56 shadow-[0_0_15px_rgba(6,182,212,0.25)] rounded-sm"
+          style={{
+            left: hoveredPos ? `${hoveredPos.x + 15}px` : "50%",
+            top: hoveredPos ? `${hoveredPos.y - 15}px` : "50%",
+            transform: "translate(0, -50%)",
+          }}
+        >
+          <div className="flex items-center justify-between border-b border-cyan-950 pb-1.5 mb-1.5">
+            <span className="text-cyan-405 font-bold tracking-wider">{hoveredVessel.name}</span>
+            <span className="text-[7.5px] bg-cyan-950/80 px-1 py-0.5 text-cyan-300 font-bold border border-cyan-800/30 uppercase rounded-sm">{hoveredVessel.type}</span>
+          </div>
+          
+          <div className="space-y-1 text-zinc-400 text-[8px] tracking-tight">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">SHIP_ID:</span>
+              <span className="text-white font-bold">{hoveredVessel.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">COORDS:</span>
+              <span className="text-white">[{hoveredVessel.coordinates[0].toFixed(3)}N, {hoveredVessel.coordinates[1].toFixed(3)}E]</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">SPEED / HDG:</span>
+              <span className="text-white font-bold">{hoveredVessel.speed} KTS // {hoveredVessel.heading}°</span>
+            </div>
+            <div className="flex justify-between border-t border-zinc-900 pt-1 mt-1 text-[7.5px]">
+              <span className="text-zinc-650 font-bold">DESTINATION_ETA:</span>
+              <span className="text-emerald-400 font-bold">SECURE</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Globe Overlay HUD */}
       <div className="absolute top-4 left-4 z-10 pointer-events-none space-y-4">
         <div className="bg-black/40 backdrop-blur-md border border-emerald-500/20 p-3 font-mono text-[8px] text-emerald-500/50 uppercase tracking-[0.2em] relative overflow-hidden">
            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
-           Global_Asset_Distribution_Net
+           {showAllConnections ? "Global_Asset_Distribution_Net" : "Maritime_Logistics_Active"}
            <div className="mt-2 text-[6px] opacity-40">
-             Uplink_Node: {selectedStock?.symbol || "Awaiting_Input"}
+             Uplink_Node: {selectedStock?.symbol || (selectedVessel ? selectedVessel.name : "Awaiting_Input")}
            </div>
         </div>
 
         <div className="flex gap-2">
           <div className="bg-emerald-950/20 border border-emerald-500/10 p-2">
-            <div className="text-[6px] text-emerald-500/30 uppercase mb-1">Latency</div>
-            <div className="text-[8px] text-emerald-500 font-mono">14ms</div>
+             <div className="text-[6px] text-emerald-500/30 uppercase mb-1">Telemetry</div>
+             <div className="text-[8px] text-emerald-500 font-mono">{showAllConnections ? "Corporate_Links" : `${mockVesselRegistry.length}_Vessels`}</div>
           </div>
           <div className="bg-emerald-950/20 border border-emerald-500/10 p-2">
-            <div className="text-[6px] text-emerald-500/30 uppercase mb-1">Stability</div>
-            <div className="text-[8px] text-emerald-500 font-mono">99.2%</div>
+            <div className="text-[6px] text-emerald-500/30 uppercase mb-1">Latency</div>
+            <div className="text-[8px] text-emerald-500 font-mono">14ms</div>
           </div>
         </div>
       </div>
       
-      <div className="absolute bottom-4 right-4 z-10 pointer-events-none">
+      <div className="absolute bottom-4 right-4 z-10 pointer-events-none font-mono">
+        {selectedVessel && (
+          <div className="bg-black/90 border border-cyan-500/20 p-2.5 mb-2 text-[8px] uppercase tracking-wide select-none pointer-events-auto">
+            <div className="text-cyan-400 font-bold border-b border-cyan-950 pb-1 mb-1">Vessel Link Selected</div>
+            <div className="text-[7.5px] text-zinc-500">Name: <span className="text-white">{selectedVessel.name}</span></div>
+            <div className="text-[7.5px] text-zinc-500">Type: <span className="text-white">{selectedVessel.type}</span></div>
+            <div className="text-[7.5px] text-zinc-500">Coords: <span className="text-white">[{selectedVessel.coordinates[0]}, {selectedVessel.coordinates[1]}]</span></div>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedVessel(null);
+              }}
+              className="mt-1.5 w-full bg-zinc-900 border border-zinc-850 hover:bg-zinc-800 text-white font-bold text-[7px] py-1 rounded-sm uppercase cursor-pointer"
+            >
+              DISCONNECT UPLINK
+            </button>
+          </div>
+        )}
         <div className="flex flex-col items-end gap-1">
-          <div className="text-[10px] font-mono text-emerald-500/40 tracking-widest uppercase flex items-center gap-2">
+          <div className="text-[10px] text-emerald-500/40 tracking-widest uppercase flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
             Coord_Sync: Active
           </div>
           <div className="bg-emerald-500/20 h-[1px] w-48" />
-          <div className="text-[6px] font-mono text-emerald-500/20 uppercase mt-1">
+          <div className="text-[6px] text-emerald-500/20 uppercase mt-1">
              Alpha_Stream_v4.2.1
           </div>
         </div>
