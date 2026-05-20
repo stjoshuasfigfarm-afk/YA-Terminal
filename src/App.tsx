@@ -7,6 +7,34 @@ import { Ticker } from "./components/Ticker";
 import { CommandPalette } from "./components/CommandPalette";
 import { COMPANIES, Company } from "./data/companies";
 
+// Production Config Resolution
+interface TerminalConfig {
+  FINNHUB_API_KEY?: string;
+  FMP_API_KEY?: string;
+  ITIC_API_KEY?: string;
+  GEMINI_API_KEY?: string;
+  API_BASE_URL?: string;
+}
+
+declare global {
+  interface Window {
+    TERMINAL_CONFIG?: TerminalConfig;
+  }
+}
+
+const getApiBaseUrl = (): string => {
+  // Check build environment first VITE_API_BASE_URL
+  const metaEnv = (import.meta as any).env;
+  const metaBase = metaEnv ? (metaEnv.VITE_API_BASE_URL || metaEnv.API_BASE_URL) : undefined;
+  if (metaBase) return metaBase as string;
+  
+  // Check global config object fallback
+  const windowBase = window.TERMINAL_CONFIG?.API_BASE_URL;
+  if (windowBase) return windowBase;
+  
+  return ""; // default to relative path
+};
+
 export default function App() {
   const [selectedStock, setSelectedStock] = useState<Company | null>(null);
   const [mapFocusStock, setMapFocusStock] = useState<Company | null>(null);
@@ -29,9 +57,35 @@ export default function App() {
   const [quotaExhausted, setQuotaExhausted] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("INTEL");
   const [logs, setLogs] = useState<string[]>(["SYSTEM_BOOT_SEQUENCE_COMPLETE", "UPLINK_ESTABLISHED"]);
+  const [systemStatus, setSystemStatus] = useState<string>("SYSTEM: OPTIMAL");
 
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [msg, ...prev.slice(0, 19)]);
+  }, []);
+
+  // Robust Telemetry Fetch Interceptor
+  const telemetryFetch = useCallback(async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
+    try {
+      let finalUrl = input;
+      if (typeof finalUrl === "string" && finalUrl.startsWith("/")) {
+        finalUrl = getApiBaseUrl() + finalUrl;
+      }
+      const response = await fetch(finalUrl, init);
+      if (!response.ok) {
+        if (response.status === 404) {
+          setSystemStatus("[SYSTEM_ERROR] ROUTE_UNRESOLVED_IN_PROD");
+        } else if (response.status === 401 || response.status === 403) {
+          setSystemStatus("[SYSTEM_ERROR] AUTH_INVALID_ON_DEPLOY");
+        }
+      } else {
+        setSystemStatus("SYSTEM: OPTIMAL");
+      }
+      return response;
+    } catch (err: any) {
+      console.error("Telemetry link failure intercepted:", err);
+      setSystemStatus("[SYSTEM_ERROR] ROUTE_UNRESOLVED_IN_PROD");
+      throw err;
+    }
   }, []);
 
   const [relationships, setRelationships] = useState<{ suppliers: any[], customers: any[] }>({ suppliers: [], customers: [] });
@@ -43,7 +97,7 @@ export default function App() {
     
     setIsAiProcessing(true);
     try {
-      const response = await fetch("/api/ai/enrich-news", {
+      const response = await telemetryFetch("/api/ai/enrich-news", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,7 +138,7 @@ export default function App() {
     setSentiment(null);
     try {
       // 1. Generate Briefing
-      const briefingResponse = await fetch("/api/ai/briefing", {
+      const briefingResponse = await telemetryFetch("/api/ai/briefing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -101,7 +155,7 @@ export default function App() {
       }
       
       // 2. Generate Sentiment Analysis
-      const sentimentResponse = await fetch("/api/ai/sentiment", {
+      const sentimentResponse = await telemetryFetch("/api/ai/sentiment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,31 +192,31 @@ export default function App() {
       const countryCode = company?.country || 'USA';
 
       const [q, n, p, f, h, r, y] = await Promise.all([
-        fetch(`/api/quote?symbol=${symbol}`, { headers }).then(res => {
+        telemetryFetch(`/api/quote?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Quote API alert: Status ${res.status}`);
           return res.json();
         }).catch((e) => {
           console.error("Quote fetch error:", e);
           return {};
         }),
-        fetch(`/api/news?symbol=${symbol}`, { headers }).then(res => {
+        telemetryFetch(`/api/news?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`News API alert: Status ${res.status}`);
           return res.json();
         }).catch(() => ([])),
-        fetch(`/api/profile?symbol=${symbol}`, { headers }).then(res => {
+        telemetryFetch(`/api/profile?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Profile API alert: Status ${res.status}`);
           return res.json();
         }).catch(() => ({})),
-        fetch(`/api/financials?symbol=${symbol}`, { headers }).then(res => {
+        telemetryFetch(`/api/financials?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`Financials API alert: Status ${res.status}`);
           return res.json();
         }).catch(() => ([])),
-        fetch(`/api/history?symbol=${symbol}`, { headers }).then(res => {
+        telemetryFetch(`/api/history?symbol=${symbol}`, { headers }).then(res => {
           if (!res.ok) console.error(`History API alert: Status ${res.status}`);
           return res.json();
         }).catch(() => ({ historical: [] })),
-        fetch(`/api/relationships/${symbol}`, { headers }).then(res => res.json()).catch(() => ({ relationships: { suppliers: [], customers: [] } })),
-        fetch(`/api/yields?country=${countryCode}`, { headers }).then(res => res.json()).catch(() => (null)),
+        telemetryFetch(`/api/relationships/${symbol}`, { headers }).then(res => res.json()).catch(() => ({ relationships: { suppliers: [], customers: [] } })),
+        telemetryFetch(`/api/yields?country=${countryCode}`, { headers }).then(res => res.json()).catch(() => (null)),
       ]);
       
       // Data Parsing check
@@ -204,7 +258,7 @@ export default function App() {
     let retryCount = 0;
     const fetchGlobalYields = async () => {
       try {
-        const res = await fetch('/api/yields?country=USA');
+        const res = await telemetryFetch('/api/yields?country=USA');
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
         const data = await res.json();
         setGlobalYields(data);
@@ -246,7 +300,7 @@ export default function App() {
         
         await Promise.all(topSymbols.map(async (sym) => {
           try {
-            const res = await fetch(`/api/quote?symbol=${sym}`);
+            const res = await telemetryFetch(`/api/quote?symbol=${sym}`);
             if (res.ok) {
               results[sym] = await res.json();
             }
@@ -274,8 +328,8 @@ export default function App() {
       try {
         const headers = { 'Content-Type': 'application/json' };
         const [qRes, pRes] = await Promise.all([
-          fetch(`/api/quote?symbol=${selectedStock.symbol}`, { headers }).then(res => res.json()),
-          fetch(`/api/profile?symbol=${selectedStock.symbol}`, { headers }).then(res => res.json())
+          telemetryFetch(`/api/quote?symbol=${selectedStock.symbol}`, { headers }).then(res => res.json()),
+          telemetryFetch(`/api/profile?symbol=${selectedStock.symbol}`, { headers }).then(res => res.json())
         ]);
         
         if (qRes && qRes.price !== undefined) {
@@ -303,7 +357,7 @@ export default function App() {
     // Only fetch if different from selectedStock or if news is empty
     const fetchFocusNews = async () => {
       try {
-        const res = await fetch(`/api/news?symbol=${mapFocusStock.symbol}`, {
+        const res = await telemetryFetch(`/api/news?symbol=${mapFocusStock.symbol}`, {
           headers: { 'Content-Type': 'application/json' }
         });
         if (!res.ok) console.error(`Map Focus News status: ${res.status}`);
@@ -404,8 +458,8 @@ export default function App() {
       <footer className="h-5 border-t border-zinc-800 bg-zinc-950 flex items-center justify-between px-2 text-[8px] font-mono text-zinc-600 z-30">
         <div className="flex space-x-3">
           <div className="flex items-center gap-1">
-             <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
-             <span>SYSTEM: OPTIMAL</span>
+             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${systemStatus === "SYSTEM: OPTIMAL" ? "bg-white" : "bg-red-500"}`} />
+             <span className={systemStatus === "SYSTEM: OPTIMAL" ? "" : "text-red-500 font-bold"}>{systemStatus}</span>
           </div>
           <span>LATENCY: 12ms</span>
           <span>NODE_ID: {selectedStock?.symbol || "HUB-01"}</span>
