@@ -477,14 +477,14 @@ export const Globe: React.FC<GlobeProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    // 1. STYLING (OCEAN): deep, subtle neutral grey
-    ctx.fillStyle = "#0f172a";
+    // 1. STYLING (OCEAN): beautiful tactical sky blue ocean
+    ctx.fillStyle = "#132c45";
     ctx.fillRect(0, 0, width, height);
 
-    // 2. STYLING (LAND): brighter, dark slate grey with a thin contrasting border (e.g. stroke #334155)
-    ctx.fillStyle = "#1e293b";
-    ctx.strokeStyle = "#334155";
-    ctx.lineWidth = 1;
+    // 2. STYLING (LAND): dark slate grey
+    ctx.fillStyle = "#070c14";
+    ctx.strokeStyle = "#1b3c5a";
+    ctx.lineWidth = 1.2;
 
     if (geoJsonData.features) {
       geoJsonData.features.forEach((feature: any) => {
@@ -552,10 +552,10 @@ export const Globe: React.FC<GlobeProps> = ({
               <Line
                 key={`country-border-${i}`}
                 points={points}
-                color="#64748b"
-                lineWidth={0.5}
+                color="#0ea5e9"
+                lineWidth={0.6}
                 transparent
-                opacity={0.35}
+                opacity={0.4}
               />
             ))}
             {/* Domestic State/Province Borders */}
@@ -563,10 +563,10 @@ export const Globe: React.FC<GlobeProps> = ({
               <Line
                 key={`state-border-${i}`}
                 points={points}
-                color="#4b5563"
+                color="#0284c7"
                 lineWidth={0.4}
                 transparent
-                opacity={0.2}
+                opacity={0.3}
               />
             ))}
           </group>

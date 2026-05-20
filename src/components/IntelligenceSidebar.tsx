@@ -166,7 +166,8 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
 
   return (
     <aside className="w-44 h-full border-l border-zinc-800 flex flex-col bg-zinc-950 z-20 shrink-0 select-none overflow-hidden">
-      <section className="p-2 border-b border-zinc-800 bg-black shrink-0">
+      {/* Top Fixed Header */}
+      <div className="p-2 border-b border-zinc-900 bg-black shrink-0">
         <div className="flex justify-between items-start mb-0.5">
           <div className="font-mono text-[9px] text-zinc-500 uppercase tracking-widest flex flex-col gap-1">
             <div className="flex items-center gap-1">
@@ -180,7 +181,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             <div className="text-[8px] bg-emerald-500/10 text-emerald-500 px-1 py-0.5 border border-emerald-500/20 font-mono font-bold uppercase tracking-tighter">SECURE_LINK</div>
           </div>
         </div>
-        <div className="flex items-end justify-between mb-3">
+        <div className="flex items-end justify-between">
           <div>
             <h2 className="font-mono text-lg text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
             <div className="text-[7px] text-zinc-600 font-mono mt-0.5 uppercase tracking-tight truncate max-w-[90px]">{profile?.companyName || selectedStock.name}</div>
@@ -191,54 +192,61 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             </div>
             <div className={cn(
               "text-[7px] font-mono font-bold mt-0.5",
-              (quote?.changes || 0) >= 0 ? "text-white" : "text-red-500"
+              (quote?.changes || 0) >= 0 ? "text-emerald-500" : "text-red-500"
             )}>
               {(quote?.changes || 0) >= 0 ? "+" : ""}{(quote?.changes || 0).toFixed(2)}
             </div>
           </div>
         </div>
+      </div>
 
+      {/* Unified Scrollable Sidebar Content */}
+      <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar scroll-smooth bg-zinc-950">
         {sentiment && (
-          <div className="mb-3 p-1.5 bg-white/5 border border-white/10 flex items-center justify-between">
-            <div>
-              <div className="text-[6px] text-zinc-600 font-mono uppercase mb-0.5">Sentiment_Signal</div>
-              <div 
-                className={cn(
-                  "text-[9px] font-mono font-bold tracking-tighter uppercase",
-                  sentiment.score > 0.3 ? "text-emerald-500" : sentiment.score < -0.3 ? "text-red-500" : "text-yellow-500"
-                )}
-              >
-                {sentiment.label}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] font-mono text-white font-bold">{(sentiment.score * 100).toFixed(0)}%</div>
-              <div className="w-12 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
+          <div className="p-2 border-b border-zinc-900 bg-black/20">
+            <div className="p-1.5 bg-white/5 border border-white/10 flex items-center justify-between">
+              <div>
+                <div className="text-[6px] text-zinc-600 font-mono uppercase mb-0.5">Sentiment_Signal</div>
                 <div 
                   className={cn(
-                    "h-full transition-all duration-1000",
-                    sentiment.score > 0.3 ? "bg-emerald-500" : sentiment.score < -0.3 ? "bg-red-500" : "bg-yellow-500"
+                    "text-[8.5px] font-mono font-bold tracking-tighter uppercase",
+                    sentiment.score > 0.3 ? "text-emerald-500" : sentiment.score < -0.3 ? "text-red-500" : "text-yellow-500"
                   )}
-                  style={{ width: `${Math.abs(sentiment.score) * 100}%`, marginLeft: sentiment.score < 0 ? '0' : 'auto' }}
-                />
+                >
+                  {sentiment.label}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] font-mono text-white font-bold">{(sentiment.score * 100).toFixed(0)}%</div>
+                <div className="w-12 h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full transition-all duration-1000",
+                      sentiment.score > 0.3 ? "bg-emerald-500" : sentiment.score < -0.3 ? "bg-red-500" : "bg-yellow-500"
+                    )}
+                    style={{ width: `${Math.abs(sentiment.score) * 100}%`, marginLeft: sentiment.score < 0 ? '0' : 'auto' }}
+                  />
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        <div className="border-t border-zinc-900/50 pt-2 mt-2">
+        {/* Chart Section */}
+        <div className="p-2 border-b border-zinc-900 bg-black/10">
           <div className="flex justify-between items-center mb-1">
             <div className="text-[7px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1">
-              <Activity className="w-2 h-2" /> Historical_Data
+              <Activity className="w-2 h-2 text-zinc-400" /> Historical_Data
             </div>
             <div className="text-[6px] font-mono text-zinc-700 uppercase">60_Cycle_Pulse</div>
           </div>
-          <div className="h-36 relative overflow-hidden shrink-0 flex flex-col bg-zinc-950/20 border border-zinc-900/50">
+          <div className="h-32 relative overflow-hidden shrink-0 flex flex-col bg-zinc-950/20 border border-zinc-900/40">
             <TelemetryChart data={history} />
           </div>
         </div>
 
-        <div className="border-t border-zinc-900/50 pt-2 mt-2 font-mono text-[9px] shrink-0 bg-black/40">
+        {/* Financials Section - right under the chart! */}
+        <div className="p-2 border-b border-zinc-900 bg-black/40 font-mono text-[9px]">
           <div className="text-[8px] text-emerald-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-1 border-b border-zinc-900 pb-1">
             Financial_Metrics
           </div>
@@ -266,7 +274,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             </div>
             
             <div className="pt-2 flex flex-col">
-              <div className="text-[7px] text-zinc-550 uppercase mb-1.5 flex items-center gap-1">
+              <div className="text-[7px] text-zinc-500 uppercase mb-1.5 flex items-center gap-1">
                 NET_INCOME_DELTA
               </div>
               <div className="flex items-end gap-1 h-12 bg-zinc-950/40 p-1 border border-zinc-900/50">
@@ -299,31 +307,26 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             </div>
           </div>
         </div>
-      </section>
 
-      {/* VERTICAL SEPARATION GAP */}
-      <div className="h-4 shrink-0 bg-transparent border-x border-zinc-900 pointer-events-none relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #333 1px, transparent 0)', backgroundSize: '12px 12px' }} />
-      </div>
-
-      <section className="flex-1 flex flex-col overflow-y-auto custom-scrollbar scroll-smooth">
+        {/* Yield Analysis Section */}
         <YieldAnalysis yields={yields} />
 
-        <div className="flex border-b border-zinc-800 bg-black shrink-0">
+        {/* Tab Selection */}
+        <div className="flex border-b border-zinc-850 bg-black shrink-0">
           <button 
             onClick={() => setActiveTab("INTEL")}
             className={cn(
-              "flex-1 py-2 text-[9px] font-mono font-bold uppercase tracking-[0.2em] transition-all",
-              activeTab === "INTEL" ? "text-white bg-white/5 border-b-2 border-white" : "text-zinc-600 hover:text-zinc-400"
+              "flex-1 py-1.5 text-[8.5px] font-mono font-bold uppercase tracking-[0.1em] transition-all",
+              activeTab === "INTEL" ? "text-white bg-white/5 border-b border-white" : "text-zinc-600 hover:text-zinc-400"
             )}
           >
-            Intelligence
+            Intel
           </button>
           <button 
             onClick={() => setActiveTab("PINNED")}
             className={cn(
               "flex-1 py-1 text-[8px] font-mono font-bold uppercase tracking-wider transition-all",
-              activeTab === "PINNED" ? "text-white bg-white/5 border-b-2 border-white" : "text-zinc-600 hover:text-zinc-400"
+              activeTab === "PINNED" ? "text-white bg-white/5 border-b border-white" : "text-zinc-600 hover:text-zinc-400"
             )}
           >
             Pinned
@@ -332,13 +335,14 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             onClick={() => setActiveTab("BRIEF")}
             className={cn(
               "flex-1 py-1 text-[8px] font-mono font-bold uppercase tracking-wider transition-all",
-              activeTab === "BRIEF" ? "text-white bg-white/5 border-b-2 border-white" : "text-zinc-600 hover:text-zinc-400"
+              activeTab === "BRIEF" ? "text-white bg-white/5 border-b border-white" : "text-zinc-600 hover:text-zinc-400"
             )}
           >
             Brief
           </button>
         </div>
 
+        {/* Tab Content Panel */}
         <div className="flex-1 flex flex-col bg-black">
           {/* Sys_Logs Section */}
           <div className="p-2 border-b border-zinc-900 bg-zinc-950/50 shrink-0">
@@ -361,9 +365,9 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
           </div>
 
           {activeTab === "INTEL" ? (
-            <div className="flex flex-col h-full">
-              <div className="p-2 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/20">
-                <span className="text-[9px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
+            <div className="flex flex-col h-full animate-in fade-in duration-300">
+              <div className="p-2 border-b border-zinc-805 flex justify-between items-center bg-zinc-900/20">
+                <span className="text-[8.5px] font-mono uppercase tracking-widest flex items-center gap-1" style={{ color: "#22ab94" }}>
                   <Newspaper className="w-2.5 h-2.5" /> Intelligence_Sync
                 </span>
                 {!quotaExhausted && !isAiProcessing && (
@@ -372,10 +376,10 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 {quotaExhausted && <span className="text-[7px] text-red-500 font-mono uppercase">Quota_Exhausted</span>}
               </div>
               
-              <div className="p-3 space-y-3">
+              <div className="p-2.5 space-y-2.5">
                 {news && news.length > 0 ? (
                   news.map((item, idx) => (
-                    <div key={idx} className="group border-b border-zinc-900 pb-2 last:border-0">
+                    <div key={idx} className="group border-b border-zinc-900 pb-2 last:border-0 pb-2">
                       <div className="flex items-center gap-1.5 mb-1">
                         <span className="text-[8px] font-mono text-zinc-700">
                           {new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -403,8 +407,8 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
               </div>
             </div>
           ) : activeTab === "PINNED" ? (
-            <div className="flex flex-col h-full animate-in fade-in duration-500 p-3 space-y-4">
-              <div className="p-2 border border-zinc-800 flex justify-between items-center bg-zinc-900/20 mb-2">
+            <div className="flex flex-col h-full animate-in fade-in duration-300 p-2.5 space-y-3">
+              <div className="p-2 border border-zinc-800 flex justify-between items-center bg-zinc-900/20 mb-1">
                 <span className="text-[9px] font-mono text-white uppercase tracking-widest flex items-center gap-1">
                   <Link2 className="w-2.5 h-2.5" /> Supply_Chain_Map
                 </span>
@@ -412,12 +416,12 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
               
               {/* Suppliers */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="text-[8px] font-mono text-red-500/70 uppercase tracking-widest">Strategic_Suppliers</div>
                   <div className="h-[1px] flex-1 bg-red-900/20" />
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {relationships.suppliers && relationships.suppliers.length > 0 ? (
                     relationships.suppliers.map((sup) => (
                       <div 
@@ -444,12 +448,12 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
 
               {/* Customers */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="text-[8px] font-mono text-blue-500/70 uppercase tracking-widest">Revenue_Channels</div>
                   <div className="h-[1px] flex-1 bg-blue-900/20" />
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {relationships.customers && relationships.customers.length > 0 ? (
                     relationships.customers.map((cust) => (
                       <div 
@@ -476,13 +480,13 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
 
               {selectedStock.partners && selectedStock.partners.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="text-[9px] font-mono text-white/70 uppercase tracking-widest">Network_Partners</div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="text-[8.5px] font-mono text-white/70 uppercase tracking-widest">Network_Partners</div>
                     <div className="h-[1px] flex-1 bg-white/20" />
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {selectedStock.partners.map(p => (
-                      <div key={p} className="px-2 py-1 bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-white hover:border-white/50 transition-all cursor-default">
+                      <div key={p} className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-[10px] font-mono text-white hover:border-white/50 transition-all cursor-default">
                         {p}
                       </div>
                     ))}
@@ -491,8 +495,8 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
               )}
             </div>
           ) : (
-            <div className="flex flex-col h-full animate-in fade-in duration-500 p-3">
-              <div className="p-2 border border-zinc-800 flex justify-between items-center bg-zinc-900/20 mb-3">
+            <div className="flex flex-col h-full animate-in fade-in duration-300 p-2.5">
+              <div className="p-2 border border-zinc-800 flex justify-between items-center bg-zinc-900/20 mb-2">
                 <span className="text-[9px] font-mono text-white uppercase tracking-widest flex items-center gap-1">
                   <ShieldAlert className="w-2.5 h-2.5" /> Operations_Order
                 </span>
@@ -502,7 +506,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
                 {quotaExhausted && <span className="text-[7px] text-red-500 font-mono uppercase">Quota_Exhausted</span>}
               </div>
               
-              <div className="p-3 bg-white/5 border border-white/10 rounded-sm mb-4">
+              <div className="p-2.5 bg-white/5 border border-white/10 rounded-sm mb-3">
                 <div className="text-[8px] font-mono text-white uppercase mb-2 border-b border-white/10 pb-1 flex justify-between">
                   <span>STRAT_BRIEFING_v4.2</span>
                   <span className="animate-pulse">ONLINE</span>
@@ -525,8 +529,7 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
             </div>
           )}
         </div>
-      </section>
-
+      </div>
     </aside>
   );
 };

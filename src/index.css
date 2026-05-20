@@ -69,11 +69,11 @@
 }
 
 .map-green-hued .map-tile-layer {
-  filter: sepia(1) hue-rotate(80deg) saturate(3) brightness(0.7) contrast(1.2);
+  filter: saturate(1.4) brightness(0.9) contrast(1.15) hue-rotate(-5deg);
 }
 
 .map-green-hued .leaflet-container {
-  background: #050505 !important;
+  background: #13263a !important;
 }
 
 .supply-chain-line {

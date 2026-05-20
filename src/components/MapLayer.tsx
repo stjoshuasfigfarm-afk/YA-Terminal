@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { COMPANIES, Company } from "../data/companies";
@@ -125,6 +125,60 @@ export const MapLayer: React.FC<MapLayerProps> = ({
 }) => {
   const [is3DMode, setIs3DMode] = useState(true);
   const [showNewsSummary, setShowNewsSummary] = useState(false);
+  const [activeNewsIdx, setActiveNewsIdx] = useState(0);
+
+  const [countriesGeoJson, setCountriesGeoJson] = useState<any>(null);
+  const [statesGeoJson, setStatesGeoJson] = useState<any>(null);
+
+  // Fetch GeoJSON borders for 2D Map rendering
+  useEffect(() => {
+    let isMounted = true;
+    
+    fetch("https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson")
+      .then(res => {
+        if (!res.ok) throw new Error("Status: " + res.status);
+        return res.json();
+      })
+      .then(data => {
+        if (isMounted) setCountriesGeoJson(data);
+      })
+      .catch(err => console.error("Could not load 2D country boundaries", err));
+
+    fetch("https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_1_states_provinces.geojson")
+      .then(res => {
+        if (!res.ok) throw new Error("Status: " + res.status);
+        return res.json();
+      })
+      .then(data => {
+        if (isMounted) setStatesGeoJson(data);
+      })
+      .catch(err => console.error("Could not load 2D state boundaries", err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Auto-cycle through news items
+  useEffect(() => {
+    if (!showNewsSummary || !intelligenceFeed || intelligenceFeed.length === 0) return;
+    
+    // Safety check for index bound
+    if (activeNewsIdx >= intelligenceFeed.length) {
+      setActiveNewsIdx(0);
+    }
+
+    const interval = setInterval(() => {
+      setActiveNewsIdx(prev => (prev + 1) % intelligenceFeed.length);
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [showNewsSummary, intelligenceFeed, activeNewsIdx]);
+
+  // Reset index on focal/selected stock changes
+  useEffect(() => {
+    setActiveNewsIdx(0);
+  }, [selectedStock, focusStock]);
   
   const activePosition = React.useMemo((): [number, number] | null => {
     try {
@@ -250,11 +304,93 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         </button>
       </div>
       
-      <div className="absolute bottom-4 left-4 z-[1000] pointer-events-none">
-        <div className="bg-zinc-900/80 p-2 border border-zinc-800 font-mono text-[9px] uppercase tracking-widest text-white backdrop-blur-sm shadow-xl">
-          LAT: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[0]).toFixed(4) : "0.0000"} | LONG: {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) ? Number(activePosition[1]).toFixed(4) : "0.0000"} | PROJECTION: {is3DMode ? "GLOBE_3D" : "MERCATOR_2D"}
+      {!showNewsSummary && (
+        <div className="absolute left-4 bottom-4 z-[1000] w-[calc(100%-2rem)] max-w-[340px] md:max-w-[380px] pointer-events-auto select-text">
+          {(() => {
+            const activeCompany = focusStock || selectedStock || COMPANIES[0];
+            const currentNewsItem = intelligenceFeed && intelligenceFeed.length > 0 ? intelligenceFeed[activeNewsIdx] : null;
+
+            return (
+              <div className="bg-zinc-950/95 border border-zinc-900 shadow-[0_0_25px_rgba(0,0,0,0.85)] backdrop-blur-md p-3.5 flex flex-col gap-2.5 rounded-sm">
+                {/* Header Tag */}
+                <div className="flex items-center justify-between font-mono text-[8px] select-none text-zinc-400">
+                  <div className="flex items-center gap-1.5 uppercase font-bold text-emerald-400">
+                    <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span>SIGNAL BROADCAST: {activeCompany.symbol}</span>
+                  </div>
+                  <div>
+                    {intelligenceFeed && intelligenceFeed.length > 0 ? `${activeNewsIdx + 1}/${intelligenceFeed.length}` : "0/0"}
+                  </div>
+                </div>
+
+                {/* News Title & Link */}
+                <div className="space-y-1">
+                  {currentNewsItem ? (
+                    <>
+                      <h4 className="text-[11.5px] uppercase font-black text-zinc-100 leading-snug tracking-wide line-clamp-2 select-text hover:text-emerald-400 cursor-pointer transition-colors"
+                          onClick={() => setShowNewsSummary(true)}>
+                        {currentNewsItem.intelligence?.translatedTitle || currentNewsItem.title}
+                      </h4>
+                      <p className="text-[10px] text-zinc-300 leading-normal italic line-clamp-3 select-text pr-1 pt-0.5">
+                        {currentNewsItem.description || currentNewsItem.summary || "Secured node connection active. No secondary description signal found on this link."}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="py-2 text-[10px] text-zinc-500 italic uppercase font-semibold">
+                      Connecting to neural intelligence feed...
+                    </div>
+                  )}
+                </div>
+
+                {/* Interactive Action Controls */}
+                <div className="border-t border-zinc-900/80 pt-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => {
+                        if (intelligenceFeed && intelligenceFeed.length > 0) {
+                          setActiveNewsIdx(prev => (prev - 1 + intelligenceFeed.length) % intelligenceFeed.length);
+                        }
+                      }}
+                      className="px-2 py-1 border border-zinc-800 hover:border-zinc-700 text-[8px] font-mono uppercase tracking-tight text-zinc-400 hover:text-white transition-colors bg-zinc-950 hover:bg-zinc-900"
+                    >
+                      &lt; PREV
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (intelligenceFeed && intelligenceFeed.length > 0) {
+                          setActiveNewsIdx(prev => (prev + 1) % intelligenceFeed.length);
+                        }
+                      }}
+                      className="px-2 py-1 border border-zinc-800 hover:border-zinc-700 text-[8px] font-mono uppercase tracking-tight text-zinc-400 hover:text-white transition-colors bg-zinc-950 hover:bg-zinc-900"
+                    >
+                      NEXT &gt;
+                    </button>
+                  </div>
+
+                  <button 
+                    onClick={() => setShowNewsSummary(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 border border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500 hover:bg-emerald-500/10 text-[8px] font-mono uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all"
+                  >
+                    <Newspaper className="w-2.5 h-2.5" />
+                    <span>ANALYZE BROADCAST</span>
+                  </button>
+                </div>
+
+                {/* Subtly embedded coordinate telemetry line */}
+                <div className="border-t border-zinc-900/40 pt-1.5 flex justify-between font-mono text-[7px] text-zinc-500 uppercase tracking-widest select-none">
+                  <div>HQ: {activeCompany.headquarters || "USA"}</div>
+                  <div>
+                    {activePosition && isSafeLatLng(activePosition[0], activePosition[1]) 
+                      ? `${activePosition[0].toFixed(3)}N, ${activePosition[1].toFixed(3)}E` 
+                      : "0.000N, 0.000E"
+                    }
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
-      </div>
+      )}
 
       {is3DMode ? (
         <Globe 
@@ -269,14 +405,42 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         <MapContainer
           center={[20, 0]}
           zoom={3}
-          className="w-full h-full bg-black"
+          className="w-full h-full bg-[#13263a]"
           zoomControl={false}
           attributionControl={false}
         >
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
             className="map-tile-layer"
           />
+          
+          {countriesGeoJson && (
+            <GeoJSON
+              key={`map-countries-${countriesGeoJson.features?.length || 0}`}
+              data={countriesGeoJson}
+              style={{
+                fillColor: "transparent",
+                color: "#1e40af", // deep base blue outline for countries
+                weight: 1.2,
+                opacity: 0.5,
+                fillOpacity: 0
+              }}
+            />
+          )}
+
+          {statesGeoJson && (
+            <GeoJSON
+              key={`map-states-${statesGeoJson.features?.length || 0}`}
+              data={statesGeoJson}
+              style={{
+                fillColor: "transparent",
+                color: "#0369a1", // beautiful slate sky-blue state borders
+                weight: 0.6,
+                opacity: 0.5,
+                fillOpacity: 0
+              }}
+            />
+          )}
           
           <MapController selectedPosition={activePosition} />
 
@@ -415,37 +579,133 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       )}
 
       {showNewsSummary && (
-        <div className="absolute bottom-16 right-4 left-4 md:left-auto md:w-[480px] z-[1002] bg-zinc-950/95 border border-zinc-900 p-3 shadow-2xl flex flex-col max-h-[220px] backdrop-blur-md">
-          <div className="flex justify-between items-center border-b border-zinc-800 pb-1.5 mb-2 font-mono text-[9px]">
-            <span className="text-emerald-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
-              <Newspaper className="w-3.5 h-3.5 text-emerald-500" /> News_Telemetry_Stream ({selectedStock?.symbol || "GLOBAL"})
-            </span>
-            <button 
-              onClick={() => setShowNewsSummary(false)}
-              className="text-zinc-500 hover:text-white uppercase transition-colors"
-            >
-              [Close]
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2.5 pr-1 text-left">
-            {intelligenceFeed && intelligenceFeed.length > 0 ? (
-              intelligenceFeed.slice(0, 5).map((item, idx) => (
-                <div key={idx} className="group border-b border-zinc-900/60 pb-2 last:border-0 last:pb-0">
-                  <div className="flex justify-between items-center mb-1 font-mono text-[7px] text-zinc-500">
-                    <span>{item.published_at ? new Date(item.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</span>
-                    <span className="opacity-0 group-hover:opacity-100 text-[6px] text-emerald-500 transition-opacity">SYS_REF_AUTO</span>
+        <div className="absolute bottom-0 left-0 right-0 z-[1002] w-full border-t border-zinc-900 bg-zinc-950/98 shadow-[0_-10px_35px_rgba(0,0,0,0.95)] backdrop-blur-md flex flex-col md:flex-row pointer-events-auto select-text">
+          {(() => {
+            const activeCompany = focusStock || selectedStock || COMPANIES[0];
+            const currentNewsItem = intelligenceFeed && intelligenceFeed.length > 0 ? intelligenceFeed[activeNewsIdx] : null;
+            
+            return (
+              <div className="w-full flex flex-col md:flex-row min-h-[140px] md:min-h-0">
+                {/* 1. Left Section: Corporate Info stats block */}
+                <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-zinc-900/60 p-4 shrink-0 flex flex-col justify-between bg-black/40 font-mono">
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[14px] font-black tracking-tight text-white">{activeCompany.symbol}</span>
+                      <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 border border-emerald-500/20 font-bold uppercase tracking-widest leading-none">NODE_READY</span>
+                    </div>
+                    <div className="text-[9.5px] text-zinc-450 font-semibold truncate mb-3 uppercase tracking-tighter">{activeCompany.name}</div>
+                    
+                    <div className="space-y-1.5 border-t border-zinc-900/80 pt-2.5">
+                      <div className="flex justify-between text-[9px] items-center">
+                        <span className="text-zinc-600 uppercase tracking-tighter">SECTOR</span>
+                        <span className="text-zinc-300 truncate text-right max-w-[130px] font-medium">{activeCompany.sector}</span>
+                      </div>
+                      <div className="flex justify-between text-[9px] items-center">
+                        <span className="text-zinc-650 uppercase tracking-tighter font-bold text-emerald-500/80">WORKFORCE</span>
+                        <span className="text-emerald-400 font-bold">{activeCompany.workforce || "N/A"}</span>
+                      </div>
+                      <div className="flex justify-between text-[9px] items-center">
+                        <span className="text-zinc-600 uppercase tracking-tighter">HQ_LOCATION</span>
+                        <span className="text-zinc-400 truncate text-right max-w-[130px]">{activeCompany.headquarters || "N/A"}</span>
+                      </div>
+                    </div>
                   </div>
-                  <h4 className="text-[10px] font-bold text-zinc-450 leading-snug group-hover:text-white transition-colors uppercase">
-                    {item.intelligence?.translatedTitle || item.title}
-                  </h4>
+                  
+                  <div className="mt-3 md:mt-4 text-[7px] text-zinc-600 uppercase tracking-widest flex items-center gap-1.5 pt-2 border-t border-zinc-900/40 select-none">
+                    <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span>SECURE METRIC BROADCAST</span>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="py-6 text-center text-[9px] font-mono text-zinc-650 uppercase">
-                No active news telemetry found.
+
+                {/* 2. Middle Section: Highly readable & responsive News Story */}
+                <div className="flex-1 p-4 flex flex-col justify-center min-w-0 bg-zinc-950/40 md:py-3.5">
+                  {currentNewsItem ? (
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2 font-mono text-[8px] select-none">
+                        <span className="text-emerald-400 font-black uppercase tracking-widest bg-emerald-500/5 px-2 py-0.5 border border-emerald-500/10">TELEMETRY_BRIEF</span>
+                        <span className="text-zinc-500">
+                          {currentNewsItem.published_at 
+                            ? new Date(currentNewsItem.published_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) + " " + new Date(currentNewsItem.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : "--:--"
+                          }
+                        </span>
+                        <div className="h-[1px] flex-1 bg-zinc-900/60" />
+                      </div>
+                      <div>
+                        <h2 className="text-xs md:text-[13px] font-extrabold text-zinc-100 uppercase tracking-wide leading-snug select-text hover:text-emerald-400 transition-colors">
+                          {currentNewsItem.intelligence?.translatedTitle || currentNewsItem.title}
+                        </h2>
+                        <p className="mt-1.5 text-[10.5px] md:text-[11.5px] leading-relaxed text-zinc-300 select-text max-h-[64px] overflow-y-auto italic font-sans pr-2 text-justify">
+                          {currentNewsItem.description || currentNewsItem.summary || "No secondary signal analysis found on this broadcast."}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6 select-none">
+                      <span className="text-zinc-600 font-bold uppercase tracking-widest text-[9.5px] font-mono">
+                        No active news telemetry stream detected for this node.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Right Section: Controls */}
+                <div className="w-full md:w-44 border-t md:border-t-0 md:border-l border-zinc-900/60 p-4 shrink-0 flex md:flex-col justify-between items-center md:items-stretch bg-black/40 font-mono text-center">
+                  <div className="hidden md:flex justify-between items-center mb-2 select-none">
+                    <span className="text-[7.5px] text-zinc-600 uppercase tracking-widest">NAV_STATIONS</span>
+                    <button 
+                      onClick={() => setShowNewsSummary(false)}
+                      className="text-[9px] text-zinc-500 hover:text-white uppercase transition-colors"
+                    >
+                      [CLOSE]
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 justify-center py-1 flex-1 md:flex-none">
+                    <button 
+                      onClick={() => {
+                        if (intelligenceFeed && intelligenceFeed.length > 0) {
+                          setActiveNewsIdx(prev => (prev - 1 + intelligenceFeed.length) % intelligenceFeed.length);
+                        }
+                      }}
+                      className="w-10 h-7 flex items-center justify-center border border-zinc-850 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors text-[9.5px] bg-zinc-950/50 hover:bg-zinc-900"
+                    >
+                      &lt; PREV
+                    </button>
+                    <span className="text-[8.5px] text-zinc-455 px-1 font-mono whitespace-nowrap min-w-[28px] select-none">
+                      {intelligenceFeed && intelligenceFeed.length > 0 ? `${activeNewsIdx + 1}/${intelligenceFeed.length}` : "0/0"}
+                    </span>
+                    <button 
+                      onClick={() => {
+                        if (intelligenceFeed && intelligenceFeed.length > 0) {
+                          setActiveNewsIdx(prev => (prev + 1) % intelligenceFeed.length);
+                        }
+                      }}
+                      className="w-10 h-7 flex items-center justify-center border border-zinc-850 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors text-[9.5px] bg-zinc-950/50 hover:bg-zinc-900"
+                    >
+                      NEXT &gt;
+                    </button>
+                  </div>
+
+                  <button 
+                    onClick={() => setShowNewsSummary(false)}
+                    className="md:hidden ml-auto border border-zinc-800 hover:border-zinc-500 text-white font-mono px-3 py-1.5 text-[9px] uppercase tracking-wider"
+                  >
+                    CLOSE
+                  </button>
+
+                  <div className="hidden md:block mt-3 text-[7.5px] text-zinc-550 tracking-wider h-4 select-none">
+                    {intelligenceFeed && intelligenceFeed.length > 0 && (
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="inline-block w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                        <span>CYCLES IN LIVE FLOW</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            );
+          })()}
         </div>
       )}
 
