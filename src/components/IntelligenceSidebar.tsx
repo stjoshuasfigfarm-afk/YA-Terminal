@@ -221,12 +221,6 @@ export const IntelligenceSidebar: React.FC<IntelligenceSidebarProps> = ({
               </span>
             </div>
             
-            <div className="flex justify-between border-b border-zinc-900 pb-1">
-              <span className="text-zinc-600 uppercase">VAL_PRICE</span>
-              <span className="text-emerald-500 font-bold text-[15px]">
-                {quote?.price ? `$${quote.price.toFixed(2)}` : "---"}
-              </span>
-            </div>
 
             <div className="flex justify-between border-b border-zinc-900 pb-1">
               <span className="text-zinc-600 uppercase">VOL_AVG</span>
