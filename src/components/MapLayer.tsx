@@ -274,7 +274,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         >
           <Network className={cn("w-5 h-5 transition-transform text-blue-500", showGlobalNetwork ? "scale-110" : "group-hover:rotate-12")} />
           <div className="absolute left-14 bg-black/95 border border-zinc-800 px-3 py-1.5 text-[10px] font-mono text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-all uppercase tracking-[0.2em] border-l-2 border-l-white shadow-2xl translate-x-[-10px] group-hover:translate-x-0">
-            {showGlobalNetwork ? "Hide_Global_Network" : "Visualize_Global_Network"}
+            Network
           </div>
         </button>
 
@@ -318,8 +318,16 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                     <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                     <span>SIGNAL BROADCAST: {activeCompany.symbol}</span>
                   </div>
-                  <div>
-                    {intelligenceFeed && intelligenceFeed.length > 0 ? `${activeNewsIdx + 1}/${intelligenceFeed.length}` : "0/0"}
+                  <div className="flex items-center gap-1.5 grayscale opacity-70">
+                    {currentNewsItem?.published_at && (
+                      <span className="text-zinc-500 font-medium">
+                        {new Date(currentNewsItem.published_at).toLocaleDateString([], { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                    <span className="text-zinc-700">|</span>
+                    <span className="bg-zinc-900 px-1 py-0.5 rounded text-zinc-300 font-mono">
+                      {intelligenceFeed && intelligenceFeed.length > 0 ? `${activeNewsIdx + 1}/${intelligenceFeed.length}` : "0/0"}
+                    </span>
                   </div>
                 </div>
 
@@ -351,7 +359,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                           setActiveNewsIdx(prev => (prev - 1 + intelligenceFeed.length) % intelligenceFeed.length);
                         }
                       }}
-                      className="px-2 py-1 border border-zinc-800 hover:border-zinc-700 text-[8px] font-mono uppercase tracking-tight text-zinc-400 hover:text-white transition-colors bg-zinc-950 hover:bg-zinc-900"
+                      className="px-2 py-1 border border-zinc-805 hover:border-zinc-700 text-[8px] font-mono uppercase tracking-tight text-zinc-400 hover:text-white transition-colors bg-zinc-950 hover:bg-zinc-900 rounded-sm cursor-pointer"
                     >
                       &lt; PREV
                     </button>
@@ -361,19 +369,31 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                           setActiveNewsIdx(prev => (prev + 1) % intelligenceFeed.length);
                         }
                       }}
-                      className="px-2 py-1 border border-zinc-800 hover:border-zinc-700 text-[8px] font-mono uppercase tracking-tight text-zinc-400 hover:text-white transition-colors bg-zinc-950 hover:bg-zinc-900"
+                      className="px-2 py-1 border border-zinc-805 hover:border-zinc-700 text-[8px] font-mono uppercase tracking-tight text-zinc-400 hover:text-white transition-colors bg-zinc-950 hover:bg-zinc-900 rounded-sm cursor-pointer"
                     >
                       NEXT &gt;
                     </button>
                   </div>
 
-                  <button 
-                    onClick={() => setShowNewsSummary(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 border border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500 hover:bg-emerald-500/10 text-[8px] font-mono uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all"
-                  >
-                    <Newspaper className="w-2.5 h-2.5" />
-                    <span>ANALYZE BROADCAST</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {currentNewsItem?.url && currentNewsItem.url !== "https://example.com" && (
+                      <a 
+                        href={currentNewsItem.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-1 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900 text-[8px] font-mono uppercase tracking-wider text-zinc-400 hover:text-emerald-400 transition-all rounded-sm"
+                      >
+                        Source ↗
+                      </a>
+                    )}
+                    <button 
+                      onClick={() => setShowNewsSummary(true)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 border border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500 hover:bg-emerald-500/10 text-[8px] font-mono uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all rounded-sm cursor-pointer"
+                    >
+                      <Newspaper className="w-2.5 h-2.5" />
+                      <span>ANALYZE BROADCAST</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Subtly embedded coordinate telemetry line */}

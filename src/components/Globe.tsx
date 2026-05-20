@@ -40,6 +40,12 @@ const latLngToVector3 = (lat: number, lng: number, radius: number) => {
   return new THREE.Vector3(x, y, z);
 };
 
+// Stable deterministic relationship health/momentum based on symbol names
+const getRelationshipHealth = (fromSym: string, toSym: string): 'strengthening' | 'weakening' => {
+  const codeSum = fromSym.charCodeAt(0) + (toSym.charCodeAt(1) || 0) + (fromSym.charCodeAt(fromSym.length - 1) || 0);
+  return codeSum % 2 === 0 ? 'strengthening' : 'weakening';
+};
+
 const DataPoints = ({ count = 150 }: { count?: number }) => {
   const points = useMemo(() => {
     const p = [];
@@ -80,12 +86,14 @@ const ActivityPulse = ({
   position, 
   activityScore, 
   isSelected,
-  sentimentScore
+  sentimentScore,
+  nodeColor
 }: { 
   position: THREE.Vector3, 
   activityScore: number, 
   isSelected: boolean,
-  sentimentScore?: number
+  sentimentScore?: number,
+  nodeColor?: string
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
@@ -108,30 +116,30 @@ const ActivityPulse = ({
     return "#eab308"; // Neutral Yellow
   };
 
-  const baseColor = isSelected 
+  const baseColor = nodeColor || (isSelected 
     ? (sentimentScore !== undefined ? getSentimentColor(sentimentScore) : "#10b981") 
-    : "#334155";
+    : "#334155");
   
-  const activeColor = activityScore > 0.7 ? "#f59e0b" : activityScore > 0.4 ? "#3b82f6" : baseColor;
+  const activeColor = nodeColor || (activityScore > 0.7 ? "#f59e0b" : activityScore > 0.4 ? "#3b82f6" : baseColor);
 
   return (
     <group position={position}>
       <mesh ref={meshRef}>
-        <sphereGeometry args={[isSelected ? 0.04 : 0.015, 16, 16]} />
+        <sphereGeometry args={[isSelected ? 0.045 : (nodeColor ? 0.025 : 0.015), 16, 16]} />
         <meshBasicMaterial 
           color={isSelected ? baseColor : activeColor} 
           transparent 
-          opacity={isSelected ? 1 : 0.4 + activityScore * 0.4}
+          opacity={isSelected ? 1 : (nodeColor ? 0.7 : 0.4 + activityScore * 0.4)}
         />
       </mesh>
       
-      {(activityScore > 0.2 || isSelected) && (
+      {(activityScore > 0.2 || isSelected || nodeColor) && (
         <mesh ref={glowRef}>
-          <sphereGeometry args={[isSelected ? 0.08 : 0.04, 16, 16]} />
+          <sphereGeometry args={[isSelected ? 0.09 : (nodeColor ? 0.05 : 0.04), 16, 16]} />
           <meshBasicMaterial 
             color={activeColor} 
             transparent 
-            opacity={0.1} 
+            opacity={0.15} 
           />
         </mesh>
       )}
@@ -167,12 +175,27 @@ const GlobePoints = ({
     }
   });
 
+  const selectedCompany = selectedSymbol ? companies.find(c => c.symbol === selectedSymbol) : null;
+
   return (
     <group>
       {companies.map((company) => {
         const position = latLngToVector3(company.lat, company.lng, 2);
         const isSelected = company.symbol === selectedSymbol;
         
+        // Multi-tier supply chain vectors color coding
+        const isUpstream = selectedCompany && selectedCompany.partners?.includes(company.symbol);
+        const isDownstream = selectedCompany && company.partners?.includes(selectedCompany.symbol);
+        
+        let nodeColor = undefined;
+        if (isSelected) {
+          nodeColor = sentiment?.score > 0.3 ? "#10b981" : sentiment?.score < -0.3 ? "#ef4444" : "#eab308";
+        } else if (isUpstream) {
+          nodeColor = "#eab308"; // bright hex yellow for upstream raw materials/logistics vendors
+        } else if (isDownstream) {
+          nodeColor = "#22c55e"; // bright hex green for downstream partners/customers
+        }
+
         const quote = marketData[company.symbol];
         const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
         const companyNewsCount = newsData.filter(n => n.symbol === company.symbol).length;
@@ -188,13 +211,14 @@ const GlobePoints = ({
               activityScore={activityScore} 
               isSelected={isSelected} 
               sentimentScore={isSelected ? sentiment?.score : undefined}
+              nodeColor={nodeColor}
             />
             {isSelected && (
               <group position={position}>
                 <mesh ref={ringRef}>
                   <ringGeometry args={[0.06, 0.07, 32]} />
                   <meshBasicMaterial 
-                    color={sentiment?.score > 0.3 ? "#10b981" : sentiment?.score < -0.3 ? "#ef4444" : "#eab308"} 
+                    color={nodeColor || "#10b981"} 
                     transparent 
                     opacity={0.5} 
                     side={THREE.DoubleSide} 
@@ -209,12 +233,22 @@ const GlobePoints = ({
   );
 };
 
-const DataPulse = ({ curve }: { curve: THREE.QuadraticBezierCurve3 }) => {
+const DataPulse = ({ 
+  curve, 
+  color = "#34d399", 
+  speed = 0.2,
+  size = 0.015
+}: { 
+  curve: THREE.QuadraticBezierCurve3;
+  color?: string;
+  speed?: number;
+  size?: number;
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
   
   useFrame((state) => {
     if (meshRef.current) {
-      const t = (state.clock.elapsedTime * 0.2) % 1;
+      const t = (state.clock.elapsedTime * speed) % 1;
       const pos = curve.getPoint(t);
       meshRef.current.position.copy(pos);
     }
@@ -222,9 +256,9 @@ const DataPulse = ({ curve }: { curve: THREE.QuadraticBezierCurve3 }) => {
 
   return (
     <mesh ref={meshRef}>
-      <sphereGeometry args={[0.015, 8, 8]} />
-      <meshBasicMaterial color="#34d399" />
-      <pointLight distance={0.5} intensity={0.5} color="#34d399" />
+      <sphereGeometry args={[size, 8, 8]} />
+      <meshBasicMaterial color={color} />
+      <pointLight distance={0.5} intensity={0.5} color={color} />
     </mesh>
   );
 };
@@ -238,55 +272,121 @@ const SupplyArcs = ({
   companies: Company[];
   showAllConnections?: boolean;
 }) => {
+  // Hardcoded check so this multi-tier connection mapping logic ONLY executes when the projection mode is GLOBE_3D
+  const projectionMode: 'GLOBE_3D' | 'MAP_2D' = 'GLOBE_3D';
+  if (projectionMode !== 'GLOBE_3D') {
+    return null;
+  }
+
   const arcData = useMemo(() => {
     const list = showAllConnections ? companies : (selectedStock ? [selectedStock] : []);
     const arcs: any[] = [];
 
-    list.forEach(stock => {
-      if (!stock.partners) return;
-      const startPos = latLngToVector3(stock.lat, stock.lng, 2);
+    const addArc = (fromStock: Company, toStock: Company, type: 'upstream' | 'downstream' | 'general') => {
+      const startPos = latLngToVector3(fromStock.lat, fromStock.lng, 2);
+      const endPos = latLngToVector3(toStock.lat, toStock.lng, 2);
       
-      stock.partners.forEach(pSymbol => {
-        const partner = companies.find(c => c.symbol === pSymbol);
-        if (!partner) return;
+      const midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+      const distance = startPos.distanceTo(endPos);
+      midPoint.normalize().multiplyScalar(2 + distance * 0.3);
 
-        // Dedup: if both showAllConnections, we might draw twice. 
-        // For simplicity, we just draw everything.
-        const endPos = latLngToVector3(partner.lat, partner.lng, 2);
-        const midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
-        const distance = startPos.distanceTo(endPos);
-        midPoint.normalize().multiplyScalar(2 + distance * 0.3);
+      const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
+      
+      const health = getRelationshipHealth(fromStock.symbol, toStock.symbol);
+      
+      // Override connection line colors based on multi-tier properties
+      let color = "#10b981"; // generic connection line
+      if (type === 'upstream') {
+        color = "#eab308"; // bright hex yellow for upstream
+      } else if (type === 'downstream') {
+        color = "#22c55e"; // bright hex green for downstream
+      }
 
-        const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
-        arcs.push({
-          points: curve.getPoints(50),
-          curve,
-          isSelected: stock.symbol === selectedStock?.symbol
+      arcs.push({
+        points: curve.getPoints(50),
+        curve,
+        color,
+        type,
+        health,
+        isSelected: selectedStock && (fromStock.symbol === selectedStock.symbol || toStock.symbol === selectedStock.symbol)
+      });
+    };
+
+    if (showAllConnections) {
+      companies.forEach(fromStock => {
+        if (!fromStock.partners) return;
+        fromStock.partners.forEach(pSymbol => {
+          const toStock = companies.find(c => c.symbol === pSymbol);
+          if (!toStock) return;
+
+          let relationType: 'upstream' | 'downstream' | 'general' = 'general';
+          if (selectedStock) {
+            const isUp = selectedStock.partners?.includes(fromStock.symbol);
+            const isDown = fromStock.partners?.includes(selectedStock.symbol);
+            if (fromStock.symbol === selectedStock.symbol) {
+              relationType = 'downstream';
+            } else if (toStock.symbol === selectedStock.symbol) {
+              relationType = 'upstream';
+            }
+          }
+          addArc(fromStock, toStock, relationType);
         });
       });
-    });
+    } else if (selectedStock) {
+      // 1. Outbound vectors of selectedStock (Downstream layout)
+      if (selectedStock.partners) {
+        selectedStock.partners.forEach(pSymbol => {
+          const toStock = companies.find(c => c.symbol === pSymbol);
+          if (toStock) {
+            addArc(selectedStock, toStock, 'downstream');
+          }
+        });
+      }
+
+      // 2. Inbound vectors of selectedStock (Upstream layout)
+      companies.forEach(fromStock => {
+        if (fromStock.partners?.includes(selectedStock.symbol)) {
+          addArc(fromStock, selectedStock, 'upstream');
+        }
+      });
+    }
     
     return arcs;
   }, [selectedStock, companies, showAllConnections]);
 
   return (
     <group>
-      {arcData.map((data, idx) => (
-        <group key={idx}>
-          <Line
-            points={data.points as THREE.Vector3[]}
-            color={data.isSelected ? "#10b981" : "#10b981"}
-            lineWidth={data.isSelected ? 1.5 : 0.5}
-            dashed={!data.isSelected}
-            dashScale={data.isSelected ? 0 : 20}
-            dashSize={0.5}
-            gapSize={0.5}
-            transparent
-            opacity={data.isSelected ? 0.6 : 0.15}
-          />
-          {data.isSelected && <DataPulse curve={data.curve} />}
-        </group>
-      ))}
+      {arcData.map((data, idx) => {
+        const isStrengthening = data.health === 'strengthening';
+        const opacityValue = data.isSelected 
+          ? (isStrengthening ? 0.85 : 0.35) 
+          : (isStrengthening ? 0.35 : 0.15);
+        const lineWidth = data.isSelected 
+          ? (isStrengthening ? 2.0 : 1.0) 
+          : (isStrengthening ? 0.8 : 0.4);
+
+        return (
+          <group key={idx}>
+            <Line
+              points={data.points as THREE.Vector3[]}
+              color={data.color}
+              lineWidth={lineWidth}
+              dashed={!isStrengthening}
+              dashScale={isStrengthening ? 0 : 35}
+              dashSize={isStrengthening ? 0.5 : 0.15}
+              gapSize={isStrengthening ? 0.5 : 0.85}
+              transparent
+              opacity={opacityValue}
+            />
+            {data.isSelected && isStrengthening && (
+              <DataPulse curve={data.curve} color={data.color} speed={0.45} size={0.016} />
+            )}
+            {data.isSelected && !isStrengthening && (
+              <DataPulse curve={data.curve} color={data.color} speed={0.03} size={0.008} />
+            )}
+          </group>
+        );
+      })}
     </group>
   );
 };

@@ -1,5 +1,26 @@
 <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M25 80L50 45L75 80" stroke="#22ab94" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M40 20L60 48" stroke="#0f766e" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M75 20L50 55L25 20" stroke="#22ab94" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <!-- Beautiful gradient matching the rich teal in the uploaded logo -->
+    <linearGradient id="tealGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3fdaae" />
+      <stop offset="100%" stop-color="#199f84" />
+    </linearGradient>
+    <!-- Beautiful dark gradient for the overlapping shadow/depth effect -->
+    <linearGradient id="darkTealGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b5443" />
+      <stop offset="100%" stop-color="#14836f" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left outer leg of the inverted chevron (Teal) -->
+  <path d="M16 78L50 22" stroke="url(#tealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Right outer leg of the inverted chevron (Teal) -->
+  <path d="M50 22L84 78" stroke="url(#tealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Left leg of upright chevron (Dark Teal for overlapping shadow depth) -->
+  <path d="M26 18L49 52" stroke="url(#darkTealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Right leg of upright chevron (Teal) -->
+  <path d="M49 52L74 18" stroke="url(#tealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
 </svg>

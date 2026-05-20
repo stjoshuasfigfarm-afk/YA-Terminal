@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ selectedStock, yields }) => {
 
   return (
     <header className="h-12 border-b border-zinc-800 flex items-center bg-black shrink-0 relative overflow-hidden z-20 px-6">
-      <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
+      <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain" referrerPolicy="no-referrer" />
       <div className="flex-1 flex items-center h-full px-6 overflow-hidden">
         <div className="flex h-full items-center overflow-hidden">
           <div className="ticker-scroll flex items-center space-x-6 px-3 whitespace-nowrap">

@@ -187,5 +187,17 @@ export const COMPANIES: Company[] = [
   { symbol: "BK", name: "BNY Mellon", sector: "Financial Services", lat: 40.7128, lng: -74.0060, country: "USA" },
   { symbol: "STX", name: "Seagate", sector: "Technology", lat: 37.3541, lng: -121.9552, country: "USA" },
   { symbol: "WDC", name: "Western Digital", sector: "Technology", lat: 37.3541, lng: -121.9552, country: "USA" },
-  { symbol: "MU", name: "Micron", sector: "Semiconductors", lat: 43.6150, lng: -116.2023, country: "USA" }
+  { symbol: "MU", name: "Micron", sector: "Semiconductors", lat: 43.6150, lng: -116.2023, country: "USA" },
+  
+  // EXCHANGE TRADED FUNDS (ETFs)
+  { symbol: "SPY", name: "SPDR S&P 500 ETF Trust", sector: "ETF", lat: 40.7128, lng: -74.0060, country: "USA", partners: ["AAPL", "MSFT", "NVDA", "AMZN", "META"], workforce: "Indexed Asset", headquarters: "New York, NY" },
+  { symbol: "QQQ", name: "Invesco QQQ Trust", sector: "ETF", lat: 40.7589, lng: -73.9851, country: "USA", partners: ["AAPL", "MSFT", "NVDA", "AMZN", "META"], workforce: "Indexed Asset", headquarters: "New York, NY" },
+  { symbol: "IWM", name: "iShares Russell 2000 ETF", sector: "ETF", lat: 41.8781, lng: -87.6298, country: "USA", partners: ["SMCI", "KRE", "IWO"], workforce: "Indexed Asset", headquarters: "Chicago, IL" },
+  { symbol: "GLD", name: "SPDR Gold Shares", sector: "ETF", lat: 37.5407, lng: -77.4360, country: "USA", workforce: "Physical Trust", headquarters: "Richmond, VA" },
+  { symbol: "TLT", name: "iShares 20+ Year Treasury Bond ETF", sector: "ETF", lat: 38.9072, lng: -77.0369, country: "USA", workforce: "Indexed Asset", headquarters: "Washington, DC" },
+  { symbol: "XLK", name: "Technology Select Sector SPDR", sector: "ETF", lat: 40.7128, lng: -74.0060, country: "USA", partners: ["MSFT", "AAPL", "NVDA"], workforce: "Indexed Asset", headquarters: "New York, NY" },
+  { symbol: "XLF", name: "Financial Select Sector SPDR", sector: "ETF", lat: 40.7589, lng: -73.9851, country: "USA", partners: ["BRK.B", "JPM", "V"], workforce: "Indexed Asset", headquarters: "New York, NY" },
+  { symbol: "VWO", name: "Vanguard FTSE Emerging Markets ETF", sector: "ETF", lat: 22.3193, lng: 114.1694, country: "USA", partners: ["700", "TSM", "BABA"], workforce: "Indexed Asset", headquarters: "Hong Kong, HK" },
+  { symbol: "EFA", name: "iShares MSCI EAFE ETF", sector: "ETF", lat: 48.8566, lng: 2.3522, country: "USA", partners: ["ASML", "NESN", "ROG"], workforce: "Indexed Asset", headquarters: "Paris, FR" },
+  { symbol: "USO", name: "United States Oil Fund", sector: "ETF", lat: 29.7604, lng: -95.3698, country: "USA", workforce: "Commodity Pool", headquarters: "Houston, TX" }
 ];
