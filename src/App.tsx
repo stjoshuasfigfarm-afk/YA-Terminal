@@ -4,7 +4,8 @@ import { SearchSidebar } from "./components/SearchSidebar";
 import { MapLayer } from "./components/MapLayer";
 import { IntelligenceSidebar } from "./components/IntelligenceSidebar";
 import { CommandPalette } from "./components/CommandPalette";
-import { COMPANIES, Company } from "./data/companies";
+import { Company } from "./data/companies";
+import { useCompanies } from './CompaniesContext' ; // Import the hook instead
 
 // Production Config Resolution
 interface TerminalConfig {
@@ -35,6 +36,7 @@ const getApiBaseUrl = (): string => {
 };
 
 export default function App() {
+  const { companies: COMPANIES, loading: companiesLoading, error: companiesError } = useCompanies();
   const [selectedStock, setSelectedStock] = useState<Company | null>(null);
   const [mapFocusStock, setMapFocusStock] = useState<Company | null>(null);
   const [isAutopilot, setIsAutopilot] = useState(false);
@@ -56,7 +58,7 @@ export default function App() {
   const [quotaExhausted, setQuotaExhausted] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("INTEL");
   const [logs, setLogs] = useState<string[]>(["SYSTEM_BOOT_SEQUENCE_COMPLETE", "UPLINK_ESTABLISHED"]);
-  const [systemStatus, setSystemStatus] = useState<string>("SYSTEM: OPTIMAL");
+  const [systemStatus, setSystemStatus] = useState<string> ("SYSTEM: OPTIMAL");
 
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [msg, ...prev.slice(0, 19)]);
@@ -343,7 +345,7 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [addLog, COMPANIES]);
 
   // Global Key Listeners
   useEffect(() => {
