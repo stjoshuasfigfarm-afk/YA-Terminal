@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+@theme {
+  --color-zinc-950: #09090b;
+}
+
+@layer base {
+  body {
+    @apply bg-[#050505] text-zinc-300 antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    overflow: hidden;
+  }
+}
+
+.noise-overlay {
+  display: none;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* CRT & Terminal Effects */
+.terminal-glow {
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
+.emerald-glow {
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Leaflet Overrides */
+.leaflet-container {
+  background: #000 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background: white !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+@keyframes scan {
+  from { top: 0%; }
+  to { top: 100%; }
+}
+
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes target-shrink {
+  0% { transform: scale(2.2); opacity: 0; }
+  15% { transform: scale(1.6); opacity: 0.9; }
+  85% { transform: scale(1.0); opacity: 0.9; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+@keyframes crosshair-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.text-glow {
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+}
+
+.map-green-hued .map-tile-layer {
+  filter: saturate(1.6) brightness(1.1) contrast(1.4) hue-rotate(-5deg) grayscale(0.2);
+}
+
+.map-green-hued .leaflet-container {
+  background: #0a0a0a !important;
+}
+
+.supply-chain-line {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.2));
+  stroke-dasharray: 8 8;
+}
+
+.supply-chain-line-alert {
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.4));
+  stroke-dasharray: 4 4;
+}
+
+.hazard-vignette {
+  box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.15);
+}
+
+.markdown-body ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.markdown-body li {
+  position: relative;
+  padding-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-body li::before {
+  content: ">>";
+  position: absolute;
+  left: 0;
+  color: #ffffff44;
+  font-weight: bold;
+}
+
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+
+@layer utilities {
+  .animate-spin-slow {
+    animation: spin 8s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .animate-marquee {
+  }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+  }
+
+  .animate-scan-vertical {
+    animation: scan-vertical 4s linear infinite;
+  }
+  @keyframes scan-vertical {
+    0%, 100% { top: 0%; }
+    50% { top: 100%; }
+  }
+
+  /* Supply Stream Particle Flow Animation */
+  .animate-supply-flow {
+    animation: supply-flow 4s linear infinite;
+  }
+  @keyframes supply-flow {
+    0% { transform: translateY(-100%); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translateY(300%); opacity: 0; }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+  }
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes expand-slow {
+    0% { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(4); opacity: 0; }
+  }
+
+  .animate-expand-slow {
+  }
+
+  .animate-scanline {
+  }
+
+  .tactical-grid {
+    background-image: 
+      linear-gradient(rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .scanline {
+    display: none;
+  }
+
+  @keyframes scanline {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(1000%); }
+  }
+
+  @keyframes crt-flicker {
+    0% { opacity: 0.99; }
+    5% { opacity: 0.95; }
+    10% { opacity: 0.99; }
+    100% { opacity: 0.99; }
+  }
+
+  .animate-crt-flicker {
+  }
+
+  .bg-scan-line {
+    display: none;
+  }
+
+  @keyframes scan-line-movement {
+    from { transform: translateY(-100px); }
+    to { transform: translateY(100vh); }
+  }
+
+  .animate-scan-line {
+  }
+
+  .bg-cyber-grid {
+    background-image: 
+      linear-gradient(to right, rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}
+
+/* Custom Leaflet Tooltip Overrides */
+.leaflet-tooltip.custom-tooltip {
+  background: rgba(0, 0, 0, 0.98) !important;
+  border: 1px solid rgba(16, 185, 129, 0.8) !important;
+  color: #fff !important;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.25) !important;
+  padding: 0 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  border-radius: 0 !important;
+}
+
+.leaflet-tooltip-top.custom-tooltip::before {
+  border-top-color: rgba(16, 185, 129, 0.4) !important;
+}
+.leaflet-tooltip-bottom.custom-tooltip::before {
+  border-bottom-color: rgba(16, 185, 129, 0.4) !important;
+}
+.leaflet-tooltip-left.custom-tooltip::before {
+  border-left-color: rgba(16, 185, 129, 0.4) !important;
+}
+.leaflet-tooltip-right.custom-tooltip::before {
+  border-right-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+.leaflet-tooltip.network-node-tooltip {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.leaflet-tooltip.network-node-tooltip::before {
+  display: none !important;
+}

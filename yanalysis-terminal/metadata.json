@@ -1,0 +1,6 @@
+{
+  "name": "Yield Terminal: Supply Intelligence",
+  "description": "Premium tactical supply chain intelligence terminal featuring multi-tiered 3D geospatial visualization, unified logistics risk stressors, vertical stream vector audits, global macroeconomic corridor monitoring, and integrated interest yield curves.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

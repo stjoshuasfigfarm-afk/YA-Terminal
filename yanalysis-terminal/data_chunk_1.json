@@ -1,0 +1,963 @@
+[
+  {
+    "symbol": "LOGI",
+    "name": "Logitech",
+    "sector": "Technology",
+    "lat": 46.5197,
+    "lng": 6.6323,
+    "country": "CHE"
+  },
+  {
+    "symbol": "STM",
+    "name": "STMicroelectronics",
+    "sector": "Semiconductors",
+    "lat": 46.2044,
+    "lng": 6.1432,
+    "country": "CHE"
+  },
+  {
+    "symbol": "IFX.DE",
+    "name": "Infineon",
+    "sector": "Semiconductors",
+    "lat": 48.0664,
+    "lng": 11.6143,
+    "country": "DEU"
+  },
+  {
+    "symbol": "TEF",
+    "name": "Telefónica",
+    "sector": "Communication Services",
+    "lat": 40.5042,
+    "lng": -3.6702,
+    "country": "ESP"
+  },
+  {
+    "symbol": "ENI.MI",
+    "name": "Eni S.p.A.",
+    "sector": "Energy",
+    "lat": 45.4241,
+    "lng": 9.1764,
+    "country": "ITA"
+  },
+  {
+    "symbol": "BP",
+    "name": "BP p.l.c.",
+    "sector": "Energy",
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "country": "GBR"
+  },
+  {
+    "symbol": "REP.MC",
+    "name": "Repsol",
+    "sector": "Energy",
+    "lat": 40.453,
+    "lng": -3.6883,
+    "country": "ESP"
+  },
+  {
+    "symbol": "EQNR",
+    "name": "Equinor",
+    "sector": "Energy",
+    "lat": 58.97,
+    "lng": 5.7331,
+    "country": "NOR"
+  },
+  {
+    "symbol": "MCK",
+    "name": "McKesson",
+    "sector": "Healthcare",
+    "lat": 32.8955,
+    "lng": -96.9489,
+    "country": "USA"
+  },
+  {
+    "symbol": "CAH",
+    "name": "Cardinal Health",
+    "sector": "Healthcare",
+    "lat": 40.0992,
+    "lng": -83.1141,
+    "country": "USA"
+  },
+  {
+    "symbol": "ELV",
+    "name": "Elevance Health",
+    "sector": "Healthcare",
+    "lat": 39.7684,
+    "lng": -86.1581,
+    "country": "USA"
+  },
+  {
+    "symbol": "HUM",
+    "name": "Humana",
+    "sector": "Healthcare",
+    "lat": 38.2527,
+    "lng": -85.7585,
+    "country": "USA"
+  },
+  {
+    "symbol": "CI",
+    "name": "Cigna",
+    "sector": "Healthcare",
+    "lat": 41.821,
+    "lng": -72.7145,
+    "country": "USA"
+  },
+  {
+    "symbol": "ANTM",
+    "name": "Anthem",
+    "sector": "Healthcare",
+    "lat": 39.7684,
+    "lng": -86.1581,
+    "country": "USA"
+  },
+  {
+    "symbol": "BIIB",
+    "name": "Biogen",
+    "sector": "Healthcare",
+    "lat": 42.3601,
+    "lng": -71.0589,
+    "country": "USA"
+  },
+  {
+    "symbol": "GILD",
+    "name": "Gilead Sciences",
+    "sector": "Healthcare",
+    "lat": 37.5585,
+    "lng": -122.2711,
+    "country": "USA"
+  },
+  {
+    "symbol": "REGN",
+    "name": "Regeneron",
+    "sector": "Healthcare",
+    "lat": 41.0776,
+    "lng": -73.8182,
+    "country": "USA"
+  },
+  {
+    "symbol": "VRTX",
+    "name": "Vertex",
+    "sector": "Healthcare",
+    "lat": 42.3601,
+    "lng": -71.0589,
+    "country": "USA"
+  },
+  {
+    "symbol": "AMGN",
+    "name": "Amgen",
+    "sector": "Healthcare",
+    "lat": 34.1706,
+    "lng": -118.8376,
+    "country": "USA"
+  },
+  {
+    "symbol": "IDXX",
+    "name": "IDEXX Labs",
+    "sector": "Healthcare",
+    "lat": 43.6532,
+    "lng": -70.2547,
+    "country": "USA"
+  },
+  {
+    "symbol": "SYK",
+    "name": "Stryker",
+    "sector": "Healthcare",
+    "lat": 42.2917,
+    "lng": -85.5872,
+    "country": "USA"
+  },
+  {
+    "symbol": "ISRG",
+    "name": "Intuitive Surgical",
+    "sector": "Healthcare",
+    "lat": 37.3541,
+    "lng": -121.9552,
+    "country": "USA"
+  },
+  {
+    "symbol": "BSX",
+    "name": "Boston Scientific",
+    "sector": "Healthcare",
+    "lat": 42.2793,
+    "lng": -71.4162,
+    "country": "USA"
+  },
+  {
+    "symbol": "EW",
+    "name": "Edwards Lifesciences",
+    "sector": "Healthcare",
+    "lat": 33.6846,
+    "lng": -117.8265,
+    "country": "USA"
+  },
+  {
+    "symbol": "ALC",
+    "name": "Alcon",
+    "sector": "Healthcare",
+    "lat": 47.1662,
+    "lng": 8.5155,
+    "country": "CHE"
+  },
+  {
+    "symbol": "ZBH",
+    "name": "Zimmer Biomet",
+    "sector": "Healthcare",
+    "lat": 41.2381,
+    "lng": -85.853,
+    "country": "USA"
+  },
+  {
+    "symbol": "MDT",
+    "name": "Medtronic",
+    "sector": "Healthcare",
+    "lat": 53.3498,
+    "lng": -6.2603,
+    "country": "IRL"
+  },
+  {
+    "symbol": "ABT",
+    "name": "Abbott Labs",
+    "sector": "Healthcare",
+    "lat": 42.3312,
+    "lng": -87.8762,
+    "country": "USA"
+  },
+  {
+    "symbol": "SCHW",
+    "name": "Charles Schwab",
+    "sector": "Financial Services",
+    "lat": 30.2672,
+    "lng": -97.7431,
+    "country": "USA"
+  },
+  {
+    "symbol": "MS",
+    "name": "Morgan Stanley",
+    "sector": "Financial Services",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA"
+  },
+  {
+    "symbol": "BLK",
+    "name": "BlackRock",
+    "sector": "Financial Services",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA"
+  },
+  {
+    "symbol": "STT",
+    "name": "State Street",
+    "sector": "Financial Services",
+    "lat": 42.3601,
+    "lng": -71.0589,
+    "country": "USA"
+  },
+  {
+    "symbol": "AXP",
+    "name": "American Express",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA"
+  },
+  {
+    "symbol": "COF",
+    "name": "Capital One",
+    "sector": "Financial Services",
+    "lat": 38.9339,
+    "lng": -77.2289,
+    "country": "USA"
+  },
+  {
+    "symbol": "DFS",
+    "name": "Discover",
+    "sector": "Financial Services",
+    "lat": 42.1556,
+    "lng": -87.892,
+    "country": "USA"
+  },
+  {
+    "symbol": "SYF",
+    "name": "Synchrony",
+    "sector": "Financial Services",
+    "lat": 41.0534,
+    "lng": -73.5387,
+    "country": "USA"
+  },
+  {
+    "symbol": "TROW",
+    "name": "T. Rowe Price",
+    "sector": "Financial Services",
+    "lat": 39.2904,
+    "lng": -76.6122,
+    "country": "USA"
+  },
+  {
+    "symbol": "AMP",
+    "name": "Ameriprise",
+    "sector": "Financial Services",
+    "lat": 44.9778,
+    "lng": -93.265,
+    "country": "USA"
+  },
+  {
+    "symbol": "MET",
+    "name": "MetLife",
+    "sector": "Financial Services",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA"
+  },
+  {
+    "symbol": "PRU",
+    "name": "Prudential",
+    "sector": "Financial Services",
+    "lat": 40.7357,
+    "lng": -74.1724,
+    "country": "USA"
+  },
+  {
+    "symbol": "AIG",
+    "name": "AIG",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA"
+  },
+  {
+    "symbol": "TRV",
+    "name": "Travelers",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA"
+  },
+  {
+    "symbol": "MMC",
+    "name": "Marsh & McLennan",
+    "sector": "Financial Services",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA"
+  },
+  {
+    "symbol": "AON",
+    "name": "Aon plc",
+    "sector": "Financial Services",
+    "lat": 53.3498,
+    "lng": -6.2603,
+    "country": "IRL"
+  },
+  {
+    "symbol": "CB",
+    "name": "Chubb Limited",
+    "sector": "Financial Services",
+    "lat": 47.3769,
+    "lng": 8.5417,
+    "country": "CHE"
+  },
+  {
+    "symbol": "PGR",
+    "name": "Progressive",
+    "sector": "Financial Services",
+    "lat": 41.4993,
+    "lng": -81.6944,
+    "country": "USA"
+  },
+  {
+    "symbol": "ALL",
+    "name": "Allstate",
+    "sector": "Financial Services",
+    "lat": 42.1025,
+    "lng": -87.8864,
+    "country": "USA"
+  },
+  {
+    "symbol": "MCO",
+    "name": "Moody's",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA"
+  },
+  {
+    "symbol": "SPGI",
+    "name": "S&P Global",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA"
+  },
+  {
+    "symbol": "ICE",
+    "name": "Intercontinental Exchange",
+    "sector": "Financial Services",
+    "lat": 33.749,
+    "lng": -84.388,
+    "country": "USA"
+  },
+  {
+    "symbol": "CME",
+    "name": "CME Group",
+    "sector": "Financial Services",
+    "lat": 41.8781,
+    "lng": -87.6298,
+    "country": "USA"
+  },
+  {
+    "symbol": "NDAQ",
+    "name": "Nasdaq Inc",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA"
+  },
+  {
+    "symbol": "TFC",
+    "name": "Truist Financial",
+    "sector": "Financial Services",
+    "lat": 35.2271,
+    "lng": -80.8431,
+    "country": "USA"
+  },
+  {
+    "symbol": "PNC",
+    "name": "PNC Financial",
+    "sector": "Financial Services",
+    "lat": 40.4406,
+    "lng": -79.9959,
+    "country": "USA"
+  },
+  {
+    "symbol": "USB",
+    "name": "U.S. Bancorp",
+    "sector": "Financial Services",
+    "lat": 44.9778,
+    "lng": -93.265,
+    "country": "USA"
+  },
+  {
+    "symbol": "BK",
+    "name": "BNY Mellon",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA"
+  },
+  {
+    "symbol": "STX",
+    "name": "Seagate",
+    "sector": "Technology",
+    "lat": 37.3541,
+    "lng": -121.9552,
+    "country": "USA"
+  },
+  {
+    "symbol": "WDC",
+    "name": "Western Digital",
+    "sector": "Technology",
+    "lat": 37.3541,
+    "lng": -121.9552,
+    "country": "USA"
+  },
+  {
+    "symbol": "MU",
+    "name": "Micron",
+    "sector": "Semiconductors",
+    "lat": 43.615,
+    "lng": -116.2023,
+    "country": "USA"
+  },
+  {
+    "symbol": "SPY",
+    "name": "SPDR S&P 500 ETF Trust",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "partners": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "AMZN",
+      "META"
+    ],
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "QQQ",
+    "name": "Invesco QQQ Trust",
+    "sector": "ETF",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "partners": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "AMZN",
+      "META"
+    ],
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "IWM",
+    "name": "iShares Russell 2000 ETF",
+    "sector": "ETF",
+    "lat": 41.8781,
+    "lng": -87.6298,
+    "country": "USA",
+    "partners": [
+      "SMCI",
+      "KRE",
+      "IWO"
+    ],
+    "workforce": "Indexed Asset",
+    "headquarters": "Chicago, IL"
+  },
+  {
+    "symbol": "GLD",
+    "name": "SPDR Gold Shares",
+    "sector": "ETF",
+    "lat": 37.5407,
+    "lng": -77.436,
+    "country": "USA",
+    "workforce": "Physical Trust",
+    "headquarters": "Richmond, VA"
+  },
+  {
+    "symbol": "TLT",
+    "name": "iShares 20+ Year Treasury Bond ETF",
+    "sector": "ETF",
+    "lat": 38.9072,
+    "lng": -77.0369,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "Washington, DC"
+  },
+  {
+    "symbol": "XLK",
+    "name": "Technology Select Sector SPDR",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "partners": [
+      "MSFT",
+      "AAPL",
+      "NVDA"
+    ],
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "XLF",
+    "name": "Financial Select Sector SPDR",
+    "sector": "ETF",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "partners": [
+      "BRK.B",
+      "JPM",
+      "V"
+    ],
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "VWO",
+    "name": "Vanguard FTSE Emerging Markets ETF",
+    "sector": "ETF",
+    "lat": 22.3193,
+    "lng": 114.1694,
+    "country": "USA",
+    "partners": [
+      "700",
+      "TSM",
+      "BABA"
+    ],
+    "workforce": "Indexed Asset",
+    "headquarters": "Hong Kong, HK"
+  },
+  {
+    "symbol": "EFA",
+    "name": "iShares MSCI EAFE ETF",
+    "sector": "ETF",
+    "lat": 48.8566,
+    "lng": 2.3522,
+    "country": "USA",
+    "partners": [
+      "ASML",
+      "NESN",
+      "ROG"
+    ],
+    "workforce": "Indexed Asset",
+    "headquarters": "Paris, FR"
+  },
+  {
+    "symbol": "USO",
+    "name": "United States Oil Fund",
+    "sector": "ETF",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "workforce": "Commodity Pool",
+    "headquarters": "Houston, TX"
+  },
+  {
+    "symbol": "INTC",
+    "name": "Intel Corp.",
+    "sector": "Semiconductors",
+    "lat": 37.3875,
+    "lng": -121.9632,
+    "country": "USA",
+    "workforce": "124,800",
+    "headquarters": "Santa Clara, CA"
+  },
+  {
+    "symbol": "IBM",
+    "name": "IBM",
+    "sector": "Technology",
+    "lat": 41.0841,
+    "lng": -73.7431,
+    "country": "USA",
+    "workforce": "282,000",
+    "headquarters": "Armonk, NY"
+  },
+  {
+    "symbol": "UBER",
+    "name": "Uber Technologies",
+    "sector": "Technology",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "workforce": "30,000",
+    "headquarters": "San Francisco, CA"
+  },
+  {
+    "symbol": "ABNB",
+    "name": "Airbnb",
+    "sector": "Consumer Cyclical",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "workforce": "6,000",
+    "headquarters": "San Francisco, CA"
+  },
+  {
+    "symbol": "ZM",
+    "name": "Zoom Video",
+    "sector": "Technology",
+    "lat": 37.3794,
+    "lng": -121.9407,
+    "country": "USA",
+    "workforce": "7,500",
+    "headquarters": "San Jose, CA"
+  },
+  {
+    "symbol": "SNOW",
+    "name": "Snowflake Inc.",
+    "sector": "Technology",
+    "lat": 37.3688,
+    "lng": -122.1352,
+    "country": "USA",
+    "workforce": "6,000",
+    "headquarters": "Bozeman, MT"
+  },
+  {
+    "symbol": "PLTR",
+    "name": "Palantir Tech",
+    "sector": "Technology",
+    "lat": 34.0522,
+    "lng": -118.2437,
+    "country": "USA",
+    "workforce": "3,800",
+    "headquarters": "Denver, CO"
+  },
+  {
+    "symbol": "CLF",
+    "name": "Cleveland-Cliffs",
+    "sector": "Basic Materials",
+    "lat": 41.4993,
+    "lng": -81.6944,
+    "country": "USA",
+    "workforce": "27,000",
+    "headquarters": "Cleveland, OH"
+  },
+  {
+    "symbol": "X",
+    "name": "United States Steel",
+    "sector": "Basic Materials",
+    "lat": 40.4406,
+    "lng": -79.9959,
+    "country": "USA",
+    "workforce": "22,000",
+    "headquarters": "Pittsburgh, PA"
+  },
+  {
+    "symbol": "XLE",
+    "name": "Energy Select Sector SPDR",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "XLY",
+    "name": "Consumer Discretionary Select Sector SPDR",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "XLV",
+    "name": "Health Care Select Sector SPDR",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "CVX",
+    "name": "Chevron",
+    "sector": "Energy",
+    "lat": 37.7507,
+    "lng": -122.386,
+    "country": "USA",
+    "workforce": "45,600",
+    "headquarters": "San Ramon, CA"
+  },
+  {
+    "symbol": "WFC",
+    "name": "Wells Fargo",
+    "sector": "Financial Services",
+    "lat": 37.7946,
+    "lng": -122.3996,
+    "country": "USA",
+    "workforce": "226,000",
+    "headquarters": "San Francisco, CA"
+  },
+  {
+    "symbol": "HD",
+    "name": "Home Depot",
+    "sector": "Consumer Cyclical",
+    "lat": 33.8569,
+    "lng": -84.4754,
+    "country": "USA",
+    "workforce": "490,600",
+    "headquarters": "Atlanta, GA"
+  },
+  {
+    "symbol": "LOW",
+    "name": "Lowe's",
+    "sector": "Consumer Cyclical",
+    "lat": 35.5337,
+    "lng": -80.8675,
+    "country": "USA",
+    "workforce": "300,000",
+    "headquarters": "Mooresville, NC"
+  },
+  {
+    "symbol": "TGT",
+    "name": "Target",
+    "sector": "Consumer Defensive",
+    "lat": 44.9778,
+    "lng": -93.265,
+    "country": "USA",
+    "workforce": "415,000",
+    "headquarters": "Minneapolis, MN"
+  },
+  {
+    "symbol": "KMB",
+    "name": "Kimberly-Clark",
+    "sector": "Consumer Defensive",
+    "lat": 32.7767,
+    "lng": -96.797,
+    "country": "USA",
+    "workforce": "42,000",
+    "headquarters": "Irving, TX"
+  },
+  {
+    "symbol": "CL",
+    "name": "Colgate-Palmolive",
+    "sector": "Consumer Defensive",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "workforce": "34,000",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "VTI",
+    "name": "Vanguard Total Stock Market ETF",
+    "sector": "ETF",
+    "lat": 40.0493,
+    "lng": -75.5262,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "Valley Forge, PA"
+  },
+  {
+    "symbol": "VT",
+    "name": "Vanguard Total World Stock ETF",
+    "sector": "ETF",
+    "lat": 40.0493,
+    "lng": -75.5262,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "Valley Forge, PA"
+  },
+  {
+    "symbol": "VGT",
+    "name": "Vanguard Information Technology ETF",
+    "sector": "ETF",
+    "lat": 40.0493,
+    "lng": -75.5262,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "Valley Forge, PA"
+  },
+  {
+    "symbol": "VUG",
+    "name": "Vanguard Growth ETF",
+    "sector": "ETF",
+    "lat": 40.0493,
+    "lng": -75.5262,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "Valley Forge, PA"
+  },
+  {
+    "symbol": "VTV",
+    "name": "Vanguard Value ETF",
+    "sector": "ETF",
+    "lat": 40.0493,
+    "lng": -75.5262,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "Valley Forge, PA"
+  },
+  {
+    "symbol": "BND",
+    "name": "Vanguard Total Bond Market ETF",
+    "sector": "ETF",
+    "lat": 40.0493,
+    "lng": -75.5262,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "Valley Forge, PA"
+  },
+  {
+    "symbol": "IEF",
+    "name": "iShares 7-10 Year Treasury Bond ETF",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "HYG",
+    "name": "iShares iBoxx $ High Yield Corp Bond ETF",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "LQD",
+    "name": "iShares iBoxx $ Investment Corp Bond ETF",
+    "sector": "ETF",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "Indexed Asset",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "C",
+    "name": "Citigroup",
+    "sector": "Financial Services",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "238,000",
+    "headquarters": "New York, NY"
+  },
+  {
+    "symbol": "GE",
+    "name": "GE Aerospace",
+    "sector": "Industrials",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "40,000",
+    "headquarters": "Evendale, OH"
+  },
+  {
+    "symbol": "CAT",
+    "name": "Caterpillar Inc.",
+    "sector": "Industrials",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "workforce": "113,000",
+    "headquarters": "Irving, TX"
+  },
+  {
+    "symbol": "DE",
+    "name": "Deere & Company",
+    "sector": "Industrials",
+    "lat": 41.4851,
+    "lng": -90.4188,
+    "country": "USA",
+    "workforce": "82,000",
+    "headquarters": "Moline, IL"
+  },
+  {
+    "symbol": "DUK",
+    "name": "Duke Energy",
+    "sector": "Utilities",
+    "lat": 35.2271,
+    "lng": -80.8431,
+    "country": "USA",
+    "workforce": "27,000",
+    "headquarters": "Charlotte, NC"
+  },
+  {
+    "symbol": "SO",
+    "name": "Southern Company",
+    "sector": "Utilities",
+    "lat": 33.749,
+    "lng": -84.388,
+    "country": "USA",
+    "workforce": "28,000",
+    "headquarters": "Atlanta, GA"
+  },
+  {
+    "symbol": "NEE",
+    "name": "NextEra Energy",
+    "sector": "Utilities",
+    "lat": 26.7153,
+    "lng": -80.0534,
+    "country": "USA",
+    "workforce": "16,000",
+    "headquarters": "Juno Beach, FL"
+  }
+]

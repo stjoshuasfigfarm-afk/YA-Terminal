@@ -1,0 +1,1038 @@
+[
+  {
+    "symbol": "BN.PA",
+    "name": "Danone S.A.",
+    "sector": "Consumer Defensive",
+    "lat": 48.8566,
+    "lng": 2.3522,
+    "country": "FRA",
+    "workforce": "96,000",
+    "headquarters": "Paris, France",
+    "domain": "danone.com"
+  },
+  {
+    "symbol": "GLEN.L",
+    "name": "Glencore plc",
+    "sector": "Basic Materials",
+    "lat": 47.1662,
+    "lng": 8.5155,
+    "country": "CHE",
+    "workforce": "140,000",
+    "headquarters": "Baar, Switzerland",
+    "domain": "glencore.com"
+  },
+  {
+    "symbol": "AAL.L",
+    "name": "Anglo American plc",
+    "sector": "Basic Materials",
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "country": "GBR",
+    "workforce": "90,000",
+    "headquarters": "London, UK",
+    "domain": "angloamerican.com"
+  },
+  {
+    "symbol": "UL",
+    "name": "Unilever plc",
+    "sector": "Consumer Defensive",
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "country": "GBR",
+    "workforce": "127,000",
+    "headquarters": "London, UK",
+    "domain": "unilever.com"
+  },
+  {
+    "symbol": "DGE.L",
+    "name": "Diageo plc",
+    "sector": "Consumer Defensive",
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "country": "GBR",
+    "workforce": "28,000",
+    "headquarters": "London, UK",
+    "domain": "diageo.com"
+  },
+  {
+    "symbol": "BATS.L",
+    "name": "British American Tobacco",
+    "sector": "Consumer Defensive",
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "country": "GBR",
+    "workforce": "52,000",
+    "headquarters": "London, UK",
+    "domain": "bat.com"
+  },
+  {
+    "symbol": "8035.T",
+    "name": "Tokyo Electron",
+    "sector": "Semiconductors",
+    "lat": 35.6635,
+    "lng": 139.7311,
+    "country": "JPN",
+    "workforce": "15,600",
+    "headquarters": "Tokyo, Japan",
+    "domain": "tel.com"
+  },
+  {
+    "symbol": "6861.T",
+    "name": "Keyence Corp.",
+    "sector": "Technology",
+    "lat": 34.7335,
+    "lng": 135.5005,
+    "country": "JPN",
+    "workforce": "8,900",
+    "headquarters": "Osaka, Japan",
+    "domain": "keyence.com"
+  },
+  {
+    "symbol": "9983.T",
+    "name": "Fast Retailing",
+    "sector": "Consumer Cyclical",
+    "lat": 35.6601,
+    "lng": 139.7292,
+    "country": "JPN",
+    "workforce": "57,000",
+    "headquarters": "Tokyo, Japan",
+    "domain": "fastretailing.com"
+  },
+  {
+    "symbol": "9984.T",
+    "name": "SoftBank Group",
+    "sector": "Technology",
+    "lat": 35.6264,
+    "lng": 139.7611,
+    "country": "JPN",
+    "workforce": "47,000",
+    "headquarters": "Tokyo, Japan",
+    "domain": "softbank.jp"
+  },
+  {
+    "symbol": "8306.T",
+    "name": "Mitsubishi UFJ Financial",
+    "sector": "Financial Services",
+    "lat": 35.6812,
+    "lng": 139.7671,
+    "country": "JPN",
+    "workforce": "135,000",
+    "headquarters": "Tokyo, Japan",
+    "domain": "mufg.jp"
+  },
+  {
+    "symbol": "4063.T",
+    "name": "Shin-Etsu Chemical",
+    "sector": "Basic Materials",
+    "lat": 35.6812,
+    "lng": 139.7671,
+    "country": "JPN",
+    "workforce": "24,000",
+    "headquarters": "Tokyo, Japan",
+    "domain": "shinetsu.co.jp"
+  },
+  {
+    "symbol": "6501.T",
+    "name": "Hitachi Ltd.",
+    "sector": "Industrials",
+    "lat": 35.6812,
+    "lng": 139.7671,
+    "country": "JPN",
+    "workforce": "320,000",
+    "headquarters": "Tokyo, Japan",
+    "domain": "hitachi.com"
+  },
+  {
+    "symbol": "6367.T",
+    "name": "Daikin Industries",
+    "sector": "Industrials",
+    "lat": 34.7012,
+    "lng": 135.4981,
+    "country": "JPN",
+    "workforce": "89,000",
+    "headquarters": "Osaka, Japan",
+    "domain": "daikin.com"
+  },
+  {
+    "symbol": "6594.T",
+    "name": "Nidec Corp.",
+    "sector": "Industrials",
+    "lat": 34.9785,
+    "lng": 135.7121,
+    "country": "JPN",
+    "workforce": "114,000",
+    "headquarters": "Kyoto, Japan",
+    "domain": "nidec.com"
+  },
+  {
+    "symbol": "000660.KS",
+    "name": "SK Hynix Inc.",
+    "sector": "Semiconductors",
+    "lat": 37.2755,
+    "lng": 127.4241,
+    "country": "KOR",
+    "workforce": "36,000",
+    "headquarters": "Icheon, South Korea",
+    "domain": "skhynix.com"
+  },
+  {
+    "symbol": "028260.KS",
+    "name": "Samsung C&T",
+    "sector": "Industrials",
+    "lat": 37.5665,
+    "lng": 126.978,
+    "country": "KOR",
+    "workforce": "9,000",
+    "headquarters": "Seoul, South Korea",
+    "domain": "samsungcnt.com"
+  },
+  {
+    "symbol": "005380.KS",
+    "name": "Hyundai Motor Co.",
+    "sector": "Automotive",
+    "lat": 37.4641,
+    "lng": 127.0425,
+    "country": "KOR",
+    "workforce": "75,000",
+    "headquarters": "Seoul, South Korea",
+    "domain": "hyundai.com"
+  },
+  {
+    "symbol": "000270.KS",
+    "name": "KIA Corporation",
+    "sector": "Automotive",
+    "lat": 37.4641,
+    "lng": 127.0425,
+    "country": "KOR",
+    "workforce": "35,000",
+    "headquarters": "Seoul, South Korea",
+    "domain": "kia.com"
+  },
+  {
+    "symbol": "005490.KS",
+    "name": "POSCO Holdings",
+    "sector": "Basic Materials",
+    "lat": 37.5559,
+    "lng": 127.0556,
+    "country": "KOR",
+    "workforce": "17,000",
+    "headquarters": "Seoul, South Korea",
+    "domain": "posco-holding.com"
+  },
+  {
+    "symbol": "2454.TW",
+    "name": "MediaTek Inc.",
+    "sector": "Semiconductors",
+    "lat": 24.7816,
+    "lng": 121.0153,
+    "country": "TWN",
+    "workforce": "19,000",
+    "headquarters": "Hsinchu, Taiwan",
+    "domain": "mediatek.com"
+  },
+  {
+    "symbol": "3711.TW",
+    "name": "ASE Technology",
+    "sector": "Semiconductors",
+    "lat": 22.7118,
+    "lng": 120.3259,
+    "country": "TWN",
+    "workforce": "95,000",
+    "headquarters": "Kaohsiung, Taiwan",
+    "domain": "aseglobal.com"
+  },
+  {
+    "symbol": "2308.TW",
+    "name": "Delta Electronics",
+    "sector": "Technology",
+    "lat": 25.0482,
+    "lng": 121.5794,
+    "country": "TWN",
+    "workforce": "80,000",
+    "headquarters": "Taipei, Taiwan",
+    "domain": "deltaww.com"
+  },
+  {
+    "symbol": "2303.TW",
+    "name": "UMC",
+    "sector": "Semiconductors",
+    "lat": 24.7816,
+    "lng": 121.0153,
+    "country": "TWN",
+    "workforce": "20,000",
+    "headquarters": "Hsinchu, Taiwan",
+    "domain": "umc.com"
+  },
+  {
+    "symbol": "2382.TW",
+    "name": "Quanta Computer",
+    "sector": "Technology",
+    "lat": 25.033,
+    "lng": 121.5654,
+    "country": "TWN",
+    "workforce": "70,000",
+    "headquarters": "Taoyuan, Taiwan",
+    "domain": "quantatw.com"
+  },
+  {
+    "symbol": "1810.HK",
+    "name": "Xiaomi Corp.",
+    "sector": "Technology",
+    "lat": 40.0416,
+    "lng": 116.3242,
+    "country": "CHN",
+    "workforce": "33,000",
+    "headquarters": "Beijing, China",
+    "domain": "mi.com"
+  },
+  {
+    "symbol": "3690.HK",
+    "name": "Meituan",
+    "sector": "Technology",
+    "lat": 39.9542,
+    "lng": 116.4552,
+    "country": "CHN",
+    "workforce": "90,000",
+    "headquarters": "Beijing, China",
+    "domain": "meituan.com"
+  },
+  {
+    "symbol": "9999.HK",
+    "name": "NetEase Inc.",
+    "sector": "Technology",
+    "lat": 30.2741,
+    "lng": 120.1551,
+    "country": "CHN",
+    "workforce": "30,000",
+    "headquarters": "Hangzhou, China",
+    "domain": "netease.com"
+  },
+  {
+    "symbol": "0883.HK",
+    "name": "CNOOC Ltd.",
+    "sector": "Energy",
+    "lat": 39.9042,
+    "lng": 116.4074,
+    "country": "CHN",
+    "workforce": "18,000",
+    "headquarters": "Beijing, China",
+    "domain": "cnooc.com.cn"
+  },
+  {
+    "symbol": "0857.HK",
+    "name": "PetroChina",
+    "sector": "Energy",
+    "lat": 39.9042,
+    "lng": 116.4074,
+    "country": "CHN",
+    "workforce": "500,000",
+    "headquarters": "Beijing, China",
+    "domain": "petrochina.com.cn"
+  },
+  {
+    "symbol": "0386.HK",
+    "name": "Sinopec Corp.",
+    "sector": "Energy",
+    "lat": 39.9042,
+    "lng": 116.4074,
+    "country": "CHN",
+    "workforce": "380,000",
+    "headquarters": "Beijing, China",
+    "domain": "sinopec.com"
+  },
+  {
+    "symbol": "TATASTEEL.NS",
+    "name": "Tata Steel Ltd.",
+    "sector": "Basic Materials",
+    "lat": 22.8046,
+    "lng": 86.2029,
+    "country": "IND",
+    "workforce": "32,000",
+    "headquarters": "Jamshedpur, India",
+    "domain": "tatasteel.com"
+  },
+  {
+    "symbol": "SBIN.NS",
+    "name": "State Bank of India",
+    "sector": "Financial Services",
+    "lat": 18.922,
+    "lng": 72.8347,
+    "country": "IND",
+    "workforce": "244,000",
+    "headquarters": "Mumbai, India",
+    "domain": "sbi.co.in"
+  },
+  {
+    "symbol": "ICICIBANK.NS",
+    "name": "ICICI Bank Ltd.",
+    "sector": "Financial Services",
+    "lat": 19.076,
+    "lng": 72.8777,
+    "country": "IND",
+    "workforce": "130,050",
+    "headquarters": "Mumbai, India",
+    "domain": "icicibank.com"
+  },
+  {
+    "symbol": "LT.NS",
+    "name": "Larsen & Toubro",
+    "sector": "Industrials",
+    "lat": 19.119,
+    "lng": 72.8465,
+    "country": "IND",
+    "workforce": "50,000",
+    "headquarters": "Mumbai, India",
+    "domain": "larsentoubro.com"
+  },
+  {
+    "symbol": "HINDUNILVR.NS",
+    "name": "Hindustan Unilever",
+    "sector": "Consumer Defensive",
+    "lat": 19.119,
+    "lng": 72.8465,
+    "country": "IND",
+    "workforce": "21,000",
+    "headquarters": "Mumbai, India",
+    "domain": "hul.co.in"
+  },
+  {
+    "symbol": "BHARTIARTL.NS",
+    "name": "Bharti Airtel",
+    "sector": "Communication Services",
+    "lat": 28.5355,
+    "lng": 77.2631,
+    "country": "IND",
+    "workforce": "17,600",
+    "headquarters": "New Delhi, India",
+    "domain": "airtel.in"
+  },
+  {
+    "symbol": "ASII.JK",
+    "name": "Astra International",
+    "sector": "Industrials",
+    "lat": -6.2088,
+    "lng": 106.8456,
+    "country": "IDN",
+    "workforce": "188,000",
+    "headquarters": "Jakarta, Indonesia",
+    "domain": "astra.co.id"
+  },
+  {
+    "symbol": "BBCA.JK",
+    "name": "Bank Central Asia",
+    "sector": "Financial Services",
+    "lat": -6.2088,
+    "lng": 106.8456,
+    "country": "IDN",
+    "workforce": "25,000",
+    "headquarters": "Jakarta, Indonesia",
+    "domain": "bca.co.id"
+  },
+  {
+    "symbol": "BBRI.JK",
+    "name": "Bank Rakyat Indonesia",
+    "sector": "Financial Services",
+    "lat": -6.2088,
+    "lng": 106.8456,
+    "country": "IDN",
+    "workforce": "120,000",
+    "headquarters": "Jakarta, Indonesia",
+    "domain": "bri.co.id"
+  },
+  {
+    "symbol": "PCHEM.KL",
+    "name": "Petronas Chemicals",
+    "sector": "Basic Materials",
+    "lat": 3.139,
+    "lng": 101.6869,
+    "country": "MYS",
+    "workforce": "4,600",
+    "headquarters": "Kuala Lumpur, Malaysia",
+    "domain": "petronaschemicals.com"
+  },
+  {
+    "symbol": "TENAGA.KL",
+    "name": "Tenaga Nasional",
+    "sector": "Utilities",
+    "lat": 3.139,
+    "lng": 101.6869,
+    "country": "MYS",
+    "workforce": "38,000",
+    "headquarters": "Kuala Lumpur, Malaysia",
+    "domain": "tnb.com.my"
+  },
+  {
+    "symbol": "PUBM.KL",
+    "name": "Public Bank Bhd",
+    "sector": "Financial Services",
+    "lat": 3.139,
+    "lng": 101.6869,
+    "country": "MYS",
+    "workforce": "19,000",
+    "headquarters": "Kuala Lumpur, Malaysia",
+    "domain": "publicbankgroup.com"
+  },
+  {
+    "symbol": "KBANK.BK",
+    "name": "Kasikornbank PCL",
+    "sector": "Financial Services",
+    "lat": 13.7563,
+    "lng": 100.5018,
+    "country": "THA",
+    "workforce": "20,000",
+    "headquarters": "Bangkok, Thailand",
+    "domain": "kasikornbank.com"
+  },
+  {
+    "symbol": "SCC.BK",
+    "name": "Siam Cement Group",
+    "sector": "Basic Materials",
+    "lat": 13.7563,
+    "lng": 100.5018,
+    "country": "THA",
+    "workforce": "54,000",
+    "headquarters": "Bangkok, Thailand",
+    "domain": "scg.com"
+  },
+  {
+    "symbol": "ADVANC.BK",
+    "name": "Advanced Info Service",
+    "sector": "Communication Services",
+    "lat": 13.7563,
+    "lng": 100.5018,
+    "country": "THA",
+    "workforce": "12,000",
+    "headquarters": "Bangkok, Thailand",
+    "domain": "ais.th"
+  },
+  {
+    "symbol": "AC.PS",
+    "name": "Ayala Corporation",
+    "sector": "Industrials",
+    "lat": 14.5547,
+    "lng": 121.0244,
+    "country": "PHL",
+    "workforce": "60,000",
+    "headquarters": "Makati, Philippines",
+    "domain": "ayala.com.ph"
+  },
+  {
+    "symbol": "BDO.PS",
+    "name": "BDO Unibank Inc.",
+    "sector": "Financial Services",
+    "lat": 14.5547,
+    "lng": 121.0244,
+    "country": "PHL",
+    "workforce": "38,000",
+    "headquarters": "Makati, Philippines",
+    "domain": "bdo.com.ph"
+  },
+  {
+    "symbol": "SMC.PS",
+    "name": "San Miguel Corp.",
+    "sector": "Industrials",
+    "lat": 14.5995,
+    "lng": 120.9842,
+    "country": "PHL",
+    "workforce": "45,000",
+    "headquarters": "Mandaluyong, Philippines",
+    "domain": "sanmiguel.com.ph"
+  },
+  {
+    "symbol": "VFS",
+    "name": "VinFast Auto",
+    "sector": "Automotive",
+    "lat": 20.8449,
+    "lng": 106.6881,
+    "country": "VNM",
+    "workforce": "15,000",
+    "headquarters": "Hai Phong, Vietnam",
+    "domain": "vinfastauto.com"
+  },
+  {
+    "symbol": "VIC.HM",
+    "name": "Vingroup JSC",
+    "sector": "Real Estate",
+    "lat": 21.0285,
+    "lng": 105.8542,
+    "country": "VNM",
+    "workforce": "40,000",
+    "headquarters": "Hanoi, Vietnam",
+    "domain": "vingroup.net"
+  },
+  {
+    "symbol": "VCB.HM",
+    "name": "Vietcombank State Bank",
+    "sector": "Financial Services",
+    "lat": 10.7769,
+    "lng": 106.7009,
+    "country": "VNM",
+    "workforce": "22,000",
+    "headquarters": "Ho Chi Minh City, Vietnam",
+    "domain": "vietcombank.com.vn"
+  },
+  {
+    "symbol": "FPT.HM",
+    "name": "FPT Corporation",
+    "sector": "Technology",
+    "lat": 21.0285,
+    "lng": 105.8542,
+    "country": "VNM",
+    "workforce": "48,000",
+    "headquarters": "Hanoi, Vietnam",
+    "domain": "fpt.com.vn"
+  },
+  {
+    "symbol": "ABEV",
+    "name": "Ambev S.A.",
+    "sector": "Consumer Defensive",
+    "lat": -23.5505,
+    "lng": -46.6333,
+    "country": "BRA",
+    "workforce": "50,000",
+    "headquarters": "Sao Paulo, Brazil",
+    "domain": "ambev.com.br"
+  },
+  {
+    "symbol": "ELET",
+    "name": "Eletrobras",
+    "sector": "Utilities",
+    "lat": -22.9068,
+    "lng": -43.1729,
+    "country": "BRA",
+    "workforce": "12,000",
+    "headquarters": "Rio de Janeiro, Brazil",
+    "domain": "eletrobras.com"
+  },
+  {
+    "symbol": "SNPS",
+    "name": "Synopsys Inc.",
+    "sector": "Technology",
+    "lat": 37.3875,
+    "lng": -122.0308,
+    "country": "USA",
+    "domain": "synopsys.com"
+  },
+  {
+    "symbol": "CDNS",
+    "name": "Cadence Design",
+    "sector": "Technology",
+    "lat": 37.3995,
+    "lng": -121.9163,
+    "country": "USA",
+    "domain": "cadence.com"
+  },
+  {
+    "symbol": "FTNT",
+    "name": "Fortinet Inc.",
+    "sector": "Technology",
+    "lat": 37.3688,
+    "lng": -122.0363,
+    "country": "USA",
+    "domain": "fortinet.com"
+  },
+  {
+    "symbol": "ANET",
+    "name": "Arista Networks",
+    "sector": "Technology",
+    "lat": 37.3688,
+    "lng": -122.0363,
+    "country": "USA",
+    "domain": "arista.com"
+  },
+  {
+    "symbol": "MDB",
+    "name": "MongoDB Inc.",
+    "sector": "Technology",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "domain": "mongodb.com"
+  },
+  {
+    "symbol": "DDOG",
+    "name": "Datadog Inc.",
+    "sector": "Technology",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "domain": "datadog.com"
+  },
+  {
+    "symbol": "MSTR",
+    "name": "MicroStrategy",
+    "sector": "Technology",
+    "lat": 38.9339,
+    "lng": -77.2289,
+    "country": "USA",
+    "domain": "microstrategy.com"
+  },
+  {
+    "symbol": "OKTA",
+    "name": "Okta Inc.",
+    "sector": "Technology",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "domain": "okta.com"
+  },
+  {
+    "symbol": "ZS",
+    "name": "Zscaler Inc.",
+    "sector": "Technology",
+    "lat": 37.3995,
+    "lng": -121.9163,
+    "country": "USA",
+    "domain": "zscaler.com"
+  },
+  {
+    "symbol": "NET",
+    "name": "Cloudflare Inc.",
+    "sector": "Technology",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "domain": "cloudflare.com"
+  },
+  {
+    "symbol": "WD-40",
+    "name": "WD-40 Company",
+    "sector": "Industrials",
+    "lat": 32.7157,
+    "lng": -117.1611,
+    "country": "USA",
+    "domain": "wd40.com"
+  },
+  {
+    "symbol": "BX",
+    "name": "Blackstone Inc.",
+    "sector": "Financial Services",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "domain": "blackstone.com"
+  },
+  {
+    "symbol": "KKR",
+    "name": "KKR & Co. Inc.",
+    "sector": "Financial Services",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "domain": "kkr.com"
+  },
+  {
+    "symbol": "APO",
+    "name": "Apollo Global",
+    "sector": "Financial Services",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "domain": "apollo.com"
+  },
+  {
+    "symbol": "ALLY",
+    "name": "Ally Financial",
+    "sector": "Financial Services",
+    "lat": 42.3314,
+    "lng": -83.0458,
+    "country": "USA",
+    "domain": "ally.com"
+  },
+  {
+    "symbol": "SOFI",
+    "name": "SoFi Technologies",
+    "sector": "Financial Services",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "domain": "sofi.com"
+  },
+  {
+    "symbol": "WM",
+    "name": "Waste Management",
+    "sector": "Industrials",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "wm.com"
+  },
+  {
+    "symbol": "RSG",
+    "name": "Republic Services",
+    "sector": "Industrials",
+    "lat": 33.4484,
+    "lng": -112.074,
+    "country": "USA",
+    "domain": "republicservices.com"
+  },
+  {
+    "symbol": "FAST",
+    "name": "Fastenal Co.",
+    "sector": "Industrials",
+    "lat": 44.0524,
+    "lng": -91.6393,
+    "country": "USA",
+    "domain": "fastenal.com"
+  },
+  {
+    "symbol": "URI",
+    "name": "United Rentals",
+    "sector": "Industrials",
+    "lat": 41.0534,
+    "lng": -73.5387,
+    "country": "USA",
+    "domain": "unitedrentals.com"
+  },
+  {
+    "symbol": "ETN",
+    "name": "Eaton Corp.",
+    "sector": "Industrials",
+    "lat": 53.3498,
+    "lng": -6.2603,
+    "country": "IRL"
+  },
+  {
+    "symbol": "ITW",
+    "name": "Illinois Tool Works",
+    "sector": "Industrials",
+    "lat": 42.0664,
+    "lng": -87.785,
+    "country": "USA",
+    "domain": "itw.com"
+  },
+  {
+    "symbol": "ROP",
+    "name": "Roper Technologies",
+    "sector": "Technology",
+    "lat": 27.3364,
+    "lng": -82.5307,
+    "country": "USA",
+    "domain": "ropertech.com"
+  },
+  {
+    "symbol": "TJX",
+    "name": "TJX Companies",
+    "sector": "Consumer Cyclical",
+    "lat": 42.321,
+    "lng": -71.3934,
+    "country": "USA",
+    "domain": "tjx.com"
+  },
+  {
+    "symbol": "ROST",
+    "name": "Ross Stores",
+    "sector": "Consumer Cyclical",
+    "lat": 37.7011,
+    "lng": -121.9019,
+    "country": "USA",
+    "domain": "rossstores.com"
+  },
+  {
+    "symbol": "ULTA",
+    "name": "Ulta Beauty",
+    "sector": "Consumer Cyclical",
+    "lat": 41.6961,
+    "lng": -88.1068,
+    "country": "USA",
+    "domain": "ulta.com"
+  },
+  {
+    "symbol": "TSCO",
+    "name": "Tractor Supply",
+    "sector": "Consumer Cyclical",
+    "lat": 35.9251,
+    "lng": -86.8689,
+    "country": "USA",
+    "domain": "tractorsupply.com"
+  },
+  {
+    "symbol": "LULU",
+    "name": "Lululemon Athletica",
+    "sector": "Consumer Cyclical",
+    "lat": 49.2827,
+    "lng": -123.1207,
+    "country": "CAN",
+    "domain": "lululemon.com"
+  },
+  {
+    "symbol": "CMG",
+    "name": "Chipotle Mexican Grill",
+    "sector": "Consumer Cyclical",
+    "lat": 33.6846,
+    "lng": -117.8265,
+    "country": "USA",
+    "domain": "chipotle.com"
+  },
+  {
+    "symbol": "DASH",
+    "name": "DoorDash Inc.",
+    "sector": "Technology",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "domain": "doordash.com"
+  },
+  {
+    "symbol": "PINS",
+    "name": "Pinterest Inc.",
+    "sector": "Technology",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "domain": "pinterest.com"
+  },
+  {
+    "symbol": "ETSY",
+    "name": "Etsy Inc.",
+    "sector": "Technology",
+    "lat": 40.7128,
+    "lng": -74.006,
+    "country": "USA",
+    "domain": "etsy.com"
+  },
+  {
+    "symbol": "EBAY",
+    "name": "eBay Inc.",
+    "sector": "Technology",
+    "lat": 37.2872,
+    "lng": -121.9263,
+    "country": "USA",
+    "domain": "ebay.com"
+  },
+  {
+    "symbol": "COP",
+    "name": "ConocoPhillips",
+    "sector": "Energy",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "conocophillips.com"
+  },
+  {
+    "symbol": "EOG",
+    "name": "EOG Resources",
+    "sector": "Energy",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "eogresources.com"
+  },
+  {
+    "symbol": "SLB",
+    "name": "Schlumberger LV",
+    "sector": "Energy",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "slb.com"
+  },
+  {
+    "symbol": "HAL",
+    "name": "Halliburton Co.",
+    "sector": "Energy",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "halliburton.com"
+  },
+  {
+    "symbol": "BKR",
+    "name": "Baker Hughes",
+    "sector": "Energy",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "bakerhughes.com"
+  },
+  {
+    "symbol": "HES",
+    "name": "Hess Corp.",
+    "sector": "Energy",
+    "lat": 40.7589,
+    "lng": -73.9851,
+    "country": "USA",
+    "domain": "hess.com"
+  },
+  {
+    "symbol": "DVN",
+    "name": "Devon Energy",
+    "sector": "Energy",
+    "lat": 35.4676,
+    "lng": -97.5164,
+    "country": "USA",
+    "domain": "devonenergy.com"
+  },
+  {
+    "symbol": "MPC",
+    "name": "Marathon Petroleum",
+    "sector": "Energy",
+    "lat": 41.0503,
+    "lng": -83.6508,
+    "country": "USA",
+    "domain": "marathonpetroleum.com"
+  },
+  {
+    "symbol": "PSX",
+    "name": "Phillips 66",
+    "sector": "Energy",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "phillips66.com"
+  },
+  {
+    "symbol": "PLD",
+    "name": "Prologis Inc.",
+    "sector": "Real Estate",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "country": "USA",
+    "domain": "prologis.com"
+  },
+  {
+    "symbol": "AMT",
+    "name": "American Tower",
+    "sector": "Real Estate",
+    "lat": 42.3601,
+    "lng": -71.0589,
+    "country": "USA",
+    "domain": "americantower.com"
+  },
+  {
+    "symbol": "EQIX",
+    "name": "Equinix Inc.",
+    "sector": "Real Estate",
+    "lat": 37.3875,
+    "lng": -122.0308,
+    "country": "USA",
+    "domain": "equinix.com"
+  },
+  {
+    "symbol": "CCI",
+    "name": "Crown Castle",
+    "sector": "Real Estate",
+    "lat": 29.7604,
+    "lng": -95.3698,
+    "country": "USA",
+    "domain": "crowncastle.com"
+  },
+  {
+    "symbol": "WY",
+    "name": "Weyerhaeuser",
+    "sector": "Real Estate",
+    "lat": 47.6062,
+    "lng": -122.3321,
+    "country": "USA",
+    "domain": "weyerhaeuser.com"
+  },
+  {
+    "symbol": "SPG",
+    "name": "Simon Property Group",
+    "sector": "Real Estate",
+    "lat": 39.7684,
+    "lng": -86.1581,
+    "country": "USA",
+    "domain": "simon.com"
+  }
+]
