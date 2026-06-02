@@ -1,26 +1,42 @@
-<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Beautiful gradient matching the rich teal in the uploaded logo -->
-    <linearGradient id="tealGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#3fdaae" />
-      <stop offset="100%" stop-color="#199f84" />
+    <!-- Drop shadow for the outer Wishbone overlapping the inner V -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+
+    <!-- Gradient for outer Wishbone (left-to-right) -->
+    <linearGradient id="outerGrad" x1="0%" y1="100%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14b8a6" />     <!-- Teal-500 -->
+      <stop offset="35%" stop-color="#0d9488" />    <!-- Teal-600 -->
+      <stop offset="50%" stop-color="#064e3b" />    <!-- Dark Forest Green at the peak -->
+      <stop offset="65%" stop-color="#10b981" />    <!-- Emerald-500 -->
+      <stop offset="100%" stop-color="#34d399" />   <!-- Emerald-400 at the bottom right -->
     </linearGradient>
-    <!-- Beautiful dark gradient for the overlapping shadow/depth effect -->
-    <linearGradient id="darkTealGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0b5443" />
-      <stop offset="100%" stop-color="#14836f" />
+
+    <!-- Gradient for inner V (left-to-right) -->
+    <linearGradient id="innerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#022c22" />     <!-- Deeper Emerald-950 -->
+      <stop offset="40%" stop-color="#064e3b" />    <!-- Forest Green -->
+      <stop offset="60%" stop-color="#0d9488" />    <!-- Teal-600 -->
+      <stop offset="100%" stop-color="#14b8a6" />   <!-- Teal-500 -->
     </linearGradient>
   </defs>
 
-  <!-- Left outer leg of the inverted chevron (Teal) -->
-  <path d="M16 78L50 22" stroke="url(#tealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Inner V Path (rendered first, in the background) -->
+  <path d="M 27,18 L 50,54 L 73,18" 
+        fill="none" 
+        stroke="url(#innerGrad)" 
+        stroke-width="11" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
 
-  <!-- Right outer leg of the inverted chevron (Teal) -->
-  <path d="M50 22L84 78" stroke="url(#tealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-
-  <!-- Left leg of upright chevron (Dark Teal for overlapping shadow depth) -->
-  <path d="M26 18L49 52" stroke="url(#darkTealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-
-  <!-- Right leg of upright chevron (Teal) -->
-  <path d="M49 52L74 18" stroke="url(#tealGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Outer Wishbone Path (rendered second, on top, with drop shadow casting onto inner V) -->
+  <path d="M 17,81 L 50,24 L 83,81" 
+        fill="none" 
+        stroke="url(#outerGrad)" 
+        stroke-width="11" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        filter="url(#shadow)" />
 </svg>

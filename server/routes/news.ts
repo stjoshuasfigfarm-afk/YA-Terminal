@@ -20,14 +20,42 @@ router.get("/:symbol?", async (req, res) => {
     }
 
     const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      if (response.status === 403) {
-        console.warn("News fetch API: Access forbidden (403). Check Finnhub API key permissions.");
-      } else {
-        console.error("News fetch API error:", response.status, await response.text());
+    
+    let attempts = 0;
+    let response;
+    const maxAttempts = 2;
+
+    while (attempts < maxAttempts) {
+      response = await fetch(url);
+      if (response.ok) break;
+      
+      if (response.status === 504 || response.status === 502) {
+        attempts++;
+        console.warn(`News fetch API: Received ${response.status} (attempt ${attempts}/${maxAttempts}). Retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
       }
-      return res.json([]);
+      break;
+    }
+
+    if (!response || !response.ok) {
+      const status = response ? response.status : 504;
+      if (status === 403) {
+        // silent fail for finnhub missing permissions
+      } else {
+        const contentType = response?.headers.get("content-type") || "";
+        if (contentType.includes("text/html") || status === 504) {
+          console.warn(`News fetch API error: ${status} (received HTML response, possibly Cloudflare/upstream gateway timeout)`);
+        } else if (response) {
+          try {
+            const txt = await response.text();
+            console.warn("News fetch API error:", status, txt.length > 200 ? txt.slice(0, 200) + "..." : txt);
+          } catch (_) {
+            console.warn("News fetch API error status:", status);
+          }
+        }
+      }
+      return res.status(status).json({ error: "Upstream news service timeout or error", status });
     }
     const data = await response.json();
     

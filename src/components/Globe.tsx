@@ -1,9 +1,28 @@
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera, Stars, Line, Html } from "@react-three/drei";
+import { Lock, Unlock, RotateCcw, Zap, RefreshCcw } from "lucide-react";
 import * as THREE from "three";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { COMPANIES, Company } from "../data/companies";
+import { useCompanies } from "../context/CompaniesContext";
+import { Company } from "../data/companies";
+import { CORRIDORS, getCorridorHeadquartersLinks, RELATIONAL_LINKS } from "./yield-terminal/TopologyMap";
+import { cn } from "../lib/utils";
+
+
+export enum LOD_LEVEL {
+  MACRO = 0,    // Far: Major HQs only
+  REGIONAL = 1, // Medium: Secondary facilities + routes
+  MICRO = 2     // Close: Local nodes + high density telemetry
+}
+
+// Helper to determine company importance for LOD
+const getCompanyLODRank = (company: Company): LOD_LEVEL => {
+  const globalGiants = ["AAPL", "MSFT", "NVDA", "TSM", "ASML", "JPM", "GS", "TSLA", "TM", "AMZN", "LVMH", "GOOGL", "META", "WMT", "ARAMCO", "700", "9988", "005930"];
+  if (globalGiants.includes(company.symbol)) return LOD_LEVEL.MACRO;
+  if (company.workforce || company.partners?.length) return LOD_LEVEL.REGIONAL;
+  return LOD_LEVEL.MICRO;
+};
 
 // Helper to convert lat/lng to 3D coordinates on a sphere
 const latLngToVector3 = (lat: number, lng: number, radius: number) => {
@@ -15,6 +34,110 @@ const latLngToVector3 = (lat: number, lng: number, radius: number) => {
   const y = radius * Math.cos(phi);
 
   return new THREE.Vector3(x, y, z);
+};
+
+// Helper to convert lat/lng to OpenStreetMap tile coordinates (XYZ Web Mercator)
+const latLngToTileXY = (lat: number, lng: number, zoom: number) => {
+  const latRad = (lat * Math.PI) / 180;
+  const n = Math.pow(2, zoom);
+  const x = Math.floor(((lng + 180) / 360) * n);
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
+  );
+  return {
+    x: Math.max(0, Math.min(n - 1, x)),
+    y: Math.max(0, Math.min(n - 1, y)),
+  };
+};
+
+// Helper to convert OSM tile coordinates back to their raw latitude/longitude bounding boxes
+const tileXYToLatLngBounds = (x: number, y: number, zoom: number) => {
+  const n = Math.pow(2, zoom);
+  const lng_west = (x / n) * 360 - 180;
+  const lng_east = ((x + 1) / n) * 360 - 180;
+
+  const sinhNormalized = (yVal: number) => {
+    const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * yVal) / n)));
+    return (latRad * 180) / Math.PI;
+  };
+
+  const lat_north = sinhNormalized(y);
+  const lat_south = sinhNormalized(y + 1);
+
+  return { lat_north, lat_south, lng_west, lng_east };
+};
+
+
+interface SupplyLabelProps {
+  position: THREE.Vector3;
+  company: Company;
+  sentimentScore?: number;
+}
+
+const SupplyLabel = ({ position, company, sentimentScore }: SupplyLabelProps) => {
+  const relations = RELATIONAL_LINKS.filter(l => l.source === company.symbol || l.target === company.symbol);
+  
+  return (
+    <Html position={[0, 0, 0]} className="pointer-events-none select-none z-50">
+      <div className="absolute left-4 top-0 -translate-y-1/2 bg-black/95 border border-emerald-500/40 p-1.5 md:p-2 rounded-sm shadow-[0_0_40px_rgba(0,0,0,0.8),0_0_15px_rgba(16,185,129,0.1)] backdrop-blur-xl w-32 md:w-36 font-mono relative antialiased ring-1 ring-white/10 outline outline-1 outline-emerald-500/20 -outline-offset-4 scale-75 md:scale-90">
+        {/* Corner Accents */}
+        <div className="absolute top-0 left-0 w-1.5 h-1.5 border-l border-t border-emerald-400/60" />
+        <div className="absolute top-0 right-0 w-1.5 h-1.5 border-r border-t border-emerald-400/60" />
+        <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-l border-b border-emerald-400/60" />
+        <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-r border-b border-emerald-400/60" />
+
+        <div className="flex items-center justify-between border-b border-emerald-500/20 pb-1.5 mb-2 bg-emerald-500/5 px-2 -mx-2 -mt-1">
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col">
+              <span className="text-white font-black tracking-[0.2em] text-[9px] leading-none">{company.symbol}</span>
+              <span className="text-emerald-500/60 text-[5px] tracking-widest mt-0.5 uppercase">ID: {company.symbol.slice(0, 5)}</span>
+            </div>
+          </div>
+          <div className={cn(
+            "w-2 h-2 rounded-full shadow-[0_0_10px_currentColor]",
+            sentimentScore && sentimentScore > 0.3 ? "bg-emerald-500 text-emerald-500" : (sentimentScore && sentimentScore < -0.3 ? "bg-red-500 text-red-500" : "bg-amber-500 text-amber-500")
+          )} />
+        </div>
+        
+        <div className="space-y-2">
+          {relations.length > 0 && (
+            <div className="space-y-1.5">
+              {relations.map((rel, i) => (
+                <div key={i} className="flex flex-col gap-0.5 group">
+                  <div className="flex justify-between items-center text-emerald-500/70 uppercase italic text-[6px] font-black tracking-wider">
+                    <span className="flex items-center gap-1">
+                      {rel.source === company.symbol ? "→ Out" : "← In"}
+                      <span className="h-[1px] w-2 bg-emerald-500/30 inline-block" />
+                    </span>
+                    <span className="text-zinc-500 bg-zinc-800/30 px-1 rounded-px">{rel.source === company.symbol ? rel.target : rel.source}</span>
+                  </div>
+                  <div className="text-zinc-100 font-bold leading-tight text-[9px] tracking-tight group-hover:text-emerald-400 transition-colors">
+                    {rel.commodity}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <div className="pt-2 mt-1.5 border-t border-emerald-500/10 flex flex-col gap-1.5">
+             <div className="flex justify-between text-[6px] text-zinc-500 uppercase font-black tracking-widest">
+               <span className="flex flex-col">
+                 <span className="text-[5px] text-zinc-700">CAP</span>
+                 <span className="text-zinc-400">{company.workforce || "N/A"}</span>
+               </span>
+               <span className="flex flex-col items-end">
+                 <span className="text-[5px] text-zinc-700">LOC</span>
+                 <span className="text-zinc-400 truncate max-w-[60px]">{company.headquarters?.slice(0, 10) || company.country}</span>
+               </span>
+             </div>
+             <div className="h-0.5 bg-zinc-900 w-full overflow-hidden relative rounded-full">
+                <div className="absolute inset-0 bg-emerald-500/20" />
+             </div>
+          </div>
+        </div>
+      </div>
+    </Html>
+  );
 };
 
 // Stable deterministic relationship health/momentum based on symbol names
@@ -42,8 +165,7 @@ const DataPoints = ({ count = 150 }: { count?: number }) => {
   const groupRef = useRef<THREE.Group>(null);
   useFrame((state) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.0003;
-      groupRef.current.rotation.x += 0.0001;
+      // Rotation removed
     }
   });
 
@@ -59,7 +181,7 @@ const DataPoints = ({ count = 150 }: { count?: number }) => {
   );
 };
 
-const ActivityPulse = ({ 
+const ActivityPulse = React.memo(({ 
   position, 
   activityScore, 
   isSelected,
@@ -77,13 +199,10 @@ const ActivityPulse = ({
 
   useFrame((state) => {
     if (meshRef.current) {
-      const speed = 1 + activityScore * 8;
-      const scale = 1 + Math.sin(state.clock.elapsedTime * speed) * (0.05 + activityScore * 0.2);
-      meshRef.current.scale.set(scale, scale, scale);
+      // Animation removed
     }
     if (glowRef.current) {
-      // @ts-ignore
-      glowRef.current.material.opacity = 0.1 + (Math.sin(state.clock.elapsedTime * 2) + 1) * 0.1 * (1 + activityScore);
+      // Animation removed
     }
   });
 
@@ -102,7 +221,7 @@ const ActivityPulse = ({
   return (
     <group position={position}>
       <mesh ref={meshRef}>
-        <sphereGeometry args={[isSelected ? 0.045 : (nodeColor ? 0.025 : 0.015), 16, 16]} />
+        <sphereGeometry args={[isSelected ? 0.025 : (nodeColor ? 0.012 : 0.008), 16, 16]} />
         <meshBasicMaterial 
           color={isSelected ? baseColor : activeColor} 
           transparent 
@@ -112,7 +231,7 @@ const ActivityPulse = ({
       
       {(activityScore > 0.2 || isSelected || nodeColor) && (
         <mesh ref={glowRef}>
-          <sphereGeometry args={[isSelected ? 0.09 : (nodeColor ? 0.05 : 0.04), 16, 16]} />
+          <sphereGeometry args={[isSelected ? 0.045 : (nodeColor ? 0.025 : 0.015), 16, 16]} />
           <meshBasicMaterial 
             color={activeColor} 
             transparent 
@@ -122,7 +241,77 @@ const ActivityPulse = ({
       )}
     </group>
   );
+});
+
+const ScanningRings = () => {
+  const count = 3;
+  return (
+    <group>
+      {[...Array(count)].map((_, i) => (
+        <ScanningRing key={i} delay={i * 2} />
+      ))}
+    </group>
+  );
 };
+
+const ScanningRing = ({ delay = 0 }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    if (meshRef.current) {
+      const t = (state.clock.elapsedTime + delay) % 6;
+      const progress = t / 6;
+      const scale = 2.1 + progress * 1.5;
+      meshRef.current.scale.set(scale, scale, scale);
+      (meshRef.current.material as THREE.MeshBasicMaterial).opacity = 0;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[1, 1.01, 64]} />
+      <meshBasicMaterial color="#10b981" transparent opacity={0} side={THREE.DoubleSide} />
+    </mesh>
+  );
+};
+
+const TargetLock = ({ color }: { color: string }) => {
+  return (
+    <mesh>
+      <ringGeometry args={[0.06, 0.08, 32]} />
+      <meshBasicMaterial 
+        color={color} 
+        transparent 
+        opacity={0.8} 
+        side={THREE.DoubleSide} 
+      />
+    </mesh>
+  );
+};
+
+const SimpleLabel = ({ company, relationship, position }: { company: Company, relationship?: "SUPPLIER" | "CUSTOMER" | null, position: THREE.Vector3 }) => (
+  <Html position={position} className="pointer-events-none select-none">
+    <div className={cn(
+      "absolute left-4 top-0 -translate-y-1/2 border px-1.5 py-1 rounded-sm text-[8px] font-mono whitespace-nowrap flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.6)] backdrop-blur-sm",
+      relationship === "SUPPLIER" ? "bg-yellow-950/90 border-yellow-500/50 text-yellow-400" :
+      relationship === "CUSTOMER" ? "bg-emerald-950/90 border-emerald-500/50 text-emerald-400" :
+      "bg-black/95 border-zinc-700 text-white"
+    )}>
+      <div className="flex items-center gap-1.5 border-b border-white/5 pb-1 mb-1">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1">
+            {relationship === "SUPPLIER" && <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 border border-yellow-400" />}
+            {relationship === "CUSTOMER" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 border border-emerald-400" />}
+            <span className="font-black tracking-widest uppercase">{company.symbol}</span>
+          </div>
+          <div className="text-[6.5px] text-zinc-400 font-sans tracking-tight max-w-[100px] truncate leading-none mt-0.5">
+            {company.name}
+          </div>
+        </div>
+        {relationship && <span className="ml-auto px-1 py-0.5 bg-black/50 border border-white/10 rounded-xs text-[5px] tracking-normal font-black">{relationship}</span>}
+      </div>
+    </div>
+  </Html>
+);
 
 const GlobePoints = ({ 
   companies, 
@@ -130,7 +319,13 @@ const GlobePoints = ({
   onSelect,
   marketData = {},
   newsData = [],
-  sentiment
+  sentiment,
+  isNewsCyclingActive = false,
+  viewportLock = false,
+  presentationMode = false,
+  showAllConnections = false,
+  networkAnchor = null,
+  lod,
 }: { 
   companies: Company[]; 
   selectedSymbol?: string; 
@@ -138,31 +333,48 @@ const GlobePoints = ({
   marketData?: Record<string, any>;
   newsData?: any[];
   sentiment?: any;
+  isNewsCyclingActive?: boolean;
+  viewportLock?: boolean;
+  presentationMode?: boolean;
+  showAllConnections?: boolean;
+  networkAnchor?: Company | null;
+  lod: LOD_LEVEL;
 }) => {
   const meshRef = useRef<THREE.Group>(null);
-  const ringRef = useRef<THREE.Mesh>(null);
 
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.001;
-    }
-    if (ringRef.current) {
-      const scale = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.1;
-      ringRef.current.scale.set(scale, scale, 1);
-    }
-  });
+  const [hoveredSymbol, setHoveredSymbol] = useState<string | null>(null);
 
+  // No redundant rotation
   const selectedCompany = selectedSymbol ? companies.find(c => c.symbol === selectedSymbol) : null;
+
+  if (presentationMode) return null; // Hide node labels and points in presentation mode for cleaner look
 
   return (
     <group>
-      {companies.map((company) => {
+      {companies.map((company, index) => {
         const position = latLngToVector3(company.lat, company.lng, 2);
         const isSelected = company.symbol === selectedSymbol;
+        const isHovered = company.symbol === hoveredSymbol;
         
-        // Multi-tier supply chain vectors color coding
-        const isUpstream = selectedCompany && company.partners?.includes(selectedCompany.symbol);
-        const isDownstream = selectedCompany && selectedCompany.partners?.includes(company.symbol);
+        const anchor = networkAnchor || selectedCompany;
+        const isUpstream = anchor && company.partners?.includes(anchor.symbol);
+        const isDownstream = anchor && anchor.partners?.includes(company.symbol);
+        
+        // Dynamic LOD Filtering
+        const companyRank = getCompanyLODRank(company);
+        if (!isSelected && !isUpstream && !isDownstream && companyRank > lod) {
+          return null;
+        }
+
+        // If in network mode, hide nodes that aren't connected
+        if (showAllConnections && anchor) {
+          const isAnchor = anchor.symbol === company.symbol;
+          if (!isSelected && !isAnchor && !isUpstream && !isDownstream) {
+            return null;
+          }
+        }
+        
+        const isSelectedPartner = selectedCompany && (company.partners?.includes(selectedCompany.symbol) || selectedCompany.partners?.includes(company.symbol));
         
         let nodeColor = undefined;
         if (isSelected) {
@@ -179,10 +391,12 @@ const GlobePoints = ({
         const activityScore = Math.min(1, (volatility / 5) + (companyNewsCount / 10));
 
         return (
-          <group key={company.symbol} onClick={(e) => {
+          <group key={`${company.symbol}-${index}`} onClick={(e) => {
             e.stopPropagation();
             onSelect(company);
-          }}>
+          }}
+          onPointerOver={(e) => { e.stopPropagation(); setHoveredSymbol(company.symbol); }}
+          onPointerOut={() => setHoveredSymbol(null)}>
             <ActivityPulse 
               position={position} 
               activityScore={activityScore} 
@@ -190,18 +404,23 @@ const GlobePoints = ({
               sentimentScore={isSelected ? sentiment?.score : undefined}
               nodeColor={nodeColor}
             />
+            {isHovered && !isSelected && !showAllConnections && !isSelectedPartner && (
+              <Html position={position} distanceFactor={10} className="pointer-events-none select-none z-10">
+                <div className="absolute left-4 top-0 -translate-y-1/2 bg-black/90 border border-emerald-500/40 px-1.5 py-0.5 rounded-sm text-[8px] font-mono text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)] backdrop-blur-sm">
+                  {company.symbol}
+                </div>
+              </Html>
+            )}
             {isSelected && (
               <group position={position}>
-                <mesh ref={ringRef}>
-                  <ringGeometry args={[0.06, 0.07, 32]} />
-                  <meshBasicMaterial 
-                    color={nodeColor || "#10b981"} 
-                    transparent 
-                    opacity={0.5} 
-                    side={THREE.DoubleSide} 
-                  />
-                </mesh>
+                <TargetLock color={nodeColor || "#10b981"} />
+                {!isNewsCyclingActive && !viewportLock && (
+                  <SupplyLabel position={position} company={company} sentimentScore={sentiment?.score} />
+                )}
               </group>
+            )}
+            {((isHovered || showAllConnections || isSelectedPartner) && !isSelected) && (
+               <SimpleLabel position={position} company={company} relationship={isUpstream ? "SUPPLIER" : isDownstream ? "CUSTOMER" : null} />
             )}
           </group>
         );
@@ -214,12 +433,14 @@ const DataPulse = ({
   curve, 
   color = "#34d399", 
   speed = 0.2,
-  size = 0.015
+  size = 0.015,
+  opacity = 1
 }: { 
   curve: THREE.QuadraticBezierCurve3;
   color?: string;
   speed?: number;
   size?: number;
+  opacity?: number;
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   
@@ -234,8 +455,8 @@ const DataPulse = ({
   return (
     <mesh ref={meshRef}>
       <sphereGeometry args={[size, 8, 8]} />
-      <meshBasicMaterial color={color} />
-      <pointLight distance={0.5} intensity={0.5} color={color} />
+      <meshBasicMaterial color={color} transparent opacity={opacity} />
+      <pointLight distance={0.5} intensity={0.5 * opacity} color={color} />
     </mesh>
   );
 };
@@ -243,11 +464,15 @@ const DataPulse = ({
 const SupplyArcs = ({ 
   selectedStock, 
   companies,
-  showAllConnections = false
+  showAllConnections = false,
+  networkAnchor = null,
+  lod
 }: { 
   selectedStock: Company | null; 
   companies: Company[];
   showAllConnections?: boolean;
+  networkAnchor?: Company | null;
+  lod: LOD_LEVEL;
 }) => {
   // Hardcoded check so this multi-tier connection mapping logic ONLY executes when the projection mode is GLOBE_3D
   const projectionMode: 'GLOBE_3D' | 'MAP_2D' = 'GLOBE_3D';
@@ -256,7 +481,8 @@ const SupplyArcs = ({
   }
 
   const arcData = useMemo(() => {
-    const list = showAllConnections ? companies : (selectedStock ? [selectedStock] : []);
+    // Show all connections at low opacity if nothing is specific, or if explicitly requested
+    const list = showAllConnections ? companies : companies; 
     const arcs: any[] = [];
 
     const addArc = (fromStock: Company, toStock: Company, type: 'upstream' | 'downstream' | 'general') => {
@@ -285,62 +511,50 @@ const SupplyArcs = ({
         color,
         type,
         health,
-        isSelected: selectedStock && (fromStock.symbol === selectedStock.symbol || toStock.symbol === selectedStock.symbol)
+        isSelected: (selectedStock && (fromStock.symbol === selectedStock.symbol || toStock.symbol === selectedStock.symbol)) ||
+                    (networkAnchor && (fromStock.symbol === networkAnchor.symbol || toStock.symbol === networkAnchor.symbol))
       });
     };
 
-    if (showAllConnections) {
-      companies.forEach(fromStock => {
-        if (!fromStock.partners) return;
-        fromStock.partners.forEach(pSymbol => {
-          const toStock = companies.find(c => c.symbol === pSymbol);
-          if (!toStock) return;
+    const anchor = networkAnchor || selectedStock;
+    
+    // In Macro view, only show arcs if specifically looking at a company or explicitly requested
+    if (lod === LOD_LEVEL.MACRO && !anchor && !showAllConnections) {
+      return arcs;
+    }
 
-          let relationType: 'upstream' | 'downstream' | 'general' = 'general';
-          if (selectedStock) {
-            const isUp = selectedStock.partners?.includes(fromStock.symbol);
-            const isDown = fromStock.partners?.includes(selectedStock.symbol);
-            if (fromStock.symbol === selectedStock.symbol) {
-              relationType = 'downstream';
-            } else if (toStock.symbol === selectedStock.symbol) {
-              relationType = 'upstream';
-            }
-          }
-          addArc(fromStock, toStock, relationType);
-        });
-      });
-    } else if (selectedStock) {
-      // 1. Outbound vectors of selectedStock (Downstream layout)
-      if (selectedStock.partners) {
-        selectedStock.partners.forEach(pSymbol => {
+    if (showAllConnections && anchor) {
+      // 1. Outbound vectors of anchor (Downstream layout)
+      if (anchor.partners) {
+        anchor.partners.forEach(pSymbol => {
           const toStock = companies.find(c => c.symbol === pSymbol);
           if (toStock) {
-            addArc(selectedStock, toStock, 'downstream');
+            addArc(anchor, toStock, 'downstream');
           }
         });
       }
 
-      // 2. Inbound vectors of selectedStock (Upstream layout)
+      // 2. Inbound vectors of anchor (Upstream layout)
       companies.forEach(fromStock => {
-        if (fromStock.partners?.includes(selectedStock.symbol)) {
-          addArc(fromStock, selectedStock, 'upstream');
+        if (fromStock.partners?.includes(anchor.symbol)) {
+          addArc(fromStock, anchor, 'upstream');
         }
       });
     }
     
     return arcs;
-  }, [selectedStock, companies, showAllConnections]);
+  }, [selectedStock, companies, showAllConnections, networkAnchor]);
 
   return (
     <group>
       {arcData.map((data, idx) => {
         const isStrengthening = data.health === 'strengthening';
         const opacityValue = data.isSelected 
-          ? (isStrengthening ? 0.85 : 0.35) 
-          : (isStrengthening ? 0.35 : 0.15);
+          ? (isStrengthening ? 0.85 : 0.45) 
+          : (isStrengthening ? 0.12 : 0.06);
         const lineWidth = data.isSelected 
-          ? (isStrengthening ? 2.0 : 1.0) 
-          : (isStrengthening ? 0.8 : 0.4);
+          ? (isStrengthening ? 2.2 : 1.2) 
+          : (isStrengthening ? 0.6 : 0.3);
 
         return (
           <group key={idx}>
@@ -353,14 +567,14 @@ const SupplyArcs = ({
               dashSize={isStrengthening ? 0.5 : 0.15}
               gapSize={isStrengthening ? 0.5 : 0.85}
               transparent
-              opacity={opacityValue}
+              opacity={opacityValue + 0.15}
             />
-            {data.isSelected && isStrengthening && (
-              <DataPulse curve={data.curve} color={data.color} speed={0.45} size={0.016} />
-            )}
-            {data.isSelected && !isStrengthening && (
-              <DataPulse curve={data.curve} color={data.color} speed={0.03} size={0.008} />
-            )}
+            <DataPulse 
+              curve={data.curve} 
+              color={data.color} 
+              speed={data.isSelected ? (isStrengthening ? 0.6 : 0.08) : 0.04} 
+              size={data.isSelected ? (isStrengthening ? 0.02 : 0.012) : 0.008} 
+            />
           </group>
         );
       })}
@@ -368,40 +582,359 @@ const SupplyArcs = ({
   );
 };
 
-const GlobeSphere = ({ texture }: { texture: THREE.CanvasTexture | null }) => {
+const Atmosphere = ({ presentationMode = false, lod = LOD_LEVEL.MACRO }: { presentationMode?: boolean, lod?: LOD_LEVEL }) => (
+  <group>
+    {/* Primary Atmosphere - Thicker halo */}
+    <mesh scale={[1.12, 1.12, 1.12]}>
+      <sphereGeometry args={[1.9, 64, 64]} />
+      <meshBasicMaterial 
+        color="#10b981" 
+        transparent 
+        opacity={presentationMode ? 0.25 : 0.15} 
+        side={THREE.BackSide}
+        depthWrite={false}
+      />
+    </mesh>
+    {/* Secondary Inner Atmosphere - More intense rim light */}
+    <mesh scale={[1.05, 1.05, 1.05]}>
+      <sphereGeometry args={[1.9, 64, 64]} />
+      <meshBasicMaterial 
+        color="#34d399" 
+        transparent 
+        opacity={presentationMode ? 0.2 : 0.12} 
+        side={THREE.BackSide}
+        depthWrite={false}
+      />
+    </mesh>
+  </group>
+);
+
+const GlobeSphere = ({
+  presentationMode = false,
+  lod = LOD_LEVEL.MACRO,
+  selectedStock = null,
+  agentFocus = null,
+  mapLayers = { hq: true, arcs: true, heatmap: true, satellite: false, borders: true },
+}: {
+  presentationMode?: boolean;
+  lod?: LOD_LEVEL;
+  selectedStock?: any | null;
+  agentFocus?: any | null;
+  mapLayers?: { hq: boolean; arcs: boolean; heatmap: boolean; satellite: boolean; borders: boolean };
+}) => {
+  const { camera } = useThree();
+  const [redrawCounter, setRedrawCounter] = useState(0);
+  const triggerRedraw = () => setRedrawCounter((prev) => prev + 1);
+
+  // References for tile cache and persistent canvas
+  const tileCache = useRef<
+    Map<string, { img: HTMLImageElement; loaded: boolean; lastAccess: number }>
+  >(new Map());
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
+
+  // State to track current zoom level and target focus coordinates
+  const lastState = useRef({
+    zoom: 2,
+    lat: 0,
+    lng: 0,
+    cameraPos: new THREE.Vector3(),
+  });
+
+  const [focusLatLng, setFocusLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [tileZoom, setTileZoom] = useState(2);
+
+  const geoJsonDataRef = useRef<any>(null);
+
+  // Load geojson data on mount to support the vector land background layer
+  useEffect(() => {
+    let isMounted = true;
+    const urls = [
+      "/ne_110m_admin_0_countries.geojson",
+      "https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson",
+      "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
+    ];
+
+    const tryFetch = async () => {
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted) {
+              geoJsonDataRef.current = data;
+              triggerRedraw();
+            }
+            return;
+          }
+        } catch (e) {
+          // ignore error and proceed to fallback
+        }
+      }
+      console.warn("Tiled Globe GeoJSON load fallback: Failed to load from all sources");
+    };
+
+    tryFetch();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Initialize canvas and CanvasTexture on mount
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 2048;
+    canvas.height = 1024;
+    canvasRef.current = canvas;
+
+    const canvasTexture = new THREE.CanvasTexture(canvas);
+    canvasTexture.colorSpace = THREE.SRGBColorSpace;
+    canvasTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    canvasTexture.generateMipmaps = true;
+    setTexture(canvasTexture);
+
+    return () => {
+      canvasTexture.dispose();
+      tileCache.current.forEach((val) => {
+        val.img.src = "";
+      });
+      tileCache.current.clear();
+    };
+  }, []);
+
+  // Helper tile loading core
+  const loadTile = (x: number, y: number, z: number, onLoaded: () => void) => {
+    const key = `${z}/${x}/${y}`;
+    if (tileCache.current.has(key)) {
+      const cached = tileCache.current.get(key)!;
+      cached.lastAccess = Date.now();
+      if (cached.loaded) {
+        return cached.img;
+      }
+      return null;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    const entry = {
+      img,
+      loaded: false,
+      lastAccess: Date.now(),
+    };
+    tileCache.current.set(key, entry);
+
+    img.onload = () => {
+      entry.loaded = true;
+      entry.lastAccess = Date.now();
+      onLoaded();
+    };
+
+    img.onerror = () => {
+      tileCache.current.delete(key);
+    };
+
+    img.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+    return null;
+  };
+
+  const pruneTileCache = () => {
+    if (tileCache.current.size > 200) {
+      const entries = Array.from(tileCache.current.entries());
+      entries.sort((a, b) => a[1].lastAccess - b[1].lastAccess);
+      const toDeleteCount = tileCache.current.size - 100;
+      for (let i = 0; i < toDeleteCount; i++) {
+        const [key, entry] = entries[i];
+        entry.img.src = ""; // Cancel network fetch and free memory
+        tileCache.current.delete(key);
+      }
+    }
+  };
+
+  // Monitor camera position and focus nodes in real-time
+  useFrame(() => {
+    let targetLat = 0;
+    let targetLng = 0;
+
+    if (selectedStock) {
+      targetLat = selectedStock.lat;
+      targetLng = selectedStock.lng;
+    } else if (agentFocus) {
+      targetLat = agentFocus.lat;
+      targetLng = agentFocus.lng;
+    } else {
+      const dir = camera.position.clone().normalize();
+      const phi = Math.acos(Math.max(-1, Math.min(1, dir.y)));
+      const theta = Math.atan2(dir.z, -dir.x);
+      
+      targetLat = 90 - (phi * 180 / Math.PI);
+      targetLng = (theta * 180 / Math.PI) - 180;
+      while (targetLng < -180) targetLng += 360;
+      while (targetLng > 180) targetLng -= 360;
+    }
+
+    const distance = camera.position.length();
+    let targetZoom = 2;
+    if (distance < 3.4) {
+      targetZoom = 15;
+    } else if (distance < 3.9) {
+      targetZoom = 12;
+    } else if (distance < 4.6) {
+      targetZoom = 9;
+    } else if (distance < 5.5) {
+      targetZoom = 6;
+    } else if (distance < 7.0) {
+      targetZoom = 4;
+    } else {
+      targetZoom = 2;
+    }
+
+    const latDiff = Math.abs(targetLat - lastState.current.lat);
+    const lngDiff = Math.abs(targetLng - lastState.current.lng);
+    const zoomChanged = targetZoom !== lastState.current.zoom;
+
+    if (zoomChanged || latDiff > 0.5 || lngDiff > 0.5) {
+      lastState.current = {
+        zoom: targetZoom,
+        lat: targetLat,
+        lng: targetLng,
+        cameraPos: camera.position.clone(),
+      };
+      setTileZoom(targetZoom);
+      setFocusLatLng({ lat: targetLat, lng: targetLng });
+    }
+  });
+
+  // Redraw canvas whenever redraw is triggered, zoom updates, or focus updates
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !texture) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // 1. Clear with base ocean color
+    ctx.fillStyle = presentationMode ? "#080c14" : "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Coordinate tiles loading sequence (Base Layer)
+    const tilesToDraw: { x: number; y: number; z: number }[] = [];
+
+    // Global Base Tiles at Zoom level 2
+    for (let x = 0; x < 4; x++) {
+      for (let y = 0; y < 4; y++) {
+        tilesToDraw.push({ x, y, z: 2 });
+      }
+    }
+
+    // Micro Detailed Tiling at Zoom level tileZoom around focal camera coordinates or selected node
+    if (focusLatLng && tileZoom > 2) {
+      const center = latLngToTileXY(focusLatLng.lat, focusLatLng.lng, tileZoom);
+      const n = Math.pow(2, tileZoom);
+      const halfGrid = 2; // Paint 5x5 detailed bounds
+      for (let dx = -halfGrid; dx <= halfGrid; dx++) {
+        for (let dy = -halfGrid; dy <= halfGrid; dy++) {
+          const tx = (center.x + dx + n) % n;
+          const ty = center.y + dy;
+          if (ty >= 0 && ty < n) {
+            tilesToDraw.push({ x: tx, y: ty, z: tileZoom });
+          }
+        }
+      }
+    }
+
+    // 3. Paint tiles to canvas
+    tilesToDraw.forEach((tile) => {
+      const img = loadTile(tile.x, tile.y, tile.z, triggerRedraw);
+      if (img) {
+        const bounds = tileXYToLatLngBounds(tile.x, tile.y, tile.z);
+        const x_west = ((bounds.lng_west + 180) / 360) * canvas.width;
+        const x_east = ((bounds.lng_east + 180) / 360) * canvas.width;
+        const y_north = ((90 - bounds.lat_north) / 180) * canvas.height;
+        const y_south = ((90 - bounds.lat_south) / 180) * canvas.height;
+
+        const drawWidth = x_east - x_west;
+        const drawHeight = y_south - y_north;
+
+        ctx.save();
+        // High-contrast deep satellite tactical look
+        if (mapLayers.satellite) {
+          ctx.filter = "none";
+        } else {
+          ctx.filter = "brightness(55%) contrast(145%) saturate(85%)";
+        }
+        ctx.drawImage(img, x_west, y_north, drawWidth, drawHeight);
+        ctx.restore();
+      }
+    });
+
+    // 4. Overlay vector borders (Top Layer)
+    if (mapLayers.borders) {
+      if (mapLayers.satellite) {
+        // High-contrast outlines for satellite view
+        ctx.fillStyle = "transparent";
+        ctx.strokeStyle = "rgba(16, 185, 129, 0.8)";
+        ctx.lineWidth = 1.0;
+      } else {
+        // Default solid tactical landmasses
+        ctx.fillStyle = presentationMode ? "#334155" : "#1e293b"; 
+        ctx.strokeStyle = presentationMode ? "rgba(16, 185, 129, 0.8)" : "rgba(16, 185, 129, 0.4)";
+        ctx.lineWidth = 1.2;
+      }
+
+      const geoJson = geoJsonDataRef.current;
+      if (geoJson && geoJson.features) {
+        geoJson.features.forEach((feature: any) => {
+          const { geometry } = feature;
+          if (!geometry) return;
+          const drawPolygon = (polygon: number[][][]) => {
+            polygon.forEach((ring) => {
+              if (ring.length === 0) return;
+              ctx.beginPath();
+              ring.forEach(([lng, lat], idx) => {
+                const x = ((lng + 180) / 360) * canvas.width;
+                const y = ((90 - lat) / 180) * canvas.height;
+                if (idx === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+              });
+              if (!mapLayers.satellite) ctx.fill();
+              ctx.stroke();
+            });
+          };
+          if (geometry.type === "Polygon") {
+            drawPolygon(geometry.coordinates);
+          } else if (geometry.type === "MultiPolygon") {
+            geometry.coordinates.forEach((polygon: any) => drawPolygon(polygon));
+          }
+        });
+      }
+    }
+
+    texture.needsUpdate = true;
+    pruneTileCache();
+  }, [redrawCounter, focusLatLng, tileZoom, presentationMode, texture, mapLayers.satellite, mapLayers.borders]);
+
   return (
     <group>
-      {/* Ocean/Water Body with dynamic land/ocean texture */}
       <mesh>
         <sphereGeometry args={[1.9, 64, 64]} />
         {texture ? (
-          <meshPhongMaterial 
+          <meshPhongMaterial
             map={texture}
             transparent
-            opacity={0.8}
-            shininess={10}
+            opacity={presentationMode ? 1 : 0.98}
+            shininess={presentationMode ? 120 : 90}
+            specular={new THREE.Color("#475569")}
+            emissive={new THREE.Color("#020617")}
+            emissiveIntensity={0.2}
           />
         ) : (
-          <meshPhongMaterial 
-            color="#1e293b" 
-            transparent
-            opacity={0.8}
-            shininess={10}
-          />
+          <meshPhongMaterial color="#020617" transparent opacity={0.8} shininess={30} />
         )}
       </mesh>
-      
-      {/* Grid segments matched to dark grey theme */}
-      <mesh>
-        <sphereGeometry args={[1.98, 30, 30]} />
-        <meshBasicMaterial color="#475569" wireframe transparent opacity={0.06} />
-      </mesh>
 
-      {/* Outer Glow in subtle contrasting grey */}
-      <mesh>
-        <sphereGeometry args={[2.05, 32, 32]} />
-        <meshBasicMaterial color="#4b5563" transparent opacity={0.03} side={THREE.BackSide} />
-      </mesh>
+      <Atmosphere presentationMode={presentationMode} lod={lod} />
     </group>
   );
 };
@@ -453,158 +986,240 @@ interface GlobeProps {
   newsData?: any[];
   sentiment?: any;
   showAllConnections?: boolean;
+  networkAnchor?: Company | null;
   onInjectLiveNews?: () => void;
+  activeCorridorId?: string | null;
+  agentFocus?: any | null;
+  agentEntities?: any[];
+  viewportLock: boolean;
+  setViewportLock: (val: boolean) => void;
+  autoRotateEnabled: boolean;
+  setAutoRotateEnabled: (val: boolean) => void;
+  isNewsCyclingActive?: boolean;
+  presentationMode?: boolean;
+  mapLayers?: { hq: boolean; arcs: boolean; heatmap: boolean; satellite: boolean; borders: boolean };
 }
 
-export interface Vessel {
-  id: string;
-  name: string;
-  type: string;
-  coordinates: [number, number];
-  heading: number;
-  speed: number;
-  status: string;
-}
 
-const mockVesselRegistry: Vessel[] = [
-  { id: "V-101", name: "PACIFIC_TITAN", type: "Cargo", coordinates: [34.5, 155.0], heading: 85, speed: 18.4, status: "Transit" },
-  { id: "V-102", name: "ATLANTIC_MARINER", type: "Container", coordinates: [42.1, -35.2], heading: 270, speed: 21.0, status: "Transit" },
-  { id: "V-103", name: "SUEZ_CHIEF", type: "Tanker", coordinates: [29.8, 32.6], heading: 180, speed: 12.5, status: "Transit" },
-  { id: "V-104", name: "MALACCA_PIONEER", type: "Container", coordinates: [1.8, 102.3], heading: 135, speed: 19.8, status: "Transit" },
-  { id: "V-105", name: "PANAMA_VALOUR", type: "Cargo", coordinates: [9.1, -79.7], heading: 315, speed: 8.0, status: "Anchored" },
-  { id: "V-106", name: "GIBRALTAR_SENTRY", type: "Tanker", coordinates: [35.9, -5.4], heading: 90, speed: 14.2, status: "Transit" },
-  { id: "V-107", name: "HORN_NAVIGATOR", type: "Cargo", coordinates: [-34.5, 18.2], heading: 275, speed: 16.5, status: "Transit" },
-  { id: "V-108", name: "ADEN_EXPRESS", type: "Container", coordinates: [12.4, 43.5], heading: 310, speed: 22.1, status: "Transit" },
-  { id: "V-109", name: "ENGLISH_ROVER", type: "Cargo", coordinates: [50.2, -1.2], heading: 75, speed: 15.0, status: "Transit" },
-  { id: "V-110", name: "TOKYO_VOYAGER", type: "Tanker", coordinates: [33.8, 140.5], heading: 210, speed: 13.8, status: "Transit" },
-  { id: "V-111", name: "SINGAPORE_STAR", type: "Container", coordinates: [1.2, 103.9], heading: 0, speed: 0.0, status: "Anchored" },
-  { id: "V-112", name: "ROTTERDAM_GIANT", type: "Container", coordinates: [52.2, 4.1], heading: 180, speed: 11.2, status: "Transit" },
-  { id: "V-113", name: "RED_SEA_TRADER", type: "Cargo", coordinates: [23.5, 37.2], heading: 345, speed: 17.1, status: "Transit" },
-  { id: "V-114", name: "CALIFORNIA_WAVE", type: "Tanker", coordinates: [32.5, -120.4], heading: 160, speed: 15.4, status: "Transit" },
-  { id: "V-115", name: "CARIBBEAN_QUEEN", type: "Cargo", coordinates: [15.2, -75.5], heading: 45, speed: 14.8, status: "Transit" },
-  { id: "V-116", name: "PERSIAN_MAJESTY", type: "Tanker", coordinates: [26.4, 52.8], heading: 120, speed: 13.0, status: "Transit" },
-  { id: "V-117", name: "INDIAN_OCEAN_GEM", type: "Cargo", coordinates: [-5.0, 80.0], heading: 90, speed: 16.0, status: "Transit" },
-  { id: "V-118", name: "TASMAN_CLIPPER", type: "Container", coordinates: [-38.2, 160.4], heading: 195, speed: 20.5, status: "Transit" },
-  { id: "V-119", name: "BOSPHORUS_BARON", type: "Cargo", coordinates: [41.2, 29.1], heading: 205, speed: 9.5, status: "Transit" },
-  { id: "V-120", name: "SHANGHAI_PILOT", type: "Container", coordinates: [30.9, 122.5], heading: 0, speed: 0.0, status: "Anchored" }
-];
-
-const VesselNode = ({
-  vessel,
-  isSelected,
-  onSelect,
-  onHover,
-  onHoverOut,
-  globalOpacity = 1
-}: {
-  vessel: Vessel;
-  isSelected: boolean;
-  onSelect: () => void;
-  onHover: (e: any) => void;
-  onHoverOut: () => void;
-  globalOpacity: number;
-}) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const position = useMemo(() => latLngToVector3(vessel.coordinates[0], vessel.coordinates[1], 1.91), [vessel.coordinates]);
-  
-  const quat = useMemo(() => {
-    const normal = position.clone().normalize();
-    const qNorm = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    const qHeading = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -(vessel.heading * Math.PI) / 180);
-    return qNorm.multiply(qHeading);
-  }, [position, vessel.heading]);
-
-  const color = useMemo(() => {
-    if (vessel.status === "Anchored") return '#64748b'; // Dim gray
-    if (vessel.type === "Cargo" || vessel.type === "Container") return '#06b6d4'; // Cyan
-    if (vessel.type === "Tanker") return '#f59e0b'; // Warning Amber
-    return '#06b6d4';
-  }, [vessel.type, vessel.status]);
-
-  useFrame((state) => {
-    if (groupRef.current && vessel.status === "Transit" && globalOpacity > 0.05) {
-      const scale = 1 + Math.sin(state.clock.elapsedTime * 5) * 0.08;
-      groupRef.current.scale.set(scale, scale, scale);
-    }
-  });
-
-  if (globalOpacity < 0.05) return null;
-
+const GlobeAgentEntitiesLayer = ({ entities, agentFocus }: { entities: any[], agentFocus: any | null }) => {
   return (
-    <group 
-      ref={groupRef}
-      position={position}
-      quaternion={quat}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        onHover(e);
-      }}
-      onPointerOut={(e) => {
-        e.stopPropagation();
-        onHoverOut();
-      }}
-    >
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.015, 0.045, 3]} />
-        <meshBasicMaterial 
-          color={color} 
-          transparent 
-          opacity={vessel.status === "Anchored" ? 0.3 * globalOpacity : 0.8 * globalOpacity} 
-        />
-      </mesh>
-      
-      {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.035, 0.045, 16]} />
-          <meshBasicMaterial color={color} transparent opacity={0.6 * globalOpacity} />
-        </mesh>
-      )}
+    <group>
+      {entities.map((entity, idx) => {
+        const pos = latLngToVector3(entity.coordinates[0], entity.coordinates[1], 2);
+        const color = entity.type === "CONFLICT" ? "#ef4444" : entity.type === "CARGO" ? "#3b82f6" : "#10b981";
+        
+        // Arc between agent focus and entity
+        let arc = null;
+        if (agentFocus) {
+          const startPos = latLngToVector3(agentFocus.lat, agentFocus.lng, 2.15);
+          const midPoint = new THREE.Vector3().addVectors(startPos, pos).multiplyScalar(0.5);
+          const distance = startPos.distanceTo(pos);
+          midPoint.normalize().multiplyScalar(2.1 + distance * 0.2);
+          const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, pos);
+          arc = (
+            <group>
+              <Line 
+                points={curve.getPoints(30) as THREE.Vector3[]} 
+                color={color} 
+                lineWidth={0.5} 
+                transparent 
+                opacity={0.3} 
+              />
+              <DataPulse curve={curve} color={color} speed={0.8} size={0.006} />
+            </group>
+          );
+        }
+
+        return (
+          <group key={`entity-${entity.id || idx}`}>
+            {arc}
+            <group position={pos}>
+              {/* Core Node */}
+              <mesh>
+                <sphereGeometry args={[0.015, 8, 8]} />
+                <meshBasicMaterial color={color} />
+              </mesh>
+              
+              {/* Outer Glow */}
+              <mesh>
+                <sphereGeometry args={[0.03, 8, 8]} />
+                <meshBasicMaterial color={color} transparent opacity={0.2} />
+              </mesh>
+
+              {/* Entity Label */}
+              <Html distanceFactor={4} position={[0, 0.03, 0]} center className="pointer-events-none select-none">
+                <div className="bg-black/90 border border-white/20 px-1.5 py-0.5 rounded-sm shadow-[0_0_15px_rgba(0,0,0,0.8)] backdrop-blur-md whitespace-nowrap min-w-[50px]">
+                  <div className="flex items-center justify-between gap-1.5 mb-0.5 border-b border-white/5 pb-0.5">
+                    <div className="text-[4.5px] text-zinc-500 font-mono tracking-widest uppercase">{entity.type}</div>
+                    <div className={cn("w-0.5 h-0.5 rounded-full", color === "#ef4444" ? "bg-red-500" : color === "#3b82f6" ? "bg-blue-500" : "bg-emerald-500")} />
+                  </div>
+                  <div className="text-[6.5px] text-white font-black font-mono tracking-tight uppercase">{entity.name}</div>
+                </div>
+              </Html>
+            </group>
+          </group>
+        );
+      })}
     </group>
   );
 };
 
+
+// RotatingGroup defined later
 const RotatingGroup = ({ 
   children, 
-  autoRotate = true 
+  autoRotate = true,
+  presentationMode = false,
+  groupRef
 }: { 
   children: React.ReactNode; 
-  autoRotate?: boolean 
+  autoRotate?: boolean;
+  presentationMode?: boolean;
+  networkAnchor?: Company | null;
+  agentFocus?: any;
+  groupRef?: React.RefObject<THREE.Group | null>;
 }) => {
-  const groupRef = useRef<THREE.Group>(null);
+  const fallbackRef = useRef<THREE.Group>(null);
+  const activeRef = groupRef || fallbackRef;
 
-  useFrame((state) => {
-    if (groupRef.current && autoRotate) {
-      groupRef.current.rotation.y += 0.001;
+  useFrame((state, delta) => {
+    if (activeRef.current && autoRotate) {
+      activeRef.current.rotation.y += delta * (presentationMode ? 0.08 : 0.05);
     }
   });
 
-  return <group ref={groupRef}>{children}</group>;
+  return <group ref={activeRef}>{children}</group>;
 };
 
-const CameraFocus = ({ selectedStock }: { selectedStock: Company | null }) => {
+const CameraFocus = ({ 
+  selectedStock, 
+  agentFocus, 
+  networkAnchor, 
+  rotatingGroupRef 
+}: { 
+  selectedStock: Company | null; 
+  agentFocus: any | null; 
+  networkAnchor: Company | null; 
+  rotatingGroupRef?: React.RefObject<THREE.Group | null>;
+}) => {
   const { camera, controls } = useThree();
-  const targetPos = useMemo(() => {
-    if (!selectedStock) return null;
-    const pos = latLngToVector3(selectedStock.lat, selectedStock.lng, 2);
-    return pos.clone().multiplyScalar(2.5); // Move camera back a bit from the surface
-  }, [selectedStock]);
+  const [transitionProgress, setTransitionProgress] = useState(0);
+
+  const getTargetAndCameraPos = useMemo(() => {
+    const anchor = selectedStock || networkAnchor || agentFocus;
+    if (!anchor) return { localTarget: null, localCamera: null };
+
+    const localTarget = latLngToVector3(anchor.lat, anchor.lng, 2);
+    // User requested overhead, tight focus on the location itself, not framing connected companies
+    const localCamera = localTarget.clone().multiplyScalar(1.3);
+
+    return { localTarget, localCamera };
+  }, [selectedStock, networkAnchor, agentFocus]);
+
+  // Reset transition progress whenever the selected targets change to center him
+  useEffect(() => {
+    if (getTargetAndCameraPos.localTarget) {
+      setTransitionProgress(0);
+    }
+  }, [getTargetAndCameraPos]);
 
   useFrame((state, delta) => {
-    if (targetPos) {
-       camera.position.lerp(targetPos, delta * 2);
-       // @ts-ignore
-       if (controls) {
-         // @ts-ignore
-         controls.target.lerp(new THREE.Vector3(0, 0, 0), delta * 2);
-       }
+    const anchor = selectedStock || networkAnchor || agentFocus;
+    if (anchor && getTargetAndCameraPos.localTarget && getTargetAndCameraPos.localCamera) {
+      const worldTarget = getTargetAndCameraPos.localTarget.clone();
+      const worldCamera = getTargetAndCameraPos.localCamera.clone();
+
+      if (rotatingGroupRef?.current) {
+        rotatingGroupRef.current.updateMatrixWorld(true);
+        worldTarget.applyMatrix4(rotatingGroupRef.current.matrixWorld);
+        worldCamera.applyMatrix4(rotatingGroupRef.current.matrixWorld);
+      }
+
+      // @ts-ignore
+      if (controls) {
+        // Spin the globe: Keep the camera target at the center of the Earth (0,0,0)
+        // so that OrbitControls rotates the globe naturally around its center.
+        // @ts-ignore
+        controls.target.lerp(new THREE.Vector3(0, 0, 0), delta * 8); 
+
+        if (transitionProgress < 1) {
+          // Smoothly advance transition progress
+          const nextProgress = transitionProgress + delta * 1.2;
+          setTransitionProgress(Math.min(nextProgress, 1));
+
+          // Only lerp camera position during the initial transition period
+          camera.position.lerp(worldCamera, delta * 6); 
+          
+          if (nextProgress >= 1) {
+             camera.position.copy(worldCamera);
+          }
+        }
+        
+        // Ensure controls are updated to reflect the new target position
+        // @ts-ignore
+        controls.update();
+      }
     }
   });
 
   return null;
+};
+
+const GlobeAgentRepresentative = ({ agentFocus }: { agentFocus: any }) => {
+  const droneRef = useRef<THREE.Group>(null);
+  const ringRef1 = useRef<THREE.Mesh>(null);
+  const ringRef2 = useRef<THREE.Mesh>(null);
+
+  const position = useMemo(() => {
+    if (!agentFocus) return new THREE.Vector3(0, 0, 0);
+    return latLngToVector3(agentFocus.lat, agentFocus.lng, 2.15); // Hover slightly above base
+  }, [agentFocus]);
+
+  useFrame((state) => {
+    if (droneRef.current) {
+      // Gentle bobbing motion
+      droneRef.current.position.y = position.y + Math.sin(state.clock.elapsedTime * 3) * 0.015;
+      droneRef.current.rotation.y += 0.02;
+    }
+    if (ringRef1.current) {
+      ringRef1.current.rotation.x += 0.03;
+      ringRef1.current.rotation.y += 0.01;
+    }
+    if (ringRef2.current) {
+      ringRef2.current.rotation.y += 0.035;
+      ringRef2.current.rotation.z += 0.02;
+    }
+  });
+
+  if (!agentFocus) return null;
+
+  return (
+    <group position={position} ref={droneRef}>
+      {/* 1. Core Drone Sphere Representative - glowing teal style */}
+      <mesh>
+        <sphereGeometry args={[0.04, 16, 16]} />
+        <meshBasicMaterial color="#10b981" />
+      </mesh>
+      
+      {/* 2. Outer Ring 1 */}
+      <mesh ref={ringRef1}>
+        <torusGeometry args={[0.07, 0.003, 8, 32]} />
+        <meshBasicMaterial color="#34d399" transparent opacity={0.8} />
+      </mesh>
+
+      {/* 3. Outer Ring 2 (Perpendicular) */}
+      <mesh ref={ringRef2}>
+        <torusGeometry args={[0.08, 0.003, 8, 32]} />
+        <meshBasicMaterial color="#60a5fa" transparent opacity={0.7} />
+      </mesh>
+
+      {/* 4. Scanning laser beam pointing straight down */}
+      <mesh position={[0, -0.1, 0]}>
+        <cylinderGeometry args={[0.002, 0.015, 0.2, 16]} />
+        <meshBasicMaterial color="#10b981" transparent opacity={0.35} />
+      </mesh>
+    </group>
+  );
 };
 
 const NewsBillboard = ({ 
@@ -617,50 +1232,57 @@ const NewsBillboard = ({
   globalOpacity?: number;
 }) => {
   const position = useMemo(() => latLngToVector3(company.lat, company.lng, 2.05), [company]);
-  const [pulse, setPulse] = React.useState(true);
   
-  useEffect(() => {
-    const int = setInterval(() => {
-      setPulse(p => !p);
-    }, 1500);
-    return () => clearInterval(int);
-  }, []);
-
   if (globalOpacity < 0.2) return null;
 
   const timeStr = story.published_at 
     ? new Date(story.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : "LIVE";
+    : "LIVE_SIG";
 
   return (
     <group position={position}>
       {/* Visual glowing pin indicator */}
       <mesh>
-        <sphereGeometry args={[0.015, 8, 8]} />
+        <sphereGeometry args={[0.02, 12, 12]} />
         <meshBasicMaterial color="#ef4444" transparent opacity={0.9 * globalOpacity} />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[0.045, 12, 12]} />
+        <meshBasicMaterial color="#ef4444" transparent opacity={0.15 * globalOpacity} />
       </mesh>
       
       {/* Interactive Floating HTML Billboard */}
       <Html 
         distanceFactor={4} 
-        position={[0, 0.05, 0]}
-        center
-        className="pointer-events-auto select-none font-mono"
+        position={[0.1, 0.1, 0]}
+        center={false}
+        className="pointer-events-auto select-none font-mono scale-75 md:scale-90"
+        zIndexRange={[0, 10]}
       >
-        <div className={`flex flex-col bg-black/95 border border-red-500/40 p-1.5 rounded-sm w-44 shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all duration-300 ${pulse ? 'border-red-500/70' : 'border-red-500/30'}`}>
-          <div className="flex items-center justify-between border-b border-red-950 pb-1 mb-1 text-[6px] text-red-500 font-bold tracking-wider">
-            <span>[NEWS_UPLINK]</span>
-            <span className="animate-pulse flex items-center gap-0.5">
-              <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
-              {timeStr}
-            </span>
+        <div className="flex flex-col bg-black/95 border border-red-500/40 p-1.5 md:p-2 rounded-none w-32 md:w-36 shadow-[0_0_15px_rgba(239,68,68,0.15)] backdrop-blur-xl">
+          {/* Corner Trim */}
+          <div className="absolute -top-px -left-px w-2 h-2 border-t border-l border-red-500/80" />
+          <div className="absolute -bottom-px -right-px w-2 h-2 border-b border-r border-red-500/80" />
+
+          <div className="flex items-center justify-between border-b border-red-500/20 pb-1.5 mb-1.5 text-[7px] text-red-500 font-black tracking-[0.2em] uppercase">
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+              </span>
+              <span>ALERT</span>
+            </div>
+            <span className="text-zinc-600 font-mono tracking-normal">{timeStr}</span>
           </div>
-          <div className="text-[7.5px] text-white font-bold leading-tight uppercase line-clamp-2">
-            {story.intelligence?.translatedTitle || story.title}
+          
+          <div className="text-[9px] text-white font-black leading-tight uppercase line-clamp-3 tracking-tight mb-2">
+            {story.intelligence?.translatedTitle || story.translatedTitle || story.headline || story.title || company.name}
           </div>
-          <div className="text-[5.5px] text-zinc-500 mt-1 flex justify-between items-center">
-            <span>REF: {company.symbol}</span>
-            <span>[{company.lat.toFixed(1)}N, {company.lng.toFixed(1)}W]</span>
+
+          <div className="flex items-center gap-1.5 pt-1.5 border-t border-red-500/10">
+            <div className="flex flex-col">
+               <div className="text-[5px] text-red-500/60 font-black uppercase tracking-widest leading-none">REF</div>
+               <div className="text-[7px] text-zinc-100 font-black tracking-wider leading-none">{company.symbol}</div>
+            </div>
           </div>
         </div>
       </Html>
@@ -668,227 +1290,393 @@ const NewsBillboard = ({
   );
 };
 
+const GlobeCorridorsLayer = ({ 
+  activeCorridorId, 
+  onSelectNode 
+}: { 
+  activeCorridorId: string | null; 
+  onSelectNode: (c: Company) => void;
+}) => {
+  const beacons = useMemo(() => {
+    return CORRIDORS.map(c => {
+      const pos = latLngToVector3(c.coords[0], c.coords[1], 2.01);
+      const color = c.baseRisk > 80 ? "#ef4444" : c.baseRisk > 60 ? "#f59e0b" : "#10b981";
+      return { ...c, pos, color };
+    });
+  }, []);
+
+  const activeCorridor = CORRIDORS.find(c => c.id === activeCorridorId);
+  
+  const links = useMemo(() => {
+    if (!activeCorridor) return [];
+    return getCorridorHeadquartersLinks(activeCorridor);
+  }, [activeCorridorId, activeCorridor]);
+
+  return (
+    <group>
+      {/* 1. Pulsing Beacons */}
+      {beacons.map(b => (
+        <group key={`beacon-${b.id}`}>
+          <mesh position={b.pos}>
+            <sphereGeometry args={[0.02, 10, 10]} />
+            <meshBasicMaterial color={b.color} />
+          </mesh>
+          <mesh position={b.pos}>
+            <sphereGeometry args={[b.id === activeCorridorId ? 0.05 : 0.035, 10, 10]} />
+            <meshBasicMaterial color={b.color} transparent opacity={0.2} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* 2. Visual Arcs Connecting origin to hq */}
+      {activeCorridor && links.map((link, idx) => {
+        const startPos = latLngToVector3(link.fromCoords[0], link.fromCoords[1], 2);
+        const endPos = latLngToVector3(link.toCoords[0], link.toCoords[1], 2);
+        
+        const midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+        const distance = startPos.distanceTo(endPos);
+        midPoint.normalize().multiplyScalar(2 + distance * 0.25);
+
+        const curve = new THREE.QuadraticBezierCurve3(startPos, midPoint, endPos);
+        const pts = curve.getPoints(45);
+        const arcColor = activeCorridor.baseRisk > 80 ? "#ef4444" : activeCorridor.baseRisk > 60 ? "#f59e0b" : "#10b981";
+
+        return (
+          <group key={`3d-corridor-${idx}`}>
+            <Line
+              points={pts as THREE.Vector3[]}
+              color={arcColor}
+              lineWidth={1.8}
+              transparent
+              opacity={0.85}
+            />
+            {/* Marching pulse along the curve representing rapid flow velocity */}
+            <DataPulse curve={curve} color={arcColor} speed={0.4} size={0.012} />
+          </group>
+        );
+      })}
+    </group>
+  );
+};
+
+const TargetReticle = ({ position, color = "#10b981" }: { position: THREE.Vector3, color?: string }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  useFrame((state) => {
+    if (containerRef.current) {
+      // Periodic tactical glitch
+      const isGlitch = Math.sin(state.clock.elapsedTime * 20) > 0.96;
+      containerRef.current.style.opacity = isGlitch ? "0.2" : "0.7";
+      containerRef.current.style.transform = isGlitch ? "scale(1.1) skew(2deg)" : "scale(1) skew(0deg)";
+    }
+  });
+
+  return (
+    <group position={position}>
+      <Html center className="pointer-events-none select-none z-50">
+        <div ref={containerRef} className="relative w-16 h-16 md:w-20 md:h-20 flex items-center justify-center font-mono overflow-visible transition-all duration-75">
+          {/* Main Reticle Outer Frame */}
+          <div className="absolute inset-0 border border-emerald-500/30 rounded-full" />
+          
+          {/* Tactical HUD Frame */}
+          <div className="relative w-14 h-14 md:w-16 md:h-16 border border-emerald-500/30 bg-emerald-950/10 flex items-center justify-center backdrop-blur-[1.5px]">
+            {/* L-brackets */}
+            <div className="absolute top-0 left-0 w-3 h-3 border-l-2 border-t-2 border-emerald-400" />
+            <div className="absolute top-0 right-0 w-3 h-3 border-r-2 border-t-2 border-emerald-400" />
+            <div className="absolute bottom-0 left-0 w-3 h-3 border-l-2 border-b-2 border-emerald-400" />
+            <div className="absolute bottom-0 right-0 w-3 h-3 border-r-2 border-b-2 border-emerald-400" />
+            
+            {/* Center Crosshair */}
+            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_8px_#10b981]" />
+          </div>
+          
+          {/* Scanning lines */}
+          <div className="absolute top-1/2 left-[-20%] right-[-20%] h-px bg-emerald-500/20" />
+          <div className="absolute left-1/2 top-[-20%] bottom-[-20%] w-px bg-emerald-500/20" />
+        </div>
+      </Html>
+    </group>
+  );
+};
+
+const LODController = ({ onUpdate }: { onUpdate: (lod: LOD_LEVEL) => void }) => {
+  const { camera } = useThree();
+  const lastLod = useRef<LOD_LEVEL>(LOD_LEVEL.MACRO);
+
+  useFrame(() => {
+    const distance = camera.position.length();
+    let currentLod = LOD_LEVEL.MACRO;
+
+    if (distance < 3.8) {
+      currentLod = LOD_LEVEL.MICRO;
+    } else if (distance < 5.2) {
+      currentLod = LOD_LEVEL.REGIONAL;
+    }
+
+    if (currentLod !== lastLod.current) {
+      lastLod.current = currentLod;
+      onUpdate(currentLod);
+    }
+  });
+
+  return null;
+};
+
+
+const GlobeHeatmap = ({ marketData, newsData, companies }: { marketData: any, newsData: any[], companies: Company[] }) => {
+  const heatmapPoints = useMemo(() => {
+    return companies.map(c => {
+      const quote = marketData[c.symbol];
+      const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
+      const companyNewsCount = newsData.filter(n => n.symbol === c.symbol).length;
+      const weight = Math.min(1, 0.1 + (volatility / 5) + (companyNewsCount / 8));
+      
+      if (weight < 0.2) return null;
+      
+      return {
+        pos: latLngToVector3(c.lat, c.lng, 2.01),
+        weight,
+        color: volatility > 3 ? "#ef4444" : volatility > 1 ? "#f59e0b" : "#10b981"
+      };
+    }).filter(p => p !== null);
+  }, [marketData, newsData, companies]);
+
+  return (
+    <group>
+      {heatmapPoints.map((p, i) => (
+        <mesh key={i} position={p!.pos}>
+          <sphereGeometry args={[0.04 * p!.weight, 16, 16]} />
+          <meshBasicMaterial color={p!.color} transparent opacity={0.3 * p!.weight} />
+          <pointLight distance={0.4} intensity={0.5 * p!.weight} color={p!.color} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
 export const Globe: React.FC<GlobeProps> = ({ 
   selectedStock, 
   onSelectNode,
-  marketData,
-  newsData,
+  marketData = {},
+  newsData = [],
   sentiment,
   showAllConnections = false,
-  onInjectLiveNews
+  networkAnchor = null,
+  onInjectLiveNews,
+  activeCorridorId = null,
+  agentFocus = null,
+  agentEntities = [],
+  viewportLock,
+  setViewportLock,
+  autoRotateEnabled,
+  setAutoRotateEnabled,
+  isNewsCyclingActive = false,
+  presentationMode = false,
+  mapLayers = { hq: true, arcs: true, heatmap: true, satellite: false, borders: true }
 }) => {
+  const { companies } = useCompanies();
+  const rotatingGroupRef = useRef<THREE.Group>(null);
+  const [lod, setLod] = useState<LOD_LEVEL>(LOD_LEVEL.MACRO);
   const [geoJsonData, setGeoJsonData] = React.useState<any>(null);
   const [countryPaths, setCountryPaths] = React.useState<THREE.Vector3[][]>([]);
   const [statePaths, setStatePaths] = React.useState<THREE.Vector3[][]>([]);
+  const [loadedTexture, setLoadedTexture] = React.useState<THREE.Texture | null>(null);
 
-  // State for vessel selections and tooltips
-  const [hoveredVessel, setHoveredVessel] = React.useState<Vessel | null>(null);
-  const [hoveredPos, setHoveredPos] = React.useState<{ x: number; y: number } | null>(null);
-  const [selectedVessel, setSelectedVessel] = React.useState<Vessel | null>(null);
-
-  // Gimbal and navigation unlocked states
-  const [viewportLock, setViewportLock] = React.useState(false);
-  const [autoRotateEnabled, setAutoRotateEnabled] = React.useState(true);
+  // Sync viewport lock when stock selected
+  useEffect(() => {
+    if (selectedStock) {
+      setViewportLock(true);
+    }
+  }, [selectedStock]);
 
   // Transition opacity for seamless fading out when Corporate Network layout is active
   const [vesselOpacity, setVesselOpacity] = React.useState(showAllConnections ? 0 : 1);
   useEffect(() => {
-    let active = true;
-    const target = showAllConnections ? 0 : 1;
-    let prevTime = performance.now();
-    
-    const animate = () => {
-      if (!active) return;
-      const now = performance.now();
-      const dt = (now - prevTime) / 1000;
-      prevTime = now;
-      
-      setVesselOpacity(prev => {
-        const diff = target - prev;
-        if (Math.abs(diff) < 0.02) return target;
-        return prev + diff * Math.min(1, dt * 8);
-      });
-      requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-    return () => {
-      active = false;
-    };
+    setVesselOpacity(showAllConnections ? 0 : 1);
   }, [showAllConnections]);
 
   useEffect(() => {
     let isMounted = true;
 
-    // Fetch Countries (low resolution 110m is perfect for performance and loads under 200ms)
-    fetch("https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson")
-      .then((res) => {
-        if (!res.ok) throw new Error("Status: " + res.status);
-        return res.json();
-      })
-      .then((data) => {
-        if (isMounted) {
-          setGeoJsonData(data);
-          setCountryPaths(parseBorders(data, 1.905));
-        }
-      })
-      .catch((err) => console.error("Globe country boundaries load failure:", err));
+    const countryUrls = [
+      "/ne_110m_admin_0_countries.geojson",
+      "https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson",
+      "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson"
+    ];
 
-    // Fetch States/Provinces (admin 1 level)
-    fetch("https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_1_states_provinces.geojson")
-      .then((res) => {
-        if (!res.ok) throw new Error("Status: " + res.status);
-        return res.json();
-      })
-      .then((data) => {
-        if (isMounted) {
-          setStatePaths(parseBorders(data, 1.903));
+    const stateUrls = [
+      "/ne_110m_admin_1_states_provinces.geojson",
+      "https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_1_states_provinces.geojson",
+      "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_1_states_provinces.geojson"
+    ];
+
+    const loadCountries = async () => {
+      for (const url of countryUrls) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted) {
+              setGeoJsonData(data);
+              setCountryPaths(parseBorders(data, 1.905));
+            }
+            return;
+          }
+        } catch (e) {
+          // proceed to next fallback
         }
-      })
-      .catch((err) => console.error("Globe state boundaries load failure:", err));
+      }
+      console.warn("Could not load country boundaries from any mirror source.");
+    };
+
+    const loadStates = async () => {
+      for (const url of stateUrls) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (isMounted) {
+              setStatePaths(parseBorders(data, 1.903));
+            }
+            return;
+          }
+        } catch (e) {
+          // proceed to next fallback
+        }
+      }
+      console.warn("Could not load state boundaries from any mirror source.");
+    };
+
+    loadCountries();
+    loadStates();
 
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const globeTexture = useMemo(() => {
-    if (!geoJsonData) return null;
-    
-    // Create an offscreen canvas
-    const width = 2048;
-    const height = 1024;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-
-    // 1. STYLING (OCEAN): deep, dark charcoal
-    ctx.fillStyle = "#0f172a";
-    ctx.fillRect(0, 0, width, height);
-
-    // 2. STYLING (LAND & BORDERS): slate gray lands and low-opacity borders
-    ctx.fillStyle = "#1e293b";
-    ctx.strokeStyle = "rgba(71, 85, 105, 0.4)";
-    ctx.lineWidth = 1.0;
-
-    if (geoJsonData.features) {
-      geoJsonData.features.forEach((feature: any) => {
-        const { geometry } = feature;
-        if (!geometry) return;
-
-        const drawPolygon = (polygon: number[][][]) => {
-          polygon.forEach((ring) => {
-            if (ring.length === 0) return;
-            ctx.beginPath();
-            ring.forEach(([lng, lat], idx) => {
-              const x = ((lng + 180) / 360) * width;
-              const y = ((90 - lat) / 180) * height;
-              if (idx === 0) {
-                ctx.moveTo(x, y);
-              } else {
-                ctx.lineTo(x, y);
-              }
-            });
-            ctx.fill();
-            ctx.stroke();
-          });
-        };
-
-        if (geometry.type === "Polygon") {
-          drawPolygon(geometry.coordinates);
-        } else if (geometry.type === "MultiPolygon") {
-          geometry.coordinates.forEach((polygon: number[][][]) => {
-            drawPolygon(polygon);
-          });
-        }
-      });
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
-  }, [geoJsonData]);
+  useEffect(() => {
+    new THREE.TextureLoader().load(
+      'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.needsUpdate = true;
+        setLoadedTexture(texture);
+      },
+      (error) => {
+        console.error("Texture load error", error);
+      }
+    );
+  }, []);
 
   return (
-    <div className="w-full h-full bg-black relative">
-      <Canvas dpr={[1, 2]}>
-        <PerspectiveCamera makeDefault position={[0, 0, 6]} fov={45} />
-        {viewportLock && <CameraFocus selectedStock={selectedStock} />}
+    <div className={cn("w-full h-full relative", presentationMode ? "bg-zinc-950" : "bg-black")}>
+      <Canvas dpr={[1, 2]} gl={{ antialias: true }}>
+        <PerspectiveCamera makeDefault position={[0, 0, presentationMode ? 8.2 : 5.8]} fov={32} />
+        <LODController onUpdate={setLod} />
+        {(viewportLock || networkAnchor || isNewsCyclingActive) && !presentationMode && <CameraFocus selectedStock={selectedStock} agentFocus={agentFocus} networkAnchor={networkAnchor} rotatingGroupRef={rotatingGroupRef} />}
         <OrbitControls 
           enablePan={false} 
-          enableZoom={true} 
-          minDistance={3} 
-          maxDistance={10}
+          enableZoom={!presentationMode} 
+          enableRotate={!presentationMode}
+          enableDamping={true}
+          dampingFactor={0.08}
+          rotateSpeed={0.8}
+          minDistance={2.2} 
+          maxDistance={100}
         />
         
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} color="#ffffff" />
-        <pointLight position={[-10, -10, -10]} intensity={0.5} color="#44ff44" />
+        <ambientLight intensity={presentationMode ? 1.5 : 0.5} />
+        <pointLight position={[10, 10, 10]} intensity={presentationMode ? 2.5 : 1} color="#ffffff" />
+        <pointLight position={[-10, -10, -10]} intensity={presentationMode ? 1 : 0.5} color="#44ff44" />
         
-        <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
+        {/* <Stars radius={100} depth={50} count={5000} factor={4} saturation={0.5} fade speed={1} /> */}
         
-        <RotatingGroup autoRotate={autoRotateEnabled && (!viewportLock || (!selectedStock && !selectedVessel))}>
-          <GlobeSphere texture={globeTexture} />
+        <RotatingGroup 
+          autoRotate={autoRotateEnabled && !isNewsCyclingActive && !networkAnchor && (!viewportLock || (!selectedStock && !agentFocus))}
+          presentationMode={presentationMode}
+          networkAnchor={networkAnchor}
+          agentFocus={agentFocus}
+          groupRef={rotatingGroupRef}
+        >
+          <ambientLight intensity={0.5} />
+          <pointLight position={[5, 5, 5]} intensity={1} />
+          <GlobeSphere presentationMode={presentationMode} lod={lod} selectedStock={selectedStock} agentFocus={agentFocus} mapLayers={mapLayers} />
           
           {/* Render parsed boundaries */}
           <group>
-            {/* International Country Borders */}
-            {countryPaths.map((points, i) => (
-              <Line
-                key={`country-border-${i}`}
-                points={points}
-                color="#475569"
-                lineWidth={0.6}
-                transparent
-                opacity={0.4}
-              />
-            ))}
-            {/* Domestic State/Province Borders */}
-            {statePaths.map((points, i) => (
-              <Line
-                key={`state-border-${i}`}
-                points={points}
-                color="#475569"
-                lineWidth={0.4}
-                transparent
-                opacity={0.4}
-              />
-            ))}
+            {mapLayers.borders && (
+              <>
+                {/* International Country Borders */}
+                {countryPaths.map((points, i) => (
+                  <Line
+                    key={`country-border-${i}`}
+                    points={points}
+                    color={presentationMode ? "#64748b" : "#475569"}
+                    lineWidth={presentationMode ? 0.8 : 0.6}
+                    transparent
+                    opacity={presentationMode ? 0.6 : 0.4}
+                  />
+                ))}
+                {/* Domestic State/Province Borders - Layered LOD */}
+                {lod >= LOD_LEVEL.REGIONAL && statePaths.map((points, i) => (
+                  <Line
+                    key={`state-border-${i}`}
+                    points={points}
+                    color={presentationMode ? "#475569" : "#475569"}
+                    lineWidth={0.4}
+                    transparent
+                    opacity={lod === LOD_LEVEL.REGIONAL ? 0.2 : 0.4}
+                  />
+                ))}
+              </>
+            )}
           </group>
 
-          <DataPoints />
-          <GlobePoints 
-            companies={COMPANIES} 
-            selectedSymbol={selectedStock?.symbol} 
-            onSelect={onSelectNode} 
-            marketData={marketData}
-            newsData={newsData}
-          />
-          {mockVesselRegistry.map((vessel) => (
-            <VesselNode
-              key={vessel.id}
-              vessel={vessel}
-              isSelected={selectedVessel?.id === vessel.id}
-              onSelect={() => setSelectedVessel(vessel)}
-              onHover={(e) => {
-                setHoveredVessel(vessel);
-                setHoveredPos({ x: e.clientX, y: e.clientY });
-              }}
-              onHoverOut={() => setHoveredVessel(null)}
-              globalOpacity={vesselOpacity}
+          <DataPoints count={presentationMode ? 70 : 150} />
+          
+          {mapLayers.hq && (
+            <GlobePoints 
+              companies={companies} 
+              selectedSymbol={selectedStock?.symbol} 
+              onSelect={onSelectNode} 
+              marketData={marketData}
+              newsData={newsData}
+              sentiment={sentiment}
+              isNewsCyclingActive={isNewsCyclingActive}
+              viewportLock={viewportLock}
+              presentationMode={presentationMode}
+              showAllConnections={showAllConnections}
+              networkAnchor={networkAnchor}
+              lod={lod}
             />
-          ))}
-          <SupplyArcs 
-            selectedStock={selectedStock} 
-            companies={COMPANIES} 
-            showAllConnections={showAllConnections}
-          />
+          )}
+
+          {!presentationMode && (
+            <>
+              {mapLayers.arcs && (
+                <SupplyArcs 
+                  selectedStock={selectedStock} 
+                  companies={companies} 
+                  showAllConnections={showAllConnections}
+                  networkAnchor={networkAnchor}
+                  lod={lod}
+                />
+              )}
+              {mapLayers.heatmap && (
+                <GlobeHeatmap marketData={marketData} newsData={newsData} companies={companies} />
+              )}
+              <GlobeCorridorsLayer 
+                activeCorridorId={activeCorridorId} 
+                onSelectNode={onSelectNode} 
+              />
+            </>
+          )}
 
           {/* Pinned News Headlines on the 3D globe linked to respective company location */}
-          {newsData && newsData.slice(0, 1).map((story, idx) => {
-            const company = COMPANIES.find(c => c.symbol === story.symbol);
-            if (!company) return null;
+          {!presentationMode && newsData && newsData.slice(0, 1).map((story, idx) => {
+            const company = companies.find(c => c.symbol === story.symbol);
+            if (!company || isNewsCyclingActive || viewportLock) return null;
             return (
               <NewsBillboard 
                 key={`globe-news-${idx}-${story.published_at || idx}`} 
@@ -898,162 +1686,30 @@ export const Globe: React.FC<GlobeProps> = ({
               />
             );
           })}
+
+          {!presentationMode && selectedStock && !isNewsCyclingActive && (
+            <TargetReticle 
+              position={latLngToVector3(selectedStock.lat, selectedStock.lng, 2.05)} 
+              color={sentiment?.score > 0.3 ? "#10b981" : sentiment?.score < -0.3 ? "#ef4444" : "#3b82f6"}
+            />
+          )}
+
+          {!presentationMode && agentFocus && (
+            <GlobeAgentRepresentative agentFocus={agentFocus} />
+          )}
+          {!presentationMode && agentEntities.length > 0 && (
+            <GlobeAgentEntitiesLayer entities={agentEntities} agentFocus={agentFocus} />
+          )}
         </RotatingGroup>
 
         <EffectComposer>
           <Bloom 
-            intensity={1.0} 
-            luminanceThreshold={0.9} 
-            luminanceSmoothing={0.025} 
+            intensity={2.2} 
+            luminanceThreshold={0.7} 
+            luminanceSmoothing={0.05} 
           />
         </EffectComposer>
       </Canvas>
-
-      {/* Telemetry Tooltip popup */}
-      {hoveredVessel && vesselOpacity > 0.1 && (
-        <div 
-          className="absolute z-50 pointer-events-none bg-black/95 border border-cyan-500/40 p-3 font-mono text-[9px] w-56 shadow-[0_0_15px_rgba(6,182,212,0.25)] rounded-sm"
-          style={{
-            left: hoveredPos ? `${hoveredPos.x + 15}px` : "50%",
-            top: hoveredPos ? `${hoveredPos.y - 15}px` : "50%",
-            transform: "translate(0, -50%)",
-          }}
-        >
-          <div className="flex items-center justify-between border-b border-cyan-950 pb-1.5 mb-1.5">
-            <span className="text-cyan-405 font-bold tracking-wider">{hoveredVessel.name}</span>
-            <span className="text-[7.5px] bg-cyan-950/80 px-1 py-0.5 text-cyan-300 font-bold border border-cyan-800/30 uppercase rounded-sm">{hoveredVessel.type}</span>
-          </div>
-          
-          <div className="space-y-1 text-zinc-400 text-[8px] tracking-tight">
-            <div className="flex justify-between">
-              <span className="text-zinc-500">SHIP_ID:</span>
-              <span className="text-white font-bold">{hoveredVessel.id}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-500">COORDS:</span>
-              <span className="text-white">[{hoveredVessel.coordinates[0].toFixed(3)}N, {hoveredVessel.coordinates[1].toFixed(3)}E]</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-500">SPEED / HDG:</span>
-              <span className="text-white font-bold">{hoveredVessel.speed} KTS // {hoveredVessel.heading}°</span>
-            </div>
-            <div className="flex justify-between border-t border-zinc-900 pt-1 mt-1 text-[7.5px]">
-              <span className="text-zinc-650 font-bold">DESTINATION_ETA:</span>
-              <span className="text-emerald-400 font-bold">SECURE</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Globe Overlay HUD */}
-      <div className="absolute top-4 left-4 z-10 pointer-events-none space-y-4">
-        <div className="bg-black/40 backdrop-blur-md border border-emerald-500/20 p-3 font-mono text-[8px] text-emerald-500/50 uppercase tracking-[0.2em] relative overflow-hidden">
-           <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
-           {showAllConnections ? "Global_Asset_Distribution_Net" : "Maritime_Logistics_Active"}
-           <div className="mt-2 text-[6px] opacity-40">
-             Uplink_Node: {selectedStock?.symbol || (selectedVessel ? selectedVessel.name : "Awaiting_Input")}
-           </div>
-        </div>
-
-        <div className="flex gap-2">
-          <div className="bg-emerald-950/20 border border-emerald-500/10 p-2">
-             <div className="text-[6px] text-emerald-500/30 uppercase mb-1">Telemetry</div>
-             <div className="text-[8px] text-emerald-500 font-mono">{showAllConnections ? "Corporate_Links" : `${mockVesselRegistry.length}_Vessels`}</div>
-          </div>
-          <div className="bg-emerald-950/20 border border-emerald-500/10 p-2">
-            <div className="text-[6px] text-emerald-500/30 uppercase mb-1">Latency</div>
-            <div className="text-[8px] text-emerald-500 font-mono">14ms</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Viewport Control Panel - Positioned at Top Right of Earth Coordinate Sphere */}
-      <div className="absolute top-4 right-4 z-20 pointer-events-auto select-none w-48 font-mono text-[8px] uppercase tracking-wide">
-        <div className="bg-black/85 backdrop-blur-md border border-emerald-500/20 p-2.5 space-y-2">
-          <div className="flex items-center justify-between border-b border-emerald-950 pb-1 text-emerald-500 font-bold uppercase tracking-wider">
-            <span>Control_Gimbal</span>
-            <span className="text-[6px] text-zinc-500">SYS_V1.9</span>
-          </div>
-          
-          <div className="flex flex-col gap-1.5">
-            {/* Viewport Lock toggle */}
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-zinc-500 text-[7px] font-bold">Orbit_Lock:</span>
-              <button
-                onClick={() => setViewportLock(!viewportLock)}
-                className={`px-1.5 py-0.5 border text-[7px] font-bold tracking-tighter uppercase transition-colors rounded-sm cursor-pointer ${
-                  viewportLock 
-                    ? "bg-emerald-950/80 border-emerald-500 text-emerald-400" 
-                    : "bg-zinc-900 border-zinc-750 text-zinc-400"
-                }`}
-              >
-                {viewportLock ? "LOCKED" : "UNLOCKED"}
-              </button>
-            </div>
-
-            {/* Auto-Rotation toggle */}
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-zinc-500 text-[7px] font-bold">Auto_Spin:</span>
-              <button
-                onClick={() => setAutoRotateEnabled(!autoRotateEnabled)}
-                className={`px-1.5 py-0.5 border text-[7px] font-bold tracking-tighter uppercase transition-colors rounded-sm cursor-pointer ${
-                  autoRotateEnabled 
-                    ? "bg-emerald-950/80 border-emerald-500 text-emerald-400" 
-                    : "bg-zinc-900 border-zinc-750 text-zinc-400"
-                }`}
-              >
-                {autoRotateEnabled ? "ON" : "OFF"}
-              </button>
-            </div>
-          </div>
-
-          {!viewportLock && (
-            <div className="text-[6px] text-amber-500 font-bold tracking-tighter uppercase bg-amber-500/5 border border-amber-500/15 p-1 text-center rounded-sm animate-pulse">
-              [DRAG/SWIPE GLOBE TO SPIN]
-            </div>
-          )}
-
-          {/* Quick manual simulation injector */}
-          <div className="flex flex-col gap-1 border-t border-emerald-950/50 pt-2 mt-1">
-            <button
-              onClick={() => onInjectLiveNews?.()}
-              className="w-full py-1.5 bg-red-950/80 hover:bg-red-900 border border-red-500/50 hover:border-red-500 text-red-400 hover:text-white font-bold tracking-tight text-[7.5px] uppercase transition-all rounded-sm cursor-pointer text-center"
-            >
-              [! BROADCAST NEWS !]
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div className="absolute bottom-4 right-4 z-10 pointer-events-none font-mono">
-        {selectedVessel && (
-          <div className="bg-black/90 border border-cyan-500/20 p-2.5 mb-2 text-[8px] uppercase tracking-wide select-none pointer-events-auto">
-            <div className="text-cyan-400 font-bold border-b border-cyan-950 pb-1 mb-1">Vessel Link Selected</div>
-            <div className="text-[7.5px] text-zinc-500">Name: <span className="text-white">{selectedVessel.name}</span></div>
-            <div className="text-[7.5px] text-zinc-500">Type: <span className="text-white">{selectedVessel.type}</span></div>
-            <div className="text-[7.5px] text-zinc-500">Coords: <span className="text-white">[{selectedVessel.coordinates[0]}, {selectedVessel.coordinates[1]}]</span></div>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedVessel(null);
-              }}
-              className="mt-1.5 w-full bg-zinc-900 border border-zinc-850 hover:bg-zinc-800 text-white font-bold text-[7px] py-1 rounded-sm uppercase cursor-pointer"
-            >
-              DISCONNECT UPLINK
-            </button>
-          </div>
-        )}
-        <div className="flex flex-col items-end gap-1">
-          <div className="text-[10px] text-emerald-500/40 tracking-widest uppercase flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            Coord_Sync: Active
-          </div>
-          <div className="bg-emerald-500/20 h-[1px] w-48" />
-          <div className="text-[6px] text-emerald-500/20 uppercase mt-1">
-             Alpha_Stream_v4.2.1
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

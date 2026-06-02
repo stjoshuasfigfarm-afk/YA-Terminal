@@ -20,19 +20,31 @@ import financialsRouter from "./server/routes/financials";
 import historyRouter from "./server/routes/history";
 import relationshipsRouter from "./server/routes/relationships";
 import yieldsRouter from "./server/routes/yields";
+import corridorRouter from "./api/ai/corridor";
+import navigateRouter from "./api/ai/navigate";
 import aiRouter from "./server/routes/ai";
 import searchRouter from "./server/routes/search";
+import verifyRouter from "./api/verify";
+import eiaRouter from "./server/routes/eia";
+import partnersRouter from "./server/routes/partners";
+import siloRouter from "./server/routes/silo";
 
 // Register modular REST API endpoints
 app.use("/api/quote", quoteRouter);
+app.use("/api/silo", siloRouter);
 app.use("/api/news", newsRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/financials", financialsRouter);
 app.use("/api/history", historyRouter);
 app.use("/api/relationships", relationshipsRouter);
 app.use("/api/yields", yieldsRouter);
+app.use("/api/ai/corridor", corridorRouter);
+app.use("/api/ai/navigate", navigateRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/search", searchRouter);
+app.use("/api/verify", verifyRouter);
+app.use("/api/eia", eiaRouter);
+app.use("/api/partners", partnersRouter);
 
 // Service status endpoint
 app.get("/api/status", (req, res) => {

@@ -19,6 +19,9 @@ router.get("/:symbol?", async (req, res) => {
     
     const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_KEY}`;
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Finnhub candlestick API error: ${response.statusText}`);
+    }
     const data = await response.json();
     
     if (data && data.s === 'ok' && Array.isArray(data.t)) {
