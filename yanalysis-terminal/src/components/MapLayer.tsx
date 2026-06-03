@@ -408,7 +408,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       }
     };
 
-    window.addEventListener('app-tts-play', handleTtsPlay);
+    if (typeof window !== "undefined") window.addEventListener('app-tts-play', handleTtsPlay);
 
     return () => {
       if (audioRef.current) {
@@ -416,8 +416,8 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           audioRef.current.pause();
         } catch (err) {}
       }
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
-      window.removeEventListener('app-tts-play', handleTtsPlay);
+      if (window && window.speechSynthesis) window.speechSynthesis.cancel();
+      if (typeof window !== "undefined") window.removeEventListener('app-tts-play', handleTtsPlay);
     };
   }, []);
 
@@ -1702,10 +1702,12 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           className="w-full h-full bg-[#13263a]"
           zoomControl={false}
           attributionControl={false}
-          dragging={!viewportLock && !isNewsCyclingActive && !is3DMode}
-          touchZoom={!viewportLock && !isNewsCyclingActive && !is3DMode}
-          doubleClickZoom={!viewportLock && !isNewsCyclingActive && !is3DMode}
-          scrollWheelZoom={!viewportLock && !isNewsCyclingActive && !is3DMode}
+          dragging={false}
+          touchZoom={false}
+          doubleClickZoom={false}
+          scrollWheelZoom={false}
+          boxZoom={false}
+          keyboard={false}
         >
           {mapLayers.satellite ? (
             <TileLayer
@@ -2606,7 +2608,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                                   item.published_at ||
                                     item.timestamp ||
                                     Date.now(),
-                                ).toLocaleTimeString()}
+                                ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                               </span>
                             </div>
                             <div className="text-[11px] text-emerald-400/90 font-bold group-hover:text-emerald-300 transition-colors">

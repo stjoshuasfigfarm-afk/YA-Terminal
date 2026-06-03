@@ -17,7 +17,13 @@ router.post("/", (req, res) => {
 
 router.post("/verify-token", (req, res) => {
     const { token } = req.body;
-    const expectedToken = crypto.createHash('sha256').update((process.env.TERMINAL_ACCESS_CODE || "default_debug_code") + process.env.SESSION_SECRET).digest('hex');
+    console.log("Verifying token:", token);
+    const secret = process.env.SESSION_SECRET || "default_secret";
+    const accessCode = process.env.TERMINAL_ACCESS_CODE || "default_debug_code";
+    const expectedToken = crypto.createHash('sha256').update(accessCode + secret).digest('hex');
+    
+    console.log("Expected token:", expectedToken);
+
     if (token === expectedToken || token === "free_trial_token") {
         res.json({ authorized: true });
     } else {

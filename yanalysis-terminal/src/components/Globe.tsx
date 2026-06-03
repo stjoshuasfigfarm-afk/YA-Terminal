@@ -615,12 +615,14 @@ const GlobeSphere = ({
   selectedStock = null,
   agentFocus = null,
   mapLayers = { hq: true, arcs: true, heatmap: true, satellite: false, borders: true },
+  performanceMode = false,
 }: {
   presentationMode?: boolean;
   lod?: LOD_LEVEL;
   selectedStock?: any | null;
   agentFocus?: any | null;
   mapLayers?: { hq: boolean; arcs: boolean; heatmap: boolean; satellite: boolean; borders: boolean };
+  performanceMode?: boolean;
 }) => {
   const { camera } = useThree();
   const [redrawCounter, setRedrawCounter] = useState(0);
@@ -924,8 +926,8 @@ const GlobeSphere = ({
             map={texture}
             transparent
             opacity={presentationMode ? 1 : 0.98}
-            shininess={presentationMode ? 120 : 90}
-            specular={new THREE.Color("#475569")}
+            shininess={presentationMode ? 120 : (performanceMode ? 30 : 90)}
+            specular={new THREE.Color(performanceMode ? "#000000" : "#475569")}
             emissive={new THREE.Color("#020617")}
             emissiveIntensity={0.2}
           />
@@ -1236,7 +1238,7 @@ const NewsBillboard = ({
   if (globalOpacity < 0.2) return null;
 
   const timeStr = story.published_at 
-    ? new Date(story.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    ? new Date(story.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
     : "LIVE_SIG";
 
   return (
@@ -1577,8 +1579,8 @@ export const Globe: React.FC<GlobeProps> = ({
         {(viewportLock || networkAnchor || isNewsCyclingActive) && !presentationMode && <CameraFocus selectedStock={selectedStock} agentFocus={agentFocus} networkAnchor={networkAnchor} rotatingGroupRef={rotatingGroupRef} />}
         <OrbitControls 
           enablePan={false} 
-          enableZoom={!presentationMode} 
-          enableRotate={!presentationMode}
+          enableZoom={false} 
+          enableRotate={false}
           enableDamping={true}
           dampingFactor={0.08}
           rotateSpeed={0.8}

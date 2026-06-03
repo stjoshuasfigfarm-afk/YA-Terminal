@@ -95,7 +95,7 @@ export const DataSidebar = React.memo(({
 
     const interval = setInterval(() => {
       const msg = messages[Math.floor(Math.random() * messages.length)];
-      setLogs(prev => [`[ ${new Date().toLocaleTimeString([], { hour12: false })} ]: ${msg}`, ...prev.slice(0, 8)]);
+      setLogs(prev => [`[ ${new Date().toLocaleTimeString([], { hour12: true })} ]: ${msg}`, ...prev.slice(0, 8)]);
     }, 4500);
 
     return () => clearInterval(interval);
@@ -359,10 +359,24 @@ export const DataSidebar = React.memo(({
                 ].map((metric) => (
                   <div key={metric.label} className="bg-black/90 px-2 py-1 flex justify-between items-center border border-zinc-900/60 rounded-xs hover:border-emerald-500/20 transition-colors">
                     <span className="text-[8px] font-mono text-zinc-605 uppercase">{metric.label}</span>
-                    <span className="text-[8.5px] font-mono text-emerald-500 font-black">{metric.value}</span>
+                    <span className="text-[8px] font-mono text-emerald-500 font-black">{metric.value}</span>
                   </div>
                 ))}
               </div>
+
+              {/* Partnership Highlights */}
+              {selectedStock?.partners && selectedStock.partners.length > 0 && (
+                <div className="p-3 border-b border-zinc-900 bg-emerald-950/5">
+                  <div className="text-[7.5px] text-emerald-500 font-mono font-bold uppercase tracking-widest mb-2">PARTNERSHIP_DEALS</div>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedStock.partners.map((p: string) => (
+                      <span key={p} className="bg-emerald-900/20 text-emerald-400 text-[7px] px-1.5 py-0.5 rounded-sm border border-emerald-500/30 uppercase font-mono tracking-wider">
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 6Q Net Income P&L Trend sparkline */}
               <div className="px-3 py-1.5 font-sans text-[10px] border-b border-zinc-900 bg-black/20 flex items-center justify-between">

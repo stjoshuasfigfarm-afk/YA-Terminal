@@ -1,14 +1,14 @@
 import { COMPANIES } from "../data/companies";
 
-// Realistic May 2026 baselines
+// Realistic May 2026 baselines - Reset to 0 for clean start
 const BASE_PRICES: Record<string, number> = {
-  "SPY": 739.50,
-  "AAPL": 220.00,
-  "NVDA": 135.00,
-  "MSFT": 450.00,
-  "TSLA": 180.00,
-  "JPM": 210.00,
-  "TLT": 95.00,
+  "SPY": 0,
+  "AAPL": 0,
+  "NVDA": 0,
+  "MSFT": 0,
+  "TSLA": 0,
+  "JPM": 0,
+  "TLT": 0,
 };
 
 const YIELD_BASES: Record<string, number> = {
