@@ -12,8 +12,8 @@ export interface MockNewsStory {
   };
 }
 
-export function generateCompanySpecificNews(symbol: string, name: string, sector: string): MockNewsStory[] {
-  const norm = symbol.toUpperCase();
+export function generateCompanySpecificNews(symbol: string, name: string, sector: string = ""): MockNewsStory[] {
+  const norm = (symbol || "").toUpperCase();
   const dateObj = new Date();
   
   // Decoupled dates to make them look realistic
@@ -189,7 +189,7 @@ export function generateCompanySpecificNews(symbol: string, name: string, sector
     );
   } else {
     // Sector-specific tailored fallback stories (highly detailed and targeted)
-    const sectorLower = sector.toLowerCase();
+    const sectorLower = (sector || "").toLowerCase();
     if (sectorLower.includes("semi") || sectorLower.includes("chip")) {
       stories.push(
         {
@@ -334,7 +334,7 @@ export function generateCompanySpecificNews(symbol: string, name: string, sector
     ...s,
     symbol,
     published_at: getPastTimeStr(idx * 7 + 2), // staggered hours in the past
-    url: `https://example.com/logistics/intel/${symbol.toLowerCase()}-${idx}`,
+    url: `https://example.com/logistics/intel/${(symbol || "").toLowerCase()}-${idx}`,
     image: "",
     intelligence: {
       translatedTitle: `NEURAL ACCESS: ${s.title.toUpperCase()}`

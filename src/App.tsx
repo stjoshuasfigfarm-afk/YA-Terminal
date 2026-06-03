@@ -829,7 +829,7 @@ export default function App() {
               {marketData.news && marketData.news.length > 0 ? (
                 marketData.news.slice(0, 5).map((n: any, i: number) => (
                   <span key={i}>
-                    <span className="text-emerald-500/50">[INTEL_{i}]</span> {n.title.toUpperCase()} ... [OK]
+                    <span className="text-emerald-500/50">[INTEL_{i}]</span> {(n.title || "").toUpperCase()} ... [OK]
                   </span>
                 ))
               ) : (
@@ -1003,7 +1003,7 @@ export default function App() {
                 { label: "p:NVDA" },
                 { label: "p:AAPL" },
               ].map((chip) => {
-                const isActive = searchQuery.toLowerCase().includes(chip.label.toLowerCase());
+                const isActive = (searchQuery || "").toLowerCase().includes((chip.label || "").toLowerCase());
                 return (
                   <button
                     key={chip.label}
@@ -1011,9 +1011,9 @@ export default function App() {
                       const trimmed = searchQuery.trim();
                       if (!trimmed) {
                         setSearchQuery(chip.label);
-                      } else if (trimmed.toLowerCase().includes(chip.label.toLowerCase())) {
+                      } else if ((trimmed || "").toLowerCase().includes((chip.label || "").toLowerCase())) {
                         const words = trimmed.split(/\s+/);
-                        setSearchQuery(words.filter(w => w.toLowerCase() !== chip.label.toLowerCase()).join(" "));
+                        setSearchQuery(words.filter(w => (w || "").toLowerCase() !== (chip.label || "").toLowerCase()).join(" "));
                       } else {
                         setSearchQuery(`${trimmed} ${chip.label}`);
                       }
@@ -1081,7 +1081,7 @@ export default function App() {
                   onSelectNode={handleSelectNode}
                   isVocalizerEnabled={isVocalizerEnabled}
                   onToggleVocalizer={toggleVocalizer}
-                  intelligenceFeed={focusNews.length > 0 ? focusNews : marketData.news}
+                  intelligenceFeed={focusNews.length > 0 ? focusNews : (marketData.news || [])}
                   isIntelligenceStream={isAutopilot}
                   toggleIntelligenceStream={() => {
                     const next = !isAutopilot;
@@ -1105,7 +1105,7 @@ export default function App() {
                   }}
                   activeTab={activeTab}
                   marketData={allMarketData}
-                  allNewsData={marketData.news}
+                  allNewsData={marketData.news || []}
                   sentiment={sentiment}
                   onInjectLiveNews={injectLiveNews}
                   mapLayers={mapLayers}
@@ -1171,7 +1171,7 @@ export default function App() {
             <IntelligenceSidebar 
               selectedStock={selectedStock}
               quote={marketData.quote}
-              news={marketData.news}
+              news={marketData.news || []}
               financials={marketData.financials}
               profile={marketData.profile}
               history={marketData.history}
@@ -1206,7 +1206,7 @@ export default function App() {
                   setActiveCorridorId(null);
                 }
               }}
-              recentNewsContent={marketData.news.slice(0, 5).map(n => n.title).join("\n")}
+              recentNewsContent={(marketData.news || []).slice(0, 5).map(n => n.title).join("\n")}
               agentFocus={agentFocus}
               setAgentFocus={setAgentFocus}
               searchQuery={searchQuery}
@@ -1240,7 +1240,7 @@ export default function App() {
                 key={view}
                 onClick={() => {
                   setMobileView(view);
-                  const el = document.getElementById(`mobile-sec-${view.toLowerCase()}`);
+                  const el = document.getElementById(`mobile-sec-${(view || "").toLowerCase()}`);
                   if (el) {
                     el.scrollIntoView({ behavior: "smooth", block: "start" });
                   }

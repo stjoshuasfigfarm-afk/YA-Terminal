@@ -126,7 +126,7 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
       );
       if (match) {
         score += 200;
-        matchedFields.push({ field: "Country", value: c.country });
+        matchedFields.push({ field: "Country", value: c.country || "" });
       } else {
         excluded = true;
       }
@@ -138,7 +138,7 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
       );
       if (match) {
         score += 200;
-        matchedFields.push({ field: "Sector", value: c.sector });
+        matchedFields.push({ field: "Sector", value: c.sector || "" });
       } else {
         excluded = true;
       }
@@ -147,8 +147,8 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
     if (parsed.partners.length > 0 && !excluded) {
       const match = parsed.partners.some(pSymbol => {
         // Direct checks
-        const matchesDirectPartner = c.partners?.some(p => p.toLowerCase().includes(pSymbol));
-        const matchesSelf = c.symbol.toLowerCase() === pSymbol;
+        const matchesDirectPartner = c.partners?.some(p => (p || "").toLowerCase().includes(pSymbol));
+        const matchesSelf = (c.symbol || "").toLowerCase() === pSymbol;
         return matchesDirectPartner || matchesSelf;
       });
       if (match) {
@@ -182,32 +182,32 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
         let currentTermMatched = false;
 
         // Exactly matches symbol (Highest Match)
-        if (c.symbol.toLowerCase() === term) {
+        if ((c.symbol || "").toLowerCase() === term) {
           score += 1200;
           currentTermMatched = true;
           matchedFields.push({ field: "Ticker Match", value: c.symbol });
         }
         // Starts with symbol
-        else if (c.symbol.toLowerCase().startsWith(term)) {
+        else if ((c.symbol || "").toLowerCase().startsWith(term)) {
           score += 600;
           currentTermMatched = true;
           matchedFields.push({ field: "Ticker Prefix", value: c.symbol });
         }
         // Contains symbol
-        else if (c.symbol.toLowerCase().includes(term)) {
+        else if ((c.symbol || "").toLowerCase().includes(term)) {
           score += 300;
           currentTermMatched = true;
           matchedFields.push({ field: "Ticker Substring", value: c.symbol });
         }
 
         // Exactly matches or starts with name
-        if (c.name.toLowerCase() === term || c.name.toLowerCase().startsWith(term)) {
+        if ((c.name || "").toLowerCase() === term || (c.name || "").toLowerCase().startsWith(term)) {
           score += 400;
           currentTermMatched = true;
           matchedFields.push({ field: "Name Match", value: c.name });
         }
         // Contains within name
-        else if (c.name.toLowerCase().includes(term)) {
+        else if ((c.name || "").toLowerCase().includes(term)) {
           score += 150;
           currentTermMatched = true;
           matchedFields.push({ field: "Name Substring", value: c.name });
@@ -217,14 +217,14 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
         if (c.country?.toLowerCase().includes(term)) {
           score += 100;
           currentTermMatched = true;
-          matchedFields.push({ field: "Country Match", value: c.country });
+          matchedFields.push({ field: "Country Match", value: c.country || "" });
         }
 
         // Contains within sector
         if (c.sector?.toLowerCase().includes(term)) {
           score += 150;
           currentTermMatched = true;
-          matchedFields.push({ field: "Sector Match", value: c.sector });
+          matchedFields.push({ field: "Sector Match", value: c.sector || "" });
         }
 
         // Contains within headquarters
@@ -235,7 +235,7 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
         }
 
         // Contains within partner list
-        if (c.partners?.some(p => p.toLowerCase().includes(term))) {
+        if (c.partners?.some(p => (p || "").toLowerCase().includes(term))) {
           score += 150;
           currentTermMatched = true;
           matchedFields.push({ field: "Partner Vector", value: c.partners.join(", ") });
@@ -245,7 +245,7 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
         if (c.domain?.toLowerCase().includes(term)) {
           score += 80;
           currentTermMatched = true;
-          matchedFields.push({ field: "Domain Match", value: c.domain });
+          matchedFields.push({ field: "Domain Match", value: c.domain || "" });
         }
 
         if (currentTermMatched) {

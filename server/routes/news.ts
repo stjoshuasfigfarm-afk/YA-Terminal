@@ -65,7 +65,10 @@ router.get("/:symbol?", async (req, res) => {
         description: n.summary || "",
         published_at: n.datetime ? new Date(n.datetime * 1000).toISOString() : new Date().toISOString(),
         url: n.url || "",
-        image: n.image || ""
+        image: n.image || "",
+        source: n.source || "FINNHUB",
+        category: n.category || "General",
+        related: n.related || ""
       }));
       return res.json(mappedNews);
     }

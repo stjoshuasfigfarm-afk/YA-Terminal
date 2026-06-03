@@ -387,7 +387,7 @@ const GlobePoints = ({
 
         const quote = marketData[company.symbol];
         const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
-        const companyNewsCount = newsData.filter(n => n.symbol === company.symbol).length;
+        const companyNewsCount = (newsData || []).filter(n => n.symbol === company.symbol).length;
         const activityScore = Math.min(1, (volatility / 5) + (companyNewsCount / 10));
 
         return (
@@ -1139,10 +1139,14 @@ const CameraFocus = ({
 
       // @ts-ignore
       if (controls) {
-        // Spin the globe: Keep the camera target at the center of the Earth (0,0,0)
-        // so that OrbitControls rotates the globe naturally around its center.
+        // Apply the offset (e.g., slightly shifted towards the visible area)
+        // Adjusting based on user request "horizontal/vertical offset multiplier"
+        const offset = new THREE.Vector3(0.3, 0.3, 0); 
+        worldTarget.add(offset);
+        
+        // Lerp towards the worldTarget, not (0,0,0)
         // @ts-ignore
-        controls.target.lerp(new THREE.Vector3(0, 0, 0), delta * 8); 
+        controls.target.lerp(worldTarget, delta * 4); 
 
         if (transitionProgress < 1) {
           // Smoothly advance transition progress
@@ -1430,7 +1434,7 @@ const GlobeHeatmap = ({ marketData, newsData, companies }: { marketData: any, ne
     return companies.map(c => {
       const quote = marketData[c.symbol];
       const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
-      const companyNewsCount = newsData.filter(n => n.symbol === c.symbol).length;
+      const companyNewsCount = (newsData || []).filter(n => n.symbol === c.symbol).length;
       const weight = Math.min(1, 0.1 + (volatility / 5) + (companyNewsCount / 8));
       
       if (weight < 0.2) return null;

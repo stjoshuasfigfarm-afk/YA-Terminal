@@ -359,12 +359,12 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       });
     }
 
-    if (searchQuery.trim()) {
-      const queryLower = searchQuery.toLowerCase();
+    if ((searchQuery || "").trim()) {
+      const queryLower = (searchQuery || "").toLowerCase();
       const searchMatches = companies.filter(c => 
-        c.symbol.toLowerCase().includes(queryLower) ||
-        c.name.toLowerCase().includes(queryLower) ||
-        c.sector?.toLowerCase().includes(queryLower)
+        (c.symbol || "").toLowerCase().includes(queryLower) ||
+        (c.name || "").toLowerCase().includes(queryLower) ||
+        (c.sector || "").toLowerCase().includes(queryLower)
       );
       searchMatches.slice(0, 50).forEach(addCo);
     } else {
@@ -381,42 +381,35 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
+  const stopAllAudio = () => {
+    if (audioRef.current) {
+      try { audioRef.current.pause(); } catch (err) {}
+      audioRef.current = null;
+    }
+    if ((window as any)._activeTtsSource) {
+      try { (window as any)._activeTtsSource.stop(); } catch (e) {}
+      (window as any)._activeTtsSource = null;
+    }
+    if ((window as any)._activeTtsSourceMap) {
+      try { (window as any)._activeTtsSourceMap.stop(); } catch (e) {}
+      (window as any)._activeTtsSourceMap = null;
+    }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
+
   useEffect(() => {
     const handleTtsPlay = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail && customEvent.detail.origin !== 'map') {
-        if (audioRef.current) {
-          try {
-            audioRef.current.pause();
-          } catch (err) {}
-          audioRef.current = null;
-        }
-        if ((window as any)._activeTtsSource) {
-          try {
-            (window as any)._activeTtsSource.stop();
-          } catch (err) {}
-          (window as any)._activeTtsSource = null;
-        }
-        if ((window as any)._activeTtsSourceMap) {
-          try {
-            (window as any)._activeTtsSourceMap.stop();
-          } catch (err) {}
-          (window as any)._activeTtsSourceMap = null;
-        }
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        setIsSpeaking(false);
+        stopAllAudio();
       }
     };
 
     if (typeof window !== "undefined") window.addEventListener('app-tts-play', handleTtsPlay);
 
     return () => {
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-        } catch (err) {}
-      }
-      if (window && window.speechSynthesis) window.speechSynthesis.cancel();
+      stopAllAudio();
       if (typeof window !== "undefined") window.removeEventListener('app-tts-play', handleTtsPlay);
     };
   }, []);
@@ -446,7 +439,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         return;
       }
 
-      const key = e.key.toLowerCase();
+      const key = (e.key || "").toLowerCase();
       if (key === "g" || key === "3") {
         e.preventDefault();
         setIs3DMode((prev) => {
@@ -883,15 +876,15 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         return sentiment === mapSentimentFilter;
       });
     }
-    if (searchQuery.trim()) {
+    if ((searchQuery || "").trim()) {
       filtered = filtered.filter(
         (item: any) =>
           (item.headline || item.title || "")
             .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
+            .includes((searchQuery || "").toLowerCase()) ||
           (item.summary || "")
             .toLowerCase()
-            .includes(searchQuery.toLowerCase()),
+            .includes((searchQuery || "").toLowerCase()),
       );
     }
     return filtered;
@@ -901,13 +894,13 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     return isNewsCyclingActive && allNewsData.length > 0
       ? allNewsData.filter(
           (item: any) =>
-            !searchQuery.trim() ||
+            !(searchQuery || "").trim() ||
             (item.headline || item.title || "")
               .toLowerCase()
-              .includes(searchQuery.toLowerCase()) ||
+              .includes((searchQuery || "").toLowerCase()) ||
             (item.summary || "")
               .toLowerCase()
-              .includes(searchQuery.toLowerCase()),
+              .includes((searchQuery || "").toLowerCase()),
         )
       : filteredCompanyCache;
   }, [isNewsCyclingActive, allNewsData, searchQuery, filteredCompanyCache]);
@@ -2426,7 +2419,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                        OPERATIONAL_DIRECTIVES
                      </div>
                      <div className="space-y-1.5">
-                       {briefing.tacticalRecommendations.map((rec: string, idx: number) => (
+                       {(briefing.tacticalRecommendations || []).map((rec: string, idx: number) => (
                          <div key={idx} className="flex gap-2 text-[8.5px] text-zinc-300 font-mono">
                            <span className="text-emerald-500 shrink-0">[{idx + 1}]</span>
                            <span>{rec}</span>

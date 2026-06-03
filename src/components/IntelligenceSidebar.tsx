@@ -248,63 +248,41 @@ export const IntelligenceSidebar = React.memo(
     const ttsCooldownRef = useRef<number>(0);
     const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
-    useEffect(() => {
-      const handleTtsPlay = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (customEvent.detail && customEvent.detail.origin !== 'sidebar') {
-          if (audioRef.current) {
-            try {
-              audioRef.current.pause();
-            } catch (err) {}
-            audioRef.current = null;
-          }
-          if ((window as any)._activeTtsSource) {
-            try {
-              (window as any)._activeTtsSource.stop();
-            } catch (err) {}
-            (window as any)._activeTtsSource = null;
-          }
-          if ((window as any)._activeTtsSourceMap) {
-            try {
-              (window as any)._activeTtsSourceMap.stop();
-            } catch (err) {}
-            (window as any)._activeTtsSourceMap = null;
-          }
-          if (window.speechSynthesis) window.speechSynthesis.cancel();
-          setIsSpeaking(false);
-        }
-      };
+  const stopAllAudio = () => {
+    if (audioRef.current) {
+      try { audioRef.current.pause(); } catch (err) {}
+      audioRef.current = null;
+    }
+    if ((window as any)._activeTtsSource) {
+      try { (window as any)._activeTtsSource.stop(); } catch (e) {}
+      (window as any)._activeTtsSource = null;
+    }
+    if ((window as any)._activeTtsSourceMap) {
+      try { (window as any)._activeTtsSourceMap.stop(); } catch (e) {}
+      (window as any)._activeTtsSourceMap = null;
+    }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
 
-      if (typeof window !== "undefined") window.addEventListener('app-tts-play', handleTtsPlay);
+  useEffect(() => {
+    const handleTtsPlay = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.origin !== 'sidebar') {
+        stopAllAudio();
+      }
+    };
 
-      return () => {
-        if (audioRef.current) {
-          try {
-            audioRef.current.pause();
-          } catch (err) {}
-        }
-        if (window && window.speechSynthesis) window.speechSynthesis.cancel();
-        if (typeof window !== "undefined") window.removeEventListener('app-tts-play', handleTtsPlay);
-      };
-    }, []);
+    if (typeof window !== "undefined") window.addEventListener('app-tts-play', handleTtsPlay);
+
+    return () => {
+      stopAllAudio();
+      if (typeof window !== "undefined") window.removeEventListener('app-tts-play', handleTtsPlay);
+    };
+  }, []);
 
     useEffect(() => {
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-        } catch (err) {}
-        audioRef.current = null;
-        setIsSpeaking(false);
-      }
-      if ((window as any)._activeTtsSource) {
-        try { (window as any)._activeTtsSource.stop(); } catch (e) {}
-        (window as any)._activeTtsSource = null;
-      }
-      if ((window as any)._activeTtsSourceMap) {
-        try { (window as any)._activeTtsSourceMap.stop(); } catch (e) {}
-        (window as any)._activeTtsSourceMap = null;
-      }
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      stopAllAudio();
     }, [innerLeftTab, selectedStock]);
 
     const triggerBrowserFallback = (text: string) => {
@@ -461,8 +439,8 @@ export const IntelligenceSidebar = React.memo(
 
     // Material supply catalog based on stock sector
     const SOURCED_MATERIALS = useMemo(() => {
-      if (!selectedStock) return [];
-      const sector = selectedStock.sector.toLowerCase();
+      if (!selectedStock || !selectedStock.sector) return [];
+      const sector = (selectedStock.sector || "").toLowerCase();
       if (sector.includes("semi") || sector.includes("chips")) {
         return [
           { name: "Monolithic Silicon Wafers (3nm/4nm)", type: "Critical Substrate", vulnerability: "Critical Taiwan Strait", quantity: "45,000 Pcs/mo" },
@@ -595,10 +573,11 @@ export const IntelligenceSidebar = React.memo(
 
     const filteredNews = useMemo(() => {
       return news.filter((item) => {
+        const titleSafe = String(item.title || "");
+        const summarySafe = String(item.summary || "");
         const matchesSearch =
-          item.title.toLowerCase().includes(newsSearch.toLowerCase()) ||
-          (item.summary &&
-            item.summary.toLowerCase().includes(newsSearch.toLowerCase()));
+          titleSafe.toLowerCase().includes((newsSearch || "").toLowerCase()) ||
+          summarySafe.toLowerCase().includes((newsSearch || "").toLowerCase());
 
         if (!matchesSearch) return false;
 
@@ -684,18 +663,52 @@ export const IntelligenceSidebar = React.memo(
                   className="whitespace-nowrap flex gap-12 text-[8px] font-mono font-bold text-zinc-400 py-1"
                 >
                   {news && news.length > 0 ? (
-                    news.slice(0, 8).map((n: any, i: number) => (
+                    news.slice(0, 8).map((n: any, i: number) => {
+                      const tDate = n.published_at ? new Date(n.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+                      const tTitle = (n.title || "").toUpperCase();
+                      return (
                       <span key={i} className="flex items-center gap-2">
-                        <span className="text-emerald-500/80">[{new Date(n.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}]</span>
-                        {n.title.toUpperCase()}
+                        <span className="text-emerald-500/80">[{tDate}]</span>
+                        {tTitle}
                         <span className="text-zinc-800">///</span>
                       </span>
-                    ))
+                    )})
                   ) : (
                     <span>[ SIGNAL_SEARCH_IN_PROGRESS: MONITORING_GLOBAL_SATELLITE_UPLINK ]</span>
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* DETAILED NEWS FEED */}
+            <div className="p-3 border-b border-zinc-900">
+              <div className="text-[9px] font-black uppercase text-emerald-500 mb-2 flex items-center gap-1.5">
+                <Newspaper className="w-3 h-3" />
+                DETAILED INTELLIGENCE FEED
+              </div>
+              {news && news.length > 0 ? (
+                news.slice(0, 8).map((n: any, i: number) => {
+                  const tDate = n.published_at ? new Date(n.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+                  const tTitle = (n.title || "").toUpperCase();
+                  return (
+                  <div key={i} className="flex flex-col gap-0.5 border-b border-zinc-900 pb-1 mb-1 last:border-0 hover:bg-zinc-900/40 p-1 rounded-sm">
+                    <div className="flex items-center justify-between text-[7.5px] font-mono tracking-widest uppercase">
+                      <span className="text-emerald-500/80">{tDate}</span>
+                      <span className="text-zinc-650">{n.source || "FINNHUB"} | {n.category || "GENERAL"}</span>
+                    </div>
+                    <div className="text-[9px] font-bold text-zinc-300 leading-tight">
+                      {tTitle}
+                    </div>
+                    {n.description && (
+                      <div className="text-[8px] text-zinc-500 leading-tight line-clamp-2">
+                        {n.description}
+                      </div>
+                    )}
+                  </div>
+                )})
+              ) : (
+                <div className="text-[8px] text-zinc-700 italic">No news data available.</div>
+              )}
             </div>
 
             {/* SYSTEM MODE CONTROLS */}
@@ -1031,7 +1044,7 @@ export const IntelligenceSidebar = React.memo(
                         
                         <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                           {SOURCED_MATERIALS.map((mat, idx) => {
-                            const isHighRisk = mat.vulnerability.toLowerCase().includes("critical") || mat.vulnerability.toLowerCase().includes("high");
+                            const isHighRisk = (mat.vulnerability || "").toLowerCase().includes("critical") || (mat.vulnerability || "").toLowerCase().includes("high");
                             return (
                               <div key={idx} className="p-2 bg-black/60 border border-zinc-900/40 rounded-sm flex flex-col gap-1 hover:border-emerald-500/25 transition-colors">
                                 <div className="flex items-start justify-between gap-2">
@@ -1313,19 +1326,19 @@ export const IntelligenceSidebar = React.memo(
                   <div className="space-y-3 text-[8.5px]">
                     <div>
                       <span className="text-zinc-500 font-bold uppercase">USGS Hazards:</span>
-                      {partnerData.usgs.map((h: any, i: number) => (
-                        <div key={i} className="text-emerald-400">{h.properties.title}</div>
+                      {(partnerData.usgs || []).map((h: any, i: number) => (
+                        <div key={i} className="text-emerald-400">{h.properties?.title || "Seismic Event"}</div>
                       ))}
                     </div>
                     <div>
                       <span className="text-zinc-500 font-bold uppercase">Whale Alert:</span>
-                      {partnerData.whaleAlert.map((t: any, i: number) => (
+                      {(partnerData.whaleAlert || []).map((t: any, i: number) => (
                         <div key={i} className="text-blue-400">{t.amount} {t.symbol}</div>
                       ))}
                     </div>
                     <div>
                       <span className="text-zinc-500 font-bold uppercase">GDELT Global Monitor:</span>
-                      {partnerData.gdelt?.articles?.slice(0, 3).map((a: any, i: number) => (
+                      {(partnerData.gdelt?.articles || []).slice(0, 3).map((a: any, i: number) => (
                         <div key={i} className="text-zinc-400">{a.title}</div>
                       ))}
                     </div>

@@ -146,12 +146,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelect, isOpen
                             <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-zinc-500 font-sans tracking-wide uppercase">
                               <span className="font-mono font-bold text-zinc-400">[{company.symbol}]</span>
                               <span>•</span>
-                              <span>SYS.{company.sector.replace(/\s+/g, '_')}</span>
+                              <span>SYS.{(company.sector || "UNKNOWN").replace(/\s+/g, '_')}</span>
                               {query.trim() && matchedFields.length > 0 && (
                                 <>
                                   <span>•</span>
                                   <span className="text-emerald-400/90 font-mono text-[7.5px] lowercase bg-emerald-500/5 px-1 border border-emerald-500/15 tracking-tight font-semibold rounded-[1px]">
-                                    matched({matchedFields[0].field.toLowerCase()}: "{matchedFields[0].value.substring(0, 16)}")
+                                    matched({matchedFields[0].field.toLowerCase()}: "{(matchedFields[0].value || "").substring(0, 16)}")
                                   </span>
                                 </>
                               )}

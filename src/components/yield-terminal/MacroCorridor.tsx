@@ -142,7 +142,7 @@ export const MacroCorridor: React.FC<MacroCorridorProps> = ({
             <span>Regional Data Analysis</span>
           </div>
           <h3 className="text-xs font-black text-white uppercase tracking-tight">
-            {activeCorridorId.replace("_", " ")}
+            {(activeCorridorId || "UNKNOWN CORRIDOR").replace("_", " ")}
           </h3>
           <div className="text-[8px] text-zinc-500 font-sans mt-0.5 uppercase truncate max-w-[200px]">
              Tracking: {data?.commodityType || "Loading data..."}

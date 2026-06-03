@@ -292,49 +292,77 @@ export default async function handler(req, res) {
   // Route: /api/history
   if (pathname === "/api/history") {
     if (!symbol) return res.status(400).json({ error: "Missing symbol param" });
+
     const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
     const isKeyReady = (k) => k && k.length > 5 && !k.includes("YOUR_");
 
-    if (isKeyReady(FINNHUB_KEY)) {
+    const to = Math.floor(Date.now() / 1000);
+    const from = to - (60 * 24 * 60 * 60); // 60 days
+    let processed = [];
+    let source = "NONE";
+
+    let yahooSymbol = symbol;
+    if (symbol === "VIX") yahooSymbol = "^VIX";
+
+    // 1. Try Finnhub
+    if (source === "NONE" && isKeyReady(FINNHUB_KEY)) {
       try {
-        const to = Math.floor(Date.now() / 1000);
-        const from = to - (60 * 24 * 60 * 60); // 60 days
         const urlStr = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${FINNHUB_KEY}`;
-        const data = await withCache(`history_${symbol}`, () => fetch(urlStr).then(r => r.json()), 30000);
-        if (data && data.s === "ok" && Array.isArray(data.t)) {
-          const historical = data.t.map((t, i) => ({
-            time: t,
-            open: data.o[i],
-            high: data.h[i],
-            low: data.l[i],
-            close: data.c[i],
-            volume: data.v[i]
-          }));
-          return res.status(200).json({ historical });
+        const data = await withCache(`history_fh_${symbol}`, () => fetch(urlStr).then(r => r.json()), 30000);
+        if (data && data.s === 'ok' && Array.isArray(data.t)) {
+          processed = data.t.map((t, i) => ({
+            timestamp: t * 1000,
+            price: data.c[i]
+          })).filter(d => d.price > 0);
+          if (processed.length > 0) source = "FINNHUB";
         }
-      } catch (e) {
-        console.error("History serverless proxy fetch error:", e);
-      }
+      } catch (e) { console.warn("Finnhub history fetch failed in proxy:", e.message); }
     }
 
-    const mockHistorical = [];
-    const now = Date.now();
-    let lastPrice = 160 + (symbol.charCodeAt(0) % 15) * 6;
-    for (let i = 45; i >= 0; i--) {
-      const date = new Date(now - i * 24 * 60 * 60 * 1000);
-      const open = lastPrice;
-      const close = open + (Math.random() - 0.5) * 6;
-      mockHistorical.push({
-        time: Math.floor(date.getTime() / 1000),
-        open,
-        high: Math.max(open, close) + 2,
-        low: Math.min(open, close) - 2,
-        close,
-        volume: Math.floor(600000 + Math.random() * 1500000)
-      });
-      lastPrice = close;
+    // 2. Try Yahoo Finance
+    if (source === "NONE") {
+      try {
+        const response = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}`, {
+          headers: { "User-Agent": "Mozilla/5.0" }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.chart?.result?.[0]) {
+            const result = data.chart.result[0];
+            const timestamps = result.timestamp;
+            const quoteData = result.indicators.quote[0];
+            const adjData = result.indicators.adjclose ? result.indicators.adjclose[0] : null;
+            const prices = quoteData.close || (adjData ? adjData.adjclose : null);
+            
+            if (timestamps && prices) {
+              processed = timestamps.map((t, i) => ({
+                timestamp: t * 1000,
+                price: prices[i]
+              })).filter(d => d.price != null && d.price > 0);
+              if (processed.length > 0) source = "YAHOO";
+            }
+          }
+        }
+      } catch (e) { console.warn("Yahoo history fetch failed in proxy:", e.message); }
     }
-    return res.status(200).json({ historical: mockHistorical, mock: true });
+
+    // 3. Fallback to Simulation
+    if (source === "NONE") {
+      let hash = 0;
+      for (let i = 0; i < symbol.length; i++) hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
+      const seed = Math.abs(hash);
+      let price = 50 + (seed % 200);
+      for (let i = 0; i < 60; i++) {
+        processed.push({
+          timestamp: Date.now() - (60 - i) * 24 * 60 * 60 * 1000,
+          price: price
+        });
+        price += (Math.random() - 0.5) * 5;
+      }
+      source = "SIMULATION";
+    }
+
+    return res.status(200).json({ processed, source });
   }
 
   // Route: /api/relationships

@@ -41,7 +41,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -80,7 +80,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_0",
+    "symbol": "SMCI_0",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -152,7 +152,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -198,7 +198,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_0",
+    "symbol": "2222.SR_0",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -225,8 +225,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_0",
-    "name": "LVMH",
+    "symbol": "MC.PA_0",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -261,7 +261,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_0",
+    "symbol": "0700.HK_0",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -275,21 +275,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_0",
+    "symbol": "9988.HK_0",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_0",
+    "symbol": "005930.KS_0",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -404,8 +404,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_0",
-    "name": "CATL",
+    "symbol": "300750.SZ_0",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -508,7 +508,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_0",
+    "symbol": "BARC.L_0",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -518,7 +518,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_0",
+    "symbol": "BNP.PA_0",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -574,7 +574,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_0",
+    "symbol": "AIR.PA_0",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -943,7 +943,7 @@
   },
   {
     "symbol": "MC.PA_0",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -1584,7 +1584,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -3962,7 +3962,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -4001,7 +4001,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_1",
+    "symbol": "SMCI_1",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -4073,7 +4073,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -4119,7 +4119,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_1",
+    "symbol": "2222.SR_1",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -4146,8 +4146,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_1",
-    "name": "LVMH",
+    "symbol": "MC.PA_1",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -4182,7 +4182,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_1",
+    "symbol": "0700.HK_1",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -4196,21 +4196,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_1",
+    "symbol": "9988.HK_1",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_1",
+    "symbol": "005930.KS_1",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -4325,8 +4325,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_1",
-    "name": "CATL",
+    "symbol": "300750.SZ_1",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -4429,7 +4429,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_1",
+    "symbol": "BARC.L_1",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -4439,7 +4439,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_1",
+    "symbol": "BNP.PA_1",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -4495,7 +4495,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_1",
+    "symbol": "AIR.PA_1",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -4864,7 +4864,7 @@
   },
   {
     "symbol": "MC.PA_1",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -5505,7 +5505,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -7883,7 +7883,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -7922,7 +7922,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_2",
+    "symbol": "SMCI_2",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -7994,7 +7994,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -8040,7 +8040,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_2",
+    "symbol": "2222.SR_2",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -8067,8 +8067,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_2",
-    "name": "LVMH",
+    "symbol": "MC.PA_2",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -8103,7 +8103,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_2",
+    "symbol": "0700.HK_2",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -8117,21 +8117,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_2",
+    "symbol": "9988.HK_2",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_2",
+    "symbol": "005930.KS_2",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -8246,8 +8246,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_2",
-    "name": "CATL",
+    "symbol": "300750.SZ_2",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -8350,7 +8350,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_2",
+    "symbol": "BARC.L_2",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -8360,7 +8360,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_2",
+    "symbol": "BNP.PA_2",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -8416,7 +8416,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_2",
+    "symbol": "AIR.PA_2",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -8785,7 +8785,7 @@
   },
   {
     "symbol": "MC.PA_2",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -9426,7 +9426,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -11804,7 +11804,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -11843,7 +11843,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_3",
+    "symbol": "SMCI_3",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -11915,7 +11915,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -11961,7 +11961,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_3",
+    "symbol": "2222.SR_3",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -11988,8 +11988,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_3",
-    "name": "LVMH",
+    "symbol": "MC.PA_3",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -12024,7 +12024,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_3",
+    "symbol": "0700.HK_3",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -12038,21 +12038,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_3",
+    "symbol": "9988.HK_3",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_3",
+    "symbol": "005930.KS_3",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -12167,8 +12167,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_3",
-    "name": "CATL",
+    "symbol": "300750.SZ_3",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -12271,7 +12271,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_3",
+    "symbol": "BARC.L_3",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -12281,7 +12281,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_3",
+    "symbol": "BNP.PA_3",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -12337,7 +12337,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_3",
+    "symbol": "AIR.PA_3",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -12706,7 +12706,7 @@
   },
   {
     "symbol": "MC.PA_3",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -13347,7 +13347,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -15725,7 +15725,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -15764,7 +15764,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_4",
+    "symbol": "SMCI_4",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -15836,7 +15836,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -15882,7 +15882,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_4",
+    "symbol": "2222.SR_4",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -15909,8 +15909,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_4",
-    "name": "LVMH",
+    "symbol": "MC.PA_4",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -15945,7 +15945,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_4",
+    "symbol": "0700.HK_4",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -15959,21 +15959,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_4",
+    "symbol": "9988.HK_4",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_4",
+    "symbol": "005930.KS_4",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -16088,8 +16088,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_4",
-    "name": "CATL",
+    "symbol": "300750.SZ_4",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -16192,7 +16192,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_4",
+    "symbol": "BARC.L_4",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -16202,7 +16202,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_4",
+    "symbol": "BNP.PA_4",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -16258,7 +16258,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_4",
+    "symbol": "AIR.PA_4",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -16627,7 +16627,7 @@
   },
   {
     "symbol": "MC.PA_4",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -17268,7 +17268,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -19646,7 +19646,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -19685,7 +19685,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_5",
+    "symbol": "SMCI_5",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -19757,7 +19757,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -19803,7 +19803,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_5",
+    "symbol": "2222.SR_5",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -19830,8 +19830,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_5",
-    "name": "LVMH",
+    "symbol": "MC.PA_5",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -19866,7 +19866,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_5",
+    "symbol": "0700.HK_5",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -19880,21 +19880,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_5",
+    "symbol": "9988.HK_5",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_5",
+    "symbol": "005930.KS_5",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -20009,8 +20009,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_5",
-    "name": "CATL",
+    "symbol": "300750.SZ_5",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -20113,7 +20113,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_5",
+    "symbol": "BARC.L_5",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -20123,7 +20123,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_5",
+    "symbol": "BNP.PA_5",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -20179,7 +20179,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_5",
+    "symbol": "AIR.PA_5",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -20548,7 +20548,7 @@
   },
   {
     "symbol": "MC.PA_5",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -21189,7 +21189,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -23567,7 +23567,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -23606,7 +23606,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_6",
+    "symbol": "SMCI_6",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -23678,7 +23678,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -23724,7 +23724,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_6",
+    "symbol": "2222.SR_6",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -23751,8 +23751,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_6",
-    "name": "LVMH",
+    "symbol": "MC.PA_6",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -23787,7 +23787,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_6",
+    "symbol": "0700.HK_6",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -23801,21 +23801,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_6",
+    "symbol": "9988.HK_6",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_6",
+    "symbol": "005930.KS_6",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -23930,8 +23930,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_6",
-    "name": "CATL",
+    "symbol": "300750.SZ_6",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -24034,7 +24034,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_6",
+    "symbol": "BARC.L_6",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -24044,7 +24044,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_6",
+    "symbol": "BNP.PA_6",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -24100,7 +24100,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_6",
+    "symbol": "AIR.PA_6",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -24469,7 +24469,7 @@
   },
   {
     "symbol": "MC.PA_6",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -25110,7 +25110,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -27488,7 +27488,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -27527,7 +27527,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_7",
+    "symbol": "SMCI_7",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -27599,7 +27599,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -27645,7 +27645,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_7",
+    "symbol": "2222.SR_7",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -27672,8 +27672,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_7",
-    "name": "LVMH",
+    "symbol": "MC.PA_7",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -27708,7 +27708,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_7",
+    "symbol": "0700.HK_7",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -27722,21 +27722,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_7",
+    "symbol": "9988.HK_7",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_7",
+    "symbol": "005930.KS_7",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -27851,8 +27851,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_7",
-    "name": "CATL",
+    "symbol": "300750.SZ_7",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -27955,7 +27955,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_7",
+    "symbol": "BARC.L_7",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -27965,7 +27965,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_7",
+    "symbol": "BNP.PA_7",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -28021,7 +28021,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_7",
+    "symbol": "AIR.PA_7",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -28390,7 +28390,7 @@
   },
   {
     "symbol": "MC.PA_7",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -29031,7 +29031,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -31409,7 +31409,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -31448,7 +31448,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_8",
+    "symbol": "SMCI_8",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -31520,7 +31520,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -31566,7 +31566,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_8",
+    "symbol": "2222.SR_8",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -31593,8 +31593,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_8",
-    "name": "LVMH",
+    "symbol": "MC.PA_8",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -31629,7 +31629,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_8",
+    "symbol": "0700.HK_8",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -31643,21 +31643,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_8",
+    "symbol": "9988.HK_8",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_8",
+    "symbol": "005930.KS_8",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -31772,8 +31772,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_8",
-    "name": "CATL",
+    "symbol": "300750.SZ_8",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -31876,7 +31876,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_8",
+    "symbol": "BARC.L_8",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -31886,7 +31886,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_8",
+    "symbol": "BNP.PA_8",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -31942,7 +31942,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_8",
+    "symbol": "AIR.PA_8",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -32311,7 +32311,7 @@
   },
   {
     "symbol": "MC.PA_8",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -32952,7 +32952,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -35330,7 +35330,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -35369,7 +35369,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_9",
+    "symbol": "SMCI_9",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -35441,7 +35441,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -35487,7 +35487,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_9",
+    "symbol": "2222.SR_9",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -35514,8 +35514,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_9",
-    "name": "LVMH",
+    "symbol": "MC.PA_9",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -35550,7 +35550,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_9",
+    "symbol": "0700.HK_9",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -35564,21 +35564,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_9",
+    "symbol": "9988.HK_9",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_9",
+    "symbol": "005930.KS_9",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -35693,8 +35693,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_9",
-    "name": "CATL",
+    "symbol": "300750.SZ_9",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -35797,7 +35797,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_9",
+    "symbol": "BARC.L_9",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -35807,7 +35807,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_9",
+    "symbol": "BNP.PA_9",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -35863,7 +35863,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_9",
+    "symbol": "AIR.PA_9",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -36232,7 +36232,7 @@
   },
   {
     "symbol": "MC.PA_9",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -36873,7 +36873,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -39251,7 +39251,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -39290,7 +39290,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_10",
+    "symbol": "SMCI_10",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -39362,7 +39362,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -39408,7 +39408,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_10",
+    "symbol": "2222.SR_10",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -39435,8 +39435,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_10",
-    "name": "LVMH",
+    "symbol": "MC.PA_10",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -39471,7 +39471,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_10",
+    "symbol": "0700.HK_10",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -39485,21 +39485,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_10",
+    "symbol": "9988.HK_10",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_10",
+    "symbol": "005930.KS_10",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -39614,8 +39614,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_10",
-    "name": "CATL",
+    "symbol": "300750.SZ_10",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -39718,7 +39718,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_10",
+    "symbol": "BARC.L_10",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -39728,7 +39728,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_10",
+    "symbol": "BNP.PA_10",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -39784,7 +39784,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_10",
+    "symbol": "AIR.PA_10",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -40153,7 +40153,7 @@
   },
   {
     "symbol": "MC.PA_10",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -40794,7 +40794,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -43172,7 +43172,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -43211,7 +43211,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_11",
+    "symbol": "SMCI_11",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -43283,7 +43283,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -43329,7 +43329,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_11",
+    "symbol": "2222.SR_11",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -43356,8 +43356,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_11",
-    "name": "LVMH",
+    "symbol": "MC.PA_11",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -43392,7 +43392,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_11",
+    "symbol": "0700.HK_11",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -43406,21 +43406,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_11",
+    "symbol": "9988.HK_11",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_11",
+    "symbol": "005930.KS_11",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -43535,8 +43535,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_11",
-    "name": "CATL",
+    "symbol": "300750.SZ_11",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -43639,7 +43639,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_11",
+    "symbol": "BARC.L_11",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -43649,7 +43649,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_11",
+    "symbol": "BNP.PA_11",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -43705,7 +43705,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_11",
+    "symbol": "AIR.PA_11",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -44074,7 +44074,7 @@
   },
   {
     "symbol": "MC.PA_11",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -44715,7 +44715,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -47093,7 +47093,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -47132,7 +47132,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_12",
+    "symbol": "SMCI_12",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -47204,7 +47204,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -47250,7 +47250,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_12",
+    "symbol": "2222.SR_12",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -47277,8 +47277,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_12",
-    "name": "LVMH",
+    "symbol": "MC.PA_12",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -47313,7 +47313,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_12",
+    "symbol": "0700.HK_12",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -47327,21 +47327,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_12",
+    "symbol": "9988.HK_12",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_12",
+    "symbol": "005930.KS_12",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -47456,8 +47456,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_12",
-    "name": "CATL",
+    "symbol": "300750.SZ_12",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -47560,7 +47560,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_12",
+    "symbol": "BARC.L_12",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -47570,7 +47570,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_12",
+    "symbol": "BNP.PA_12",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -47626,7 +47626,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_12",
+    "symbol": "AIR.PA_12",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -47995,7 +47995,7 @@
   },
   {
     "symbol": "MC.PA_12",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -48636,7 +48636,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -51014,7 +51014,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -51053,7 +51053,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_13",
+    "symbol": "SMCI_13",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -51125,7 +51125,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -51171,7 +51171,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_13",
+    "symbol": "2222.SR_13",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -51198,8 +51198,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_13",
-    "name": "LVMH",
+    "symbol": "MC.PA_13",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -51234,7 +51234,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_13",
+    "symbol": "0700.HK_13",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -51248,21 +51248,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_13",
+    "symbol": "9988.HK_13",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_13",
+    "symbol": "005930.KS_13",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -51377,8 +51377,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_13",
-    "name": "CATL",
+    "symbol": "300750.SZ_13",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -51481,7 +51481,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_13",
+    "symbol": "BARC.L_13",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -51491,7 +51491,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_13",
+    "symbol": "BNP.PA_13",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -51547,7 +51547,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_13",
+    "symbol": "AIR.PA_13",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -51916,7 +51916,7 @@
   },
   {
     "symbol": "MC.PA_13",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -52557,7 +52557,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -54935,7 +54935,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -54974,7 +54974,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_14",
+    "symbol": "SMCI_14",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -55046,7 +55046,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -55092,7 +55092,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_14",
+    "symbol": "2222.SR_14",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -55119,8 +55119,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_14",
-    "name": "LVMH",
+    "symbol": "MC.PA_14",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -55155,7 +55155,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_14",
+    "symbol": "0700.HK_14",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -55169,21 +55169,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_14",
+    "symbol": "9988.HK_14",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_14",
+    "symbol": "005930.KS_14",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -55298,8 +55298,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_14",
-    "name": "CATL",
+    "symbol": "300750.SZ_14",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -55402,7 +55402,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_14",
+    "symbol": "BARC.L_14",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -55412,7 +55412,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_14",
+    "symbol": "BNP.PA_14",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -55468,7 +55468,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_14",
+    "symbol": "AIR.PA_14",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -55837,7 +55837,7 @@
   },
   {
     "symbol": "MC.PA_14",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -56478,7 +56478,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -58856,7 +58856,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -58895,7 +58895,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_15",
+    "symbol": "SMCI_15",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -58967,7 +58967,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -59013,7 +59013,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_15",
+    "symbol": "2222.SR_15",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -59040,8 +59040,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_15",
-    "name": "LVMH",
+    "symbol": "MC.PA_15",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -59076,7 +59076,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_15",
+    "symbol": "0700.HK_15",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -59090,21 +59090,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_15",
+    "symbol": "9988.HK_15",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_15",
+    "symbol": "005930.KS_15",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -59219,8 +59219,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_15",
-    "name": "CATL",
+    "symbol": "300750.SZ_15",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -59323,7 +59323,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_15",
+    "symbol": "BARC.L_15",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -59333,7 +59333,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_15",
+    "symbol": "BNP.PA_15",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -59389,7 +59389,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_15",
+    "symbol": "AIR.PA_15",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -59758,7 +59758,7 @@
   },
   {
     "symbol": "MC.PA_15",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -60399,7 +60399,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -62777,7 +62777,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -62816,7 +62816,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_16",
+    "symbol": "SMCI_16",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -62888,7 +62888,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -62934,7 +62934,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_16",
+    "symbol": "2222.SR_16",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -62961,8 +62961,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_16",
-    "name": "LVMH",
+    "symbol": "MC.PA_16",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -62997,7 +62997,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_16",
+    "symbol": "0700.HK_16",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -63011,21 +63011,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_16",
+    "symbol": "9988.HK_16",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_16",
+    "symbol": "005930.KS_16",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -63140,8 +63140,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_16",
-    "name": "CATL",
+    "symbol": "300750.SZ_16",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -63244,7 +63244,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_16",
+    "symbol": "BARC.L_16",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -63254,7 +63254,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_16",
+    "symbol": "BNP.PA_16",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -63310,7 +63310,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_16",
+    "symbol": "AIR.PA_16",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -63679,7 +63679,7 @@
   },
   {
     "symbol": "MC.PA_16",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -64320,7 +64320,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -66698,7 +66698,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -66737,7 +66737,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_17",
+    "symbol": "SMCI_17",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -66809,7 +66809,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -66855,7 +66855,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_17",
+    "symbol": "2222.SR_17",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -66882,8 +66882,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_17",
-    "name": "LVMH",
+    "symbol": "MC.PA_17",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -66918,7 +66918,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_17",
+    "symbol": "0700.HK_17",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -66932,21 +66932,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_17",
+    "symbol": "9988.HK_17",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_17",
+    "symbol": "005930.KS_17",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -67061,8 +67061,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_17",
-    "name": "CATL",
+    "symbol": "300750.SZ_17",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -67165,7 +67165,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_17",
+    "symbol": "BARC.L_17",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -67175,7 +67175,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_17",
+    "symbol": "BNP.PA_17",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -67231,7 +67231,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_17",
+    "symbol": "AIR.PA_17",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -67600,7 +67600,7 @@
   },
   {
     "symbol": "MC.PA_17",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -68241,7 +68241,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -70619,7 +70619,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -70658,7 +70658,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_18",
+    "symbol": "SMCI_18",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -70730,7 +70730,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -70776,7 +70776,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_18",
+    "symbol": "2222.SR_18",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -70803,8 +70803,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_18",
-    "name": "LVMH",
+    "symbol": "MC.PA_18",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -70839,7 +70839,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_18",
+    "symbol": "0700.HK_18",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -70853,21 +70853,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_18",
+    "symbol": "9988.HK_18",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_18",
+    "symbol": "005930.KS_18",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -70982,8 +70982,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_18",
-    "name": "CATL",
+    "symbol": "300750.SZ_18",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -71086,7 +71086,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_18",
+    "symbol": "BARC.L_18",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -71096,7 +71096,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_18",
+    "symbol": "BNP.PA_18",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -71152,7 +71152,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_18",
+    "symbol": "AIR.PA_18",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -71521,7 +71521,7 @@
   },
   {
     "symbol": "MC.PA_18",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -72162,7 +72162,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],
@@ -74540,7 +74540,7 @@
     "partners": [
       "TSM",
       "ARM",
-      "SMC"
+      "SMCI"
     ],
     "workforce": "26,000",
     "headquarters": "Santa Clara, CA",
@@ -74579,7 +74579,7 @@
     "domain": "asml.com"
   },
   {
-    "symbol": "SMC_19",
+    "symbol": "SMCI_19",
     "name": "Super Micro",
     "sector": "Technology",
     "lat": 37.3794,
@@ -74651,7 +74651,7 @@
     "lng": -97.6258,
     "country": "USA",
     "partners": [
-      "CATL",
+      "300750.SZ",
       "PANASONIC",
       "PARK"
     ],
@@ -74697,7 +74697,7 @@
     "domain": "shell.com"
   },
   {
-    "symbol": "ARAMCO_19",
+    "symbol": "2222.SR_19",
     "name": "Saudi Aramco",
     "sector": "Energy",
     "lat": 26.3861,
@@ -74724,8 +74724,8 @@
     "domain": "amazon.com"
   },
   {
-    "symbol": "LVMH_19",
-    "name": "LVMH",
+    "symbol": "MC.PA_19",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8718,
     "lng": 2.3015,
@@ -74760,7 +74760,7 @@
     "domain": "adidas.com"
   },
   {
-    "symbol": "700_19",
+    "symbol": "0700.HK_19",
     "name": "Tencent",
     "sector": "Technology",
     "lat": 22.5431,
@@ -74774,21 +74774,21 @@
     "headquarters": "Shenzhen, China"
   },
   {
-    "symbol": "9988_19",
+    "symbol": "9988.HK_19",
     "name": "Alibaba",
     "sector": "Technology",
     "lat": 30.2741,
     "lng": 120.1551,
     "country": "CHN",
     "partners": [
-      "700",
+      "0700.HK",
       "JD"
     ],
     "domain": "alibaba.com",
     "headquarters": "Hangzhou, China"
   },
   {
-    "symbol": "005930_19",
+    "symbol": "005930.KS_19",
     "name": "Samsung Electronics",
     "sector": "Technology",
     "lat": 37.2636,
@@ -74903,8 +74903,8 @@
     "headquarters": "Purchase, NY"
   },
   {
-    "symbol": "CATL_19",
-    "name": "CATL",
+    "symbol": "300750.SZ_19",
+    "name": "300750.SZ",
     "sector": "Industrials",
     "lat": 26.6655,
     "lng": 119.5479,
@@ -75007,7 +75007,7 @@
     "headquarters": "Zurich, Switzerland"
   },
   {
-    "symbol": "BARC_19",
+    "symbol": "BARC.L_19",
     "name": "Barclays",
     "sector": "Financial Services",
     "lat": 51.5049,
@@ -75017,7 +75017,7 @@
     "headquarters": "London, UK"
   },
   {
-    "symbol": "BNP_19",
+    "symbol": "BNP.PA_19",
     "name": "BNP Paribas",
     "sector": "Financial Services",
     "lat": 48.8722,
@@ -75073,7 +75073,7 @@
     "country": "USA"
   },
   {
-    "symbol": "AIR_19",
+    "symbol": "AIR.PA_19",
     "name": "Airbus",
     "sector": "Industrials",
     "lat": 43.6047,
@@ -75442,7 +75442,7 @@
   },
   {
     "symbol": "MC.PA_19",
-    "name": "LVMH",
+    "name": "MC.PA",
     "sector": "Consumer Cyclical",
     "lat": 48.8566,
     "lng": 2.3522,
@@ -76083,7 +76083,7 @@
     "lng": 114.1694,
     "country": "USA",
     "partners": [
-      "700",
+      "0700.HK",
       "TSM",
       "BABA"
     ],

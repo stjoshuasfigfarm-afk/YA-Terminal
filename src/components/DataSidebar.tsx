@@ -369,7 +369,7 @@ export const DataSidebar = React.memo(({
                 <div className="p-3 border-b border-zinc-900 bg-emerald-950/5">
                   <div className="text-[7.5px] text-emerald-500 font-mono font-bold uppercase tracking-widest mb-2">PARTNERSHIP_DEALS</div>
                   <div className="flex flex-wrap gap-1">
-                    {selectedStock.partners.map((p: string) => (
+                    {(selectedStock.partners || []).map((p: string) => (
                       <span key={p} className="bg-emerald-900/20 text-emerald-400 text-[7px] px-1.5 py-0.5 rounded-sm border border-emerald-500/30 uppercase font-mono tracking-wider">
                         {p}
                       </span>

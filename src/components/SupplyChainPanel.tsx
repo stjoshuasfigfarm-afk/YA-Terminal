@@ -31,7 +31,7 @@ export const SupplyChainPanel = ({ company, onSelectNode }: { company: Company, 
 
   // Determine active commodity theme
   const commodityTheme = useMemo(() => {
-    const sector = company.sector.toLowerCase();
+    const sector = (company.sector || "").toLowerCase();
     if (sector.includes("semi") || sector.includes("chips")) {
       return {
         name: "Rare Earths & Advanced Silicon Value Chain",

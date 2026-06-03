@@ -28,7 +28,7 @@ export function useSiloPrice(symbol: string) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!symbol) {
+    if (!symbol || typeof symbol !== "string") {
       setPriceData(null);
       setLoading(false);
       return;
