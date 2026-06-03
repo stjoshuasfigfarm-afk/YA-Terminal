@@ -27,11 +27,13 @@ export const AccessWall: React.FC = () => {
     const verifyToken = async (token: string) => {
         try {
             const baseUrl = getApiBaseUrl();
+            console.log("baseUrl:", baseUrl);
             const response = await fetch(`${baseUrl}/api/verify/verify-token`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token })
             });
+            console.log("Response status:", response.status);
             const data = await response.json();
             if (data.authorized) {
                 setIsUnlocked(true);

@@ -21,6 +21,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import { COMPANIES, Company } from "../data/companies";
+import { useCompanies } from "../context/CompaniesContext";
 import {
   TrendingUp,
   MessageSquare,
@@ -271,6 +272,7 @@ interface MapLayerProps {
   isVocalizerEnabled: boolean;
   onToggleVocalizer: (val: boolean) => void;
   riskScore?: number;
+  relationships?: { suppliers: any[]; customers: any[] };
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({
@@ -306,8 +308,72 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   isVocalizerEnabled,
   onToggleVocalizer,
   riskScore = 25,
+  relationships = { suppliers: [], customers: [] },
 }) => {
   const setIsVocalizerEnabled = onToggleVocalizer;
+  const { companies: contextCompanies } = useCompanies();
+  const companies = useMemo(() => {
+    return contextCompanies && contextCompanies.length > 0 ? contextCompanies : COMPANIES;
+  }, [contextCompanies]);
+
+  const companiesToRender = useMemo(() => {
+    const set = new Set<string>();
+    const list: Company[] = [];
+
+    const addCo = (c: Company) => {
+      if (!c || set.has(c.symbol)) return;
+      set.add(c.symbol);
+      list.push(c);
+    };
+
+    if (selectedStock) addCo(selectedStock);
+    if (focusStock) addCo(focusStock);
+
+    if (selectedStock && relationships) {
+      if (Array.isArray(relationships.suppliers)) {
+        relationships.suppliers.forEach(s => {
+          const matched = companies.find(c => c.symbol === s.symbol);
+          if (matched) addCo(matched);
+        });
+      }
+      if (Array.isArray(relationships.customers)) {
+        relationships.customers.forEach(cust => {
+          const matched = companies.find(c => c.symbol === cust.symbol);
+          if (matched) addCo(matched);
+        });
+      }
+    }
+
+    const anchor = networkAnchor || selectedStock;
+    if (anchor) {
+      if (anchor.partners) {
+        anchor.partners.forEach(sym => {
+          const matched = companies.find(c => c.symbol === sym);
+          if (matched) addCo(matched);
+        });
+      }
+      companies.forEach(fromStock => {
+        if (fromStock.partners?.includes(anchor.symbol)) {
+          addCo(fromStock);
+        }
+      });
+    }
+
+    if (searchQuery.trim()) {
+      const queryLower = searchQuery.toLowerCase();
+      const searchMatches = companies.filter(c => 
+        c.symbol.toLowerCase().includes(queryLower) ||
+        c.name.toLowerCase().includes(queryLower) ||
+        c.sector?.toLowerCase().includes(queryLower)
+      );
+      searchMatches.slice(0, 50).forEach(addCo);
+    } else {
+      COMPANIES.forEach(addCo);
+    }
+
+    return list;
+  }, [companies, selectedStock, focusStock, relationships, searchQuery, networkAnchor, showGlobalNetwork]);
+
   const [is3DMode, setIs3DMode] = useState(true);
   const [showNewsSummary, setShowNewsSummary] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -316,16 +382,48 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
   useEffect(() => {
+    const handleTtsPlay = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.origin !== 'map') {
+        if (audioRef.current) {
+          try {
+            audioRef.current.pause();
+          } catch (err) {}
+          audioRef.current = null;
+        }
+        if ((window as any)._activeTtsSource) {
+          try {
+            (window as any)._activeTtsSource.stop();
+          } catch (err) {}
+          (window as any)._activeTtsSource = null;
+        }
+        if ((window as any)._activeTtsSourceMap) {
+          try {
+            (window as any)._activeTtsSourceMap.stop();
+          } catch (err) {}
+          (window as any)._activeTtsSourceMap = null;
+        }
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+      }
+    };
+
+    if (typeof window !== "undefined") window.addEventListener('app-tts-play', handleTtsPlay);
+
     return () => {
       if (audioRef.current) {
-        audioRef.current.pause();
+        try {
+          audioRef.current.pause();
+        } catch (err) {}
       }
+      if (window && window.speechSynthesis) window.speechSynthesis.cancel();
+      if (typeof window !== "undefined") window.removeEventListener('app-tts-play', handleTtsPlay);
     };
   }, []);
 
   // Generate heatmap data based on market activity
   const heatmapData = useMemo(() => {
-    return COMPANIES.map(c => {
+    return companiesToRender.map(c => {
       if (!isSafeLatLng(c.lat, c.lng)) return null;
       const quote = marketData[c.symbol];
       const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
@@ -334,7 +432,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       const weight = Math.min(1, 0.1 + (volatility / 5) + (companyNewsCount / 8));
       return [Number(c.lat), Number(c.lng), weight] as [number, number, number];
     }).filter((x): x is [number, number, number] => x !== null);
-  }, [marketData, allNewsData]);
+  }, [companiesToRender, marketData, allNewsData]);
 
   // Global Keydown Hotkeys for HUD controls mapping
   useEffect(() => {
@@ -415,7 +513,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   useEffect(() => {
     const feed = isNewsCyclingActive && allNewsData.length > 0 ? allNewsData : filteredCompanyCache;
     const current = feed[activeNewsIdx % feed.length];
-    const company = COMPANIES.find(c => c.symbol === (current?.symbol || current?.ticker));
+    const company = companies.find(c => c.symbol === (current?.symbol || current?.ticker));
     
     if (company && isSafeLatLng(company.lat, company.lng)) {
       setNeuralBloom({ 
@@ -528,9 +626,26 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     // Stop any current speaking
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     if (audioRef.current) {
-      audioRef.current.pause();
+      try {
+        audioRef.current.pause();
+      } catch (e) {}
       audioRef.current = null;
     }
+    if ((window as any)._activeTtsSource) {
+      try {
+        (window as any)._activeTtsSource.stop();
+      } catch (e) {}
+      (window as any)._activeTtsSource = null;
+    }
+    if ((window as any)._activeTtsSourceMap) {
+      try {
+        (window as any)._activeTtsSourceMap.stop();
+      } catch (e) {}
+      (window as any)._activeTtsSourceMap = null;
+    }
+
+    // Stop other speakers like sidebar
+    window.dispatchEvent(new CustomEvent('app-tts-play', { detail: { origin: 'map' } }));
     
     // Check for cooldown (rate limiting from server)
     if (Date.now() < ttsCooldownRef.current) {
@@ -562,52 +677,53 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       
       const data = await response.json();
       if (data.audio) {
-        // Handle Gemini TTS output (usually base64 raw PCM or WAV)
+        // Handle Gemini TTS output: directly decode PCM for optimal stability
         try {
-          // Attempt to play as standard Audio if it contains a header (like WAV)
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+          const binaryString = atob(data.audio);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const pcmData = new Int16Array(bytes.buffer);
+          const float32Data = new Float32Array(pcmData.length);
+          for (let i = 0; i < pcmData.length; i++) {
+            float32Data[i] = pcmData[i] / 32768.0;
+          }
+          
+          const buffer = audioCtx.createBuffer(1, float32Data.length, 24000);
+          buffer.getChannelData(0).set(float32Data);
+          
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioCtx.destination);
+          source.onended = () => {
+            setIsSpeaking(false);
+            if ((window as any)._activeTtsSourceMap === source) {
+              (window as any)._activeTtsSourceMap = null;
+            }
+          };
+          
+          (window as any)._activeTtsSourceMap = source;
+          setIsSpeaking(true);
+          source.start();
+        } catch (pcmErr) {
+          console.warn("PCM Playback failed, trying standard HTML5 audio fallbacks:", pcmErr);
           const audio = new Audio("data:audio/wav;base64," + data.audio);
           audioRef.current = audio;
           audio.onended = () => {
             setIsSpeaking(false);
             audioRef.current = null;
           };
-          
-          audio.onerror = async () => {
-            // If Audio element fails, it's likely raw PCM 24kHz. Fallback to AudioContext.
-            try {
-              const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-              const binaryString = atob(data.audio);
-              const bytes = new Uint8Array(binaryString.length);
-              for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-              }
-              const pcmData = new Int16Array(bytes.buffer);
-              const float32Data = new Float32Array(pcmData.length);
-              for (let i = 0; i < pcmData.length; i++) {
-                float32Data[i] = pcmData[i] / 32768.0;
-              }
-              
-              const buffer = audioCtx.createBuffer(1, float32Data.length, 24000);
-              buffer.getChannelData(0).set(float32Data);
-              
-              const source = audioCtx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(audioCtx.destination);
-              source.onended = () => setIsSpeaking(false);
-              setIsSpeaking(true);
-              source.start();
-            } catch (pcmErr) {
-              console.error("PCM Playback failed:", pcmErr);
-              // Final fallback to browser synthesis
-              triggerBrowserFallback(text);
-            }
+          audio.onerror = () => {
+            setIsSpeaking(false);
+            triggerBrowserFallback(text);
           };
-
           setIsSpeaking(true);
-          await audio.play();
-        } catch (playErr) {
-          console.warn("Direct audio play failed, trying PCM fallback", playErr);
-          triggerBrowserFallback(text);
+          await audio.play().catch((playErr) => {
+            console.warn("Direct HTML5 audio play failed:", playErr);
+            triggerBrowserFallback(text);
+          });
         }
       }
     } catch (err: any) {
@@ -754,7 +870,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     };
   }, []);
 
-  const activeCompanyForCache = focusStock || selectedStock || COMPANIES[0];
+  const activeCompanyForCache = focusStock || selectedStock || companies[0];
   const companyCache = useMemo(() => {
     return liveNewsCache[activeCompanyForCache.symbol] || [];
   }, [liveNewsCache, activeCompanyForCache.symbol]);
@@ -820,7 +936,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         setActiveNewsIdx(0);
         setLastTimerReset(Date.now());
       }
-      const company = COMPANIES.find(
+      const company = companies.find(
         (c) => c.symbol === (currentLatest.symbol || currentLatest.ticker),
       );
       if (company && isNewsCyclingActive) {
@@ -858,7 +974,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     if (feed.length === 0) return;
 
     const currentNews = feed[activeNewsIdx % feed.length];
-    const company = COMPANIES.find(
+    const company = companies.find(
       (c) => c.symbol === (currentNews?.symbol || currentNews?.ticker),
     );
     if (company && company.symbol !== selectedStock?.symbol) {
@@ -989,7 +1105,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   const activePosition = React.useMemo((): [number, number] | null => {
     try {
       if (isNewsCyclingActive && currentNewsItem) {
-        const company = COMPANIES.find(
+        const company = companies.find(
           (c) =>
             c.symbol === (currentNewsItem?.symbol || currentNewsItem?.ticker),
         );
@@ -1130,14 +1246,14 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     // 1. If hovered, show all its connections
     if (hoveredCompany && hoveredCompany.partners) {
       hoveredCompany.partners.forEach((pSymbol) => {
-        const partner = COMPANIES.find((c) => c.symbol === pSymbol);
+        const partner = companies.find((c) => c.symbol === pSymbol);
         if (partner) addLine(hoveredCompany, partner, "#34d399"); // emerald-400
       });
     }
     // 2. If Pinned Tab + selectedStock
     if (activeTab === "PINNED" && selectedStock && selectedStock.partners) {
       selectedStock.partners.forEach((pSymbol) => {
-        const partner = COMPANIES.find((c) => c.symbol === pSymbol);
+        const partner = companies.find((c) => c.symbol === pSymbol);
         if (partner) addLine(selectedStock, partner, "#ffffff"); // Highlight selected
       });
     }
@@ -1146,21 +1262,41 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     if (showGlobalNetwork && anchor) {
       if (anchor.partners) {
         anchor.partners.forEach((pSymbol) => {
-          const partner = COMPANIES.find((c) => c.symbol === pSymbol);
+          const partner = companies.find((c) => c.symbol === pSymbol);
           if (partner) addLine(anchor, partner, "#10b981"); // emerald-500
         });
       }
       
       // Also show incoming connections
-      COMPANIES.forEach(fromStock => {
+      companies.forEach(fromStock => {
         if (fromStock.partners?.includes(anchor.symbol)) {
           addLine(fromStock, anchor, "#eab308"); // yellow-500 for incoming
         }
       });
     }
 
+    // 4. Draw dynamic supplier & customer stream nodes for selectedStock
+    if (selectedStock && relationships) {
+      if (Array.isArray(relationships.suppliers)) {
+        relationships.suppliers.forEach((s) => {
+          const partner = companies.find((c) => c.symbol === s.symbol);
+          if (partner) {
+            addLine(partner, selectedStock, "#38bdf8"); // sky-400 (Incoming supplier stream)
+          }
+        });
+      }
+      if (Array.isArray(relationships.customers)) {
+        relationships.customers.forEach((c) => {
+          const partner = companies.find((comp) => comp.symbol === c.symbol);
+          if (partner) {
+            addLine(selectedStock, partner, "#f97316"); // orange-500 (Outgoing customer stream)
+          }
+        });
+      }
+    }
+
     return lines;
-  }, [selectedStock, activeTab, hoveredCompany, showGlobalNetwork, networkAnchor]);
+  }, [selectedStock, activeTab, hoveredCompany, showGlobalNetwork, networkAnchor, relationships]);
 
   // Ref to store markers for programmatic popup opening
   const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
@@ -1428,7 +1564,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                       )}
                       onClick={() => {
                         setShowNewsSummary(true);
-                        const company = COMPANIES.find((c) => c.symbol === (currentItem.symbol || currentItem.ticker));
+                        const company = companies.find((c) => c.symbol === (currentItem.symbol || currentItem.ticker));
                         if (company) onSelectNode(company, false);
                       }}
                     >
@@ -1466,7 +1602,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                           const text = `${item.translatedTitle || item.headline || item.title || item.name}.`;
                           speakWithEnhancedVoice(text);
                         }
-                        const company = COMPANIES.find((c) => c.symbol === (item.symbol || item.ticker));
+                        const company = companies.find((c) => c.symbol === (item.symbol || item.ticker));
                         if (company) onSelectNode(company, true);
                       }
                     }
@@ -1487,7 +1623,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                           const text = `${item.translatedTitle || item.headline || item.title || item.name}.`;
                           speakWithEnhancedVoice(text);
                         }
-                        const company = COMPANIES.find((c) => c.symbol === (item.symbol || item.ticker));
+                        const company = companies.find((c) => c.symbol === (item.symbol || item.ticker));
                         if (company) onSelectNode(company, true);
                       }
                     }
@@ -1566,10 +1702,12 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           className="w-full h-full bg-[#13263a]"
           zoomControl={false}
           attributionControl={false}
-          dragging={!viewportLock && !isNewsCyclingActive && !is3DMode}
-          touchZoom={!viewportLock && !isNewsCyclingActive && !is3DMode}
-          doubleClickZoom={!viewportLock && !isNewsCyclingActive && !is3DMode}
-          scrollWheelZoom={!viewportLock && !isNewsCyclingActive && !is3DMode}
+          dragging={false}
+          touchZoom={false}
+          doubleClickZoom={false}
+          scrollWheelZoom={false}
+          boxZoom={false}
+          keyboard={false}
         >
           {mapLayers.satellite ? (
             <TileLayer
@@ -1673,7 +1811,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             />
           )}
 
-          {mapLayers.hq && COMPANIES.map((company, index) => {
+          {mapLayers.hq && companiesToRender.map((company, index) => {
             if (!isSafeLatLng(company.lat, company.lng)) return null;
 
             const isSelected = selectedStock?.symbol === company.symbol;
@@ -2209,8 +2347,20 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                   <button
                     onClick={() => {
                       if (isSpeaking) {
-                        window.speechSynthesis.cancel();
-                        // Also clear custom audio if mapped, though MapLayer manages that in speakWithEnhancedVoice
+                        if (window.speechSynthesis) window.speechSynthesis.cancel();
+                        if (audioRef.current) {
+                          try {
+                            audioRef.current.pause();
+                          } catch (e) {}
+                          audioRef.current = null;
+                        }
+                        if ((window as any)._activeTtsSourceMap) {
+                          try {
+                            (window as any)._activeTtsSourceMap.stop();
+                          } catch (e) {}
+                          (window as any)._activeTtsSourceMap = null;
+                        }
+                        setIsSpeaking(false);
                       } else {
                         speakWithEnhancedVoice(briefing ? (briefing.summary || briefing.text || "Analyzing...") : typedBriefing);
                       }
@@ -2458,7 +2608,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                                   item.published_at ||
                                     item.timestamp ||
                                     Date.now(),
-                                ).toLocaleTimeString()}
+                                ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                               </span>
                             </div>
                             <div className="text-[11px] text-emerald-400/90 font-bold group-hover:text-emerald-300 transition-colors">
@@ -2564,7 +2714,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                 </div>
 
                 <div className="text-[7.5px] text-zinc-500/90 mt-2 font-normal tracking-wider normal-case border-t border-emerald-500/10 pt-2 px-4 max-w-[150px] mx-auto">
-                  {COMPANIES.find(
+                  {companies.find(
                     (c) =>
                       c.symbol === (currentItem?.symbol || currentItem?.ticker),
                   )?.headquarters ?? "QUANTUM_NODE_PRIMARY"}

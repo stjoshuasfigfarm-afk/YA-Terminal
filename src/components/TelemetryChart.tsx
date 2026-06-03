@@ -3,8 +3,8 @@ import { Activity, TrendingUp } from "lucide-react";
 import { formatCurrency, cn } from "../lib/utils";
 import { useTerminal } from "../context/TerminalContext";
 import { 
-  AreaChart, 
-  Area, 
+  LineChart, 
+  Line, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -55,15 +55,11 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
 
   const chartData = useMemo(() => {
     // Process historical data
-    const historical = [...data].map(d => ({
-      timestamp: d.time ? Number(d.time) * 1000 : new Date(d.date).getTime(),
-      price: d.close || d.price || 0,
-    })).filter(d => !isNaN(d.timestamp) && d.timestamp > 0);
-
-    // Merge historical with live heartbeat telemetry
-    const merged = [...historical, ...liveTicks]
-       .sort((a, b) => a.timestamp - b.timestamp);
-
+    const historical = [...data].filter(d => d.timestamp > 0 && d.price > 0);
+    
+    // Concatenate historical and live heartbeat telemetry
+    const merged = [...historical, ...liveTicks].sort((a, b) => a.timestamp - b.timestamp);
+    
     if (merged.length === 0) return [];
     
     const now = Date.now();
@@ -135,13 +131,7 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
 
       <div className="flex-1 w-full mt-4 -mb-1 opacity-80 transition-opacity group-hover:opacity-100">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.15}/>
-                <stop offset="95%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
+          <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} />
             <XAxis hide dataKey="timestamp" />
             <YAxis hide domain={['auto', 'auto']} />
@@ -157,17 +147,16 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
               labelStyle={{ display: 'none' }}
               formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, 'PRICE']}
             />
-            <Area 
+            <Line 
               type="monotone" 
               dataKey="price" 
               stroke={stats.isPositive ? "#10b981" : "#ef4444"} 
               strokeWidth={2}
-              fillOpacity={1} 
-              fill="url(#chartGradient)" 
               dot={false}
+              connectNulls={true}
               activeDot={{ r: 3, fill: stats.isPositive ? "#10b981" : "#ef4444", strokeWidth: 0 }}
             />
-          </AreaChart>
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>

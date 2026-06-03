@@ -13,8 +13,8 @@ try {
     experimentalForceLongPolling: true,
   }, firebaseConfig.firestoreDatabaseId);
 } catch (e) {
-  console.error("Error initializing Firestore, using fallback:", e);
-  db = getFirestore(app);
+  console.error("Error initializing Firestore, using fallback with correct database ID:", e);
+  db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 }
 
 export { db };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { cn, getApiBaseUrl } from '../lib/utils';
+import { useCompanies } from '../context/CompaniesContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -33,6 +34,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setAutoRotateEnabled,
   logs = []
 }) => {
+  const { companies, tickerLimit, setTickerLimit, totalAvailable } = useCompanies();
+
   if (!isOpen) return null;
 
   const [orKey, setOrKey] = useState(() => localStorage.getItem('openrouter_api_key') || '');
@@ -252,6 +255,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
              ))}
+          </div>
+
+          {/* Ticker Range / Capacity Control */}
+          <div className="border-t border-zinc-900 pt-5 space-y-4">
+             <div className="flex justify-between items-center">
+                <h3 className="text-[8px] font-bold text-emerald-500 uppercase tracking-[0.2em]">Ticker Capacity</h3>
+                <span className="text-[7.5px] text-zinc-500 font-mono tracking-wider">{companies.length} / {totalAvailable} ACTIVE</span>
+             </div>
+             
+             <div className="space-y-3">
+               <div className="space-y-1.5">
+                 <div className="flex justify-between text-[9px]">
+                   <span className="text-zinc-400">LOAD LIMIT</span>
+                   <span className="text-emerald-400 font-bold font-mono">
+                     {tickerLimit <= 0 ? 'UNRESTRICTED' : `${tickerLimit} ASSETS`}
+                   </span>
+                 </div>
+                 <input 
+                   type="range"
+                   min="10"
+                   max={Math.max(500, totalAvailable)} 
+                   step="10"
+                   value={tickerLimit <= 0 ? Math.max(500, totalAvailable) : tickerLimit}
+                   onChange={(e) => {
+                     const val = parseInt(e.target.value, 10);
+                     if (val >= Math.max(500, totalAvailable)) {
+                       setTickerLimit(0); // 0 means All / Unrestricted
+                     } else {
+                       setTickerLimit(val);
+                     }
+                   }}
+                   className="w-full accent-emerald-500 h-1 bg-zinc-900 rounded-lg appearance-none cursor-pointer"
+                 />
+               </div>
+
+               {/* Preset shortcuts */}
+               <div className="grid grid-cols-4 gap-1">
+                 {[50, 150, 300, 0].map((preset) => (
+                   <button
+                     key={preset}
+                     onClick={() => setTickerLimit(preset)}
+                     className={cn(
+                       "py-1 text-[8px] font-bold uppercase tracking-wider border rounded-sm transition-all cursor-pointer",
+                       tickerLimit === preset
+                         ? "text-emerald-400 border-emerald-500/50 bg-emerald-950/20 shadow-[0_0_5px_rgba(16,185,129,0.15)]"
+                         : "text-zinc-500 border-zinc-900 hover:border-zinc-805 hover:text-zinc-400"
+                     )}
+                   >
+                     {preset === 0 ? "ALL" : preset}
+                   </button>
+                 ))}
+               </div>
+               
+               <p className="text-[7px] text-zinc-500 leading-normal font-sans">
+                 Adjust display threshold to prevent performance drops when syncing high-volume asset repositories from remote workspace storage.
+               </p>
+             </div>
           </div>
 
           {/* Camera Settings */}

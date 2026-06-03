@@ -647,6 +647,50 @@ export default async function handler(req, res) {
     }
 
     try {
+      if (pathname === "/api/ai/tts") {
+        const text = body.text || "";
+        if (!text) return res.status(400).json({ error: "Missing parameter: text" });
+        const voice = body.voice || "Zephyr";
+
+        const enhancedText = `Speak naturally and authoritatively: ${text}`;
+        const urlPath = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${GEMINI_API_KEY}`;
+        
+        try {
+          const ttsResponse = await fetch(urlPath, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: enhancedText }] }],
+              generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: voice === "Zephyr" ? "Zephyr" : voice
+                    }
+                  }
+                }
+              }
+            })
+          });
+
+          if (!ttsResponse.ok) {
+            throw new Error(`Gemini TTS returned status ${ttsResponse.status}`);
+          }
+
+          const result = await ttsResponse.json();
+          const base64Audio = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          if (!base64Audio) {
+            throw new Error("No audio generated from Google Gemini API");
+          }
+
+          return res.status(200).json({ audio: base64Audio });
+        } catch (err) {
+          console.error("Gemini TTS Error in serverless proxy:", err);
+          return res.status(500).json({ error: "AI_TTS_ERROR", message: err.message });
+        }
+      }
+
       if (pathname === "/api/ai/enrich-news") {
         const rawData = body.data || [];
         if (!Array.isArray(rawData)) {

@@ -9,13 +9,14 @@ import { SettingsModal } from "./components/SettingsModal";
 import { DataSidebar } from "./components/DataSidebar";
 import { IntelligenceSidebar } from "./components/IntelligenceSidebar";
 import { CommandPalette } from "./components/CommandPalette";
-import { Company } from "./data/companies";
+import { Company, COMPANIES } from "./data/companies";
 import { motion, AnimatePresence } from "motion/react";
 
 import { useSiloPrice } from "./firebase/useSiloPrice";
 import { rehydrateSilo } from "./app/actions";
 import { searchAndScoreCompanies } from "./lib/searchEngine";
 import { getApiBaseUrl } from "./lib/utils";
+import { generateCompanySpecificNews } from "./utils/mockNews";
 
 const MapLayer = lazy(() => import("./components/MapLayer").then(m => ({ default: m.MapLayer })));
 
@@ -170,7 +171,6 @@ export default function App() {
   const [sentiment, setSentiment] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>(["System initialized", "Data connection established"]);
   const [systemStatus, setSystemStatus] = useState<string>("System Active");
-  const [relationships, setRelationships] = useState<{ suppliers: any[], customers: any[] }>({ suppliers: [], customers: [] });
 
   const sectors = useMemo(() => {
     if (!companies || !Array.isArray(companies)) return [];
@@ -207,7 +207,8 @@ export default function App() {
       });
     }
 
-    return matches;
+    // Default ticker limit changed to 50 (was conceptually 100 or unrestricted raw matches)
+    return matches.slice(0, 50);
   }, [searchedResults, searchQuery, searchCategory, filterSector, sortOrder]);
 
   // Sync left and right sidebar tabs
@@ -425,12 +426,16 @@ export default function App() {
         telemetryFetch(`/api/yields?country=${countryCode}`, { headers }).then(res => res.json()).catch(() => (null)),
       ]);
       
+      const finalNews = Array.isArray(n) && n.length > 0 
+        ? n.map((item: any) => ({ ...item, symbol })) 
+        : generateCompanySpecificNews(symbol, company?.name || symbol, company?.sector || "Technology");
+
       setMarketData({
         quote: q,
-        news: Array.isArray(n) ? n.map((item: any) => ({ ...item, symbol })) : [],
+        news: finalNews,
         profile: p,
         financials: f,
-        history: h?.historical || [],
+        history: h?.processed || [],
         relationships: r.relationships || { suppliers: [], customers: [] },
         yields: y
       });
@@ -440,7 +445,7 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, telemetryFetch, setMarketData, setIsLoading]);
+  }, [addLog, telemetryFetch, setMarketData, setIsLoading, companies]);
 
   const handleAgentSearch = useCallback(async (query: string) => {
     if (!query.trim() || isAgentSearching) return;
@@ -547,7 +552,7 @@ export default function App() {
     };
 
     cycle();
-    const intervalId = setInterval(cycle, 10000); // Unified 10s Frequency
+    const intervalId = setInterval(cycle, 60000); // Unified 60s Frequency
     return () => clearInterval(intervalId);
   }, [selectedStock?.symbol, telemetryFetch, setMarketData]);
 
@@ -610,7 +615,7 @@ export default function App() {
     fetchFocusNews();
   }, [mapFocusStock]);
 
-  const handleSelectNode = useCallback((company: Company, skipFetch = false, isSearch = false) => {
+  const handleSelectNode = useCallback((company: Company, skipFetch = false, isSearch = false, activeStoryContext?: any) => {
     setSelectedStock(company);
     setMapFocusStock(company);
     setViewportLock(true);
@@ -629,10 +634,19 @@ export default function App() {
     if (!skipFetch) {
       selectionTimeoutRef.current = setTimeout(() => {
         fetchData(company.symbol);
-        generateBriefing(company.symbol, { context: "manual selection" });
+        if (activeStoryContext) {
+          generateBriefing(company.symbol, { 
+            news: [activeStoryContext], 
+            quote: marketData.quote, 
+            yields: marketData.yields,
+            storyContext: activeStoryContext
+          });
+        } else {
+          generateBriefing(company.symbol, { context: "manual selection" });
+        }
       }, 300);
     }
-  }, [isAutopilot, fetchData, setSelectedStock, generateBriefing]);
+  }, [isAutopilot, fetchData, setSelectedStock, generateBriefing, marketData.quote, marketData.yields]);
 
   // Live Simulated Break News Pipeline
   const injectLiveNews = useCallback(() => {
@@ -725,7 +739,7 @@ export default function App() {
         if (!document.hidden && !isAiProcessing) {
           injectLiveNews();
         }
-      }, 30000); // Increased frequency: Every 30 seconds for a more dynamic "intelligence stream"
+      }, 60000); // Increased frequency: Every 60 seconds for a more dynamic "intelligence stream"
       return () => clearInterval(interval);
     }, 10000); // Shorter initial delay (10s)
     return () => clearTimeout(timer);
@@ -847,10 +861,10 @@ export default function App() {
                <button 
                  key={ticker} 
                  onClick={() => {
-                   const company = companies.find(c => c.symbol === ticker);
+                   const company = companies.find(c => c.symbol === ticker) || COMPANIES.find(c => c.symbol === ticker);
                    if (company) handleSelectNode(company);
                  }}
-                 className="text-[9px] font-mono font-bold text-zinc-400 hover:text-emerald-400 uppercase tracking-wide cursor-pointer"
+                 className="text-[9px] font-mono font-bold text-zinc-400 hover:text-emerald-400 uppercase tracking-wide cursor-pointer transition-colors"
                >
                  {ticker}
                </button>
@@ -1116,6 +1130,7 @@ export default function App() {
                   setSearchQuery={setSearchQuery}
                   onAgentSearch={handleAgentSearch}
                   riskScore={systemRiskScore}
+                  relationships={marketData.relationships}
                 />
               </Suspense>
             </div>
@@ -1164,7 +1179,7 @@ export default function App() {
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               onSelectNode={handleSelectNode}
-              relationships={relationships}
+              relationships={marketData.relationships}
               briefing={briefing}
               sentiment={sentiment}
               yields={marketData.yields}

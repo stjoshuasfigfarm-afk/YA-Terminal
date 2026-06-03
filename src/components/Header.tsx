@@ -3,6 +3,8 @@ import { Shield, Activity, Globe, Menu, Settings, LogOut, X, DollarSign } from "
 import { cn } from "../lib/utils";
 import { motion } from "motion/react";
 
+import { COMPANIES } from "../data/companies";
+
 interface HeaderProps {
   selectedStock?: any;
   yields?: any;
@@ -27,15 +29,17 @@ export const Header: React.FC<HeaderProps> = ({
   // Helper to trigger selection for index/pinned assets
   const handleIndexSelect = (symbol: string) => {
     if (onSelectStock) {
-      // Find the company object in our list
-      import("../data/companies").then(({ COMPANIES }) => {
-        const found = COMPANIES.find(c => c.symbol === symbol);
-        if (found) onSelectStock(found);
-      });
+      const found = COMPANIES.find(c => c.symbol === symbol);
+      if (found) onSelectStock(found);
     }
   };
 
   const [latency, setLatency] = useState(24);
+  const [vix, setVix] = useState(() => {
+    const base = 12.5 + (riskScore * 0.15) + (Math.random() * 1.5);
+    return Number(base.toFixed(2));
+  });
+  const [vixTrend, setVixTrend] = useState<'↑' | '↓' | '-'>('-');
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -45,9 +49,18 @@ export const Header: React.FC<HeaderProps> = ({
         return Math.max(10, Math.min(99, prev + delta));
       });
     }, 3000);
+    const vixTimer = setInterval(() => {
+      setVix(prev => {
+        const change = (Math.random() * 0.4 - 0.2);
+        const next = Math.max(9.0, Math.min(45.0, prev + change));
+        setVixTrend(change > 0 ? '↑' : change < 0 ? '↓' : '-');
+        return Number(next.toFixed(2));
+      });
+    }, 4000);
     return () => {
       clearInterval(timer);
       clearInterval(latencyTimer);
+      clearInterval(vixTimer);
     };
   }, []);
 
@@ -180,22 +193,8 @@ export const Header: React.FC<HeaderProps> = ({
              </div>
           </div>
           
-          <div className="hidden xl:flex items-center gap-6 font-mono border-x border-zinc-900 px-6 h-8 bg-zinc-950/30 text-[9px]">
-            <button 
-              onClick={() => handleIndexSelect("SPY")}
-              className="flex flex-col hover:bg-emerald-500/5 px-2 -mx-2 transition-colors text-left"
-            >
-              <span className="text-[6px] text-zinc-650 font-bold uppercase tracking-widest">INDEX.SPX</span>
-              <span className="text-[9px] text-zinc-400 font-black tabular-nums">DYNAMIC <span className="text-emerald-500 font-bold">LIVE</span></span>
-            </button>
-            <button 
-              onClick={() => handleIndexSelect("QQQ")}
-              className="flex flex-col hover:bg-emerald-500/5 px-2 -mx-2 transition-colors text-left"
-            >
-              <span className="text-[6px] text-zinc-650 font-bold uppercase tracking-widest">INDEX.NDX</span>
-              <span className="text-[9px] text-zinc-400 font-black tabular-nums">DYNAMIC <span className="text-emerald-500 font-bold">LIVE</span></span>
-            </button>
-            <div className="hidden 2xl:flex flex-col border-l border-zinc-900 pl-6">
+          <div className="hidden xl:flex items-center gap-6 font-mono border-l border-zinc-900 px-6 h-8 bg-zinc-950/30 text-[9px]">
+            <div className="hidden 2xl:flex flex-col pl-6">
               <span className="text-[6px] text-zinc-650 font-bold uppercase tracking-widest">LINK_STABILITY</span>
               <div className="flex gap-[1px] mt-0.5">
                 {[1,1,1,1,1,1,1,0].map((v, i) => <div key={i} className={`w-1 h-1.5 ${v ? "bg-emerald-500/60" : "bg-zinc-800"}`} />)}
@@ -225,14 +224,6 @@ export const Header: React.FC<HeaderProps> = ({
             {!treasuryData && (
               <div className="text-[8px] font-mono text-zinc-700 tracking-widest">SYNCHRONIZING_YIELD_CURVE...</div>
             )}
-            <div className="hidden md:flex items-center gap-1.5 bg-red-950/20 px-2 py-0.5 border border-red-500/20">
-               <Shield className="w-2.5 h-2.5 text-red-500/50" />
-               <span className="text-red-500 text-[8px] font-black tracking-widest uppercase">VOL.VIX</span>
-               <span className="text-red-400 text-[9px] font-black tracking-wider">
-                  PENDING
-               </span>
-               <span className={cn("text-[8px] font-black text-red-500")}>-</span>
-            </div>
           </div>
 
         </div>
@@ -266,8 +257,8 @@ export const Header: React.FC<HeaderProps> = ({
             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
           </svg>
         </a>
-        <div className="text-emerald-500/50 bg-black px-2 py-0.5 border border-zinc-900 font-bold tracking-widest">
-          {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} UTC
+        <div className="text-emerald-500/50 bg-black px-2 py-0.5 border border-zinc-900 font-bold tracking-widest font-mono">
+          {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
         </div>
       </div>
     </header>

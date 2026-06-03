@@ -46,7 +46,7 @@ interface IntelligenceSidebarProps {
   isAiProcessing: boolean;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  onSelectNode: (c: Company) => void;
+  onSelectNode: (c: Company, skipFetch?: boolean, isSearch?: boolean, activeStoryContext?: any) => void;
   relationships?: { suppliers: any[]; customers: any[] };
   briefing?: any;
   sentiment?: any;
@@ -249,19 +249,60 @@ export const IntelligenceSidebar = React.memo(
     const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
     useEffect(() => {
+      const handleTtsPlay = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        if (customEvent.detail && customEvent.detail.origin !== 'sidebar') {
+          if (audioRef.current) {
+            try {
+              audioRef.current.pause();
+            } catch (err) {}
+            audioRef.current = null;
+          }
+          if ((window as any)._activeTtsSource) {
+            try {
+              (window as any)._activeTtsSource.stop();
+            } catch (err) {}
+            (window as any)._activeTtsSource = null;
+          }
+          if ((window as any)._activeTtsSourceMap) {
+            try {
+              (window as any)._activeTtsSourceMap.stop();
+            } catch (err) {}
+            (window as any)._activeTtsSourceMap = null;
+          }
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          setIsSpeaking(false);
+        }
+      };
+
+      if (typeof window !== "undefined") window.addEventListener('app-tts-play', handleTtsPlay);
+
       return () => {
         if (audioRef.current) {
-          audioRef.current.pause();
+          try {
+            audioRef.current.pause();
+          } catch (err) {}
         }
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (window && window.speechSynthesis) window.speechSynthesis.cancel();
+        if (typeof window !== "undefined") window.removeEventListener('app-tts-play', handleTtsPlay);
       };
     }, []);
 
     useEffect(() => {
       if (audioRef.current) {
-        audioRef.current.pause();
+        try {
+          audioRef.current.pause();
+        } catch (err) {}
         audioRef.current = null;
         setIsSpeaking(false);
+      }
+      if ((window as any)._activeTtsSource) {
+        try { (window as any)._activeTtsSource.stop(); } catch (e) {}
+        (window as any)._activeTtsSource = null;
+      }
+      if ((window as any)._activeTtsSourceMap) {
+        try { (window as any)._activeTtsSourceMap.stop(); } catch (e) {}
+        (window as any)._activeTtsSourceMap = null;
       }
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     }, [innerLeftTab, selectedStock]);
@@ -288,12 +329,38 @@ export const IntelligenceSidebar = React.memo(
     const handleSpeak = async (textToSpeak: string) => {
       if (isSpeaking) {
         if (audioRef.current) {
-          audioRef.current.pause();
+          try {
+            audioRef.current.pause();
+          } catch (e) {}
           audioRef.current = null;
+        }
+        if ((window as any)._activeTtsSource) {
+          try {
+            (window as any)._activeTtsSource.stop();
+          } catch (e) {}
+          (window as any)._activeTtsSource = null;
+        }
+        if ((window as any)._activeTtsSourceMap) {
+          try {
+            (window as any)._activeTtsSourceMap.stop();
+          } catch (e) {}
+          (window as any)._activeTtsSourceMap = null;
         }
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         setIsSpeaking(false);
         return;
+      }
+
+      // Stop other speakers like MapLayer
+      window.dispatchEvent(new CustomEvent('app-tts-play', { detail: { origin: 'sidebar' } }));
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if ((window as any)._activeTtsSource) {
+        try { (window as any)._activeTtsSource.stop(); } catch (e) {}
+        (window as any)._activeTtsSource = null;
+      }
+      if ((window as any)._activeTtsSourceMap) {
+        try { (window as any)._activeTtsSourceMap.stop(); } catch (e) {}
+        (window as any)._activeTtsSourceMap = null;
       }
 
       if (Date.now() < ttsCooldownRef.current) {
@@ -320,14 +387,53 @@ export const IntelligenceSidebar = React.memo(
         
         const data = await response.json();
         if (data.audio) {
-          const audio = new Audio("data:audio/mp3;base64," + data.audio);
-          audioRef.current = audio;
-          audio.onended = () => {
-            setIsSpeaking(false);
-            audioRef.current = null;
-          };
-          setIsSpeaking(true);
-          await audio.play();
+          try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+            const binaryString = atob(data.audio);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const pcmData = new Int16Array(bytes.buffer);
+            const float32Data = new Float32Array(pcmData.length);
+            for (let i = 0; i < pcmData.length; i++) {
+              float32Data[i] = pcmData[i] / 32768.0;
+            }
+            
+            const buffer = audioCtx.createBuffer(1, float32Data.length, 24000);
+            buffer.getChannelData(0).set(float32Data);
+            
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioCtx.destination);
+            source.onended = () => {
+              setIsSpeaking(false);
+              if ((window as any)._activeTtsSource === source) {
+                (window as any)._activeTtsSource = null;
+              }
+            };
+            
+            (window as any)._activeTtsSource = source;
+            setIsSpeaking(true);
+            source.start();
+          } catch (pcmErr) {
+            console.warn("Direct PCM Decode/Playback failed, trying HTML5 Audio node", pcmErr);
+            const audio = new Audio("data:audio/mp3;base64," + data.audio);
+            audioRef.current = audio;
+            audio.onended = () => {
+              setIsSpeaking(false);
+              audioRef.current = null;
+            };
+            audio.onerror = () => {
+              setIsSpeaking(false);
+              triggerBrowserFallback(textToSpeak);
+            };
+            setIsSpeaking(true);
+            await audio.play().catch((playErr) => {
+              console.warn("Direct audio play failed", playErr);
+              triggerBrowserFallback(textToSpeak);
+            });
+          }
         }
       } catch (err: any) {
         if (err.message !== "QUOTA_EXHAUSTED" && err.message !== "Failed to fetch") {
@@ -580,7 +686,7 @@ export const IntelligenceSidebar = React.memo(
                   {news && news.length > 0 ? (
                     news.slice(0, 8).map((n: any, i: number) => (
                       <span key={i} className="flex items-center gap-2">
-                        <span className="text-emerald-500/80">[{new Date(n.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]</span>
+                        <span className="text-emerald-500/80">[{new Date(n.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}]</span>
                         {n.title.toUpperCase()}
                         <span className="text-zinc-800">///</span>
                       </span>
@@ -1014,26 +1120,54 @@ export const IntelligenceSidebar = React.memo(
                     )}
 
                     <div className="mt-4">
-                      <h4 className="text-[11px] font-black uppercase text-emerald-400 tracking-widest mb-2 font-mono border-b border-emerald-900/50 pb-1.5">
-                        Filtered Intelligence Feed
+                      <h4 className="text-[11px] font-black uppercase text-emerald-400 tracking-widest mb-2 font-mono border-b border-emerald-900/50 pb-1.5 flex justify-between items-center select-none">
+                        <span>Filtered Intelligence Feed</span>
+                        <span className="text-[7.5px] text-zinc-500 font-normal normal-case">Select story to analyze</span>
                       </h4>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                      <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                         {filteredNews.length > 0 ? (
-                           filteredNews.map((n, i) => (
-                             <div key={i} className="text-[9px] text-zinc-300 font-sans border-b border-zinc-800 pb-1.5 hover:bg-zinc-900/50 cursor-pointer transition-colors px-1">
-                               <div className="flex justify-between items-center mb-0.5">
-                                 <span className="text-emerald-500 font-bold font-mono">[{n.symbol}]</span>
-                                 {n.published_at && (
-                                   <span className="text-zinc-600 font-mono text-[8px]">
-                                     {new Date(n.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                   </span>
+                           filteredNews.map((n, i) => {
+                             const company = companies.find(c => c.symbol === (n.symbol || n.ticker));
+                             const isCurrentAsset = selectedStock?.symbol === n.symbol;
+                             return (
+                               <div 
+                                 key={i} 
+                                 onClick={() => {
+                                   if (company) {
+                                     onSelectNode(company, false, false, n);
+                                   }
+                                 }}
+                                 className={cn(
+                                   "text-[9px] text-zinc-350 font-sans border border-zinc-900 rounded-sm pb-2 p-2 hover:bg-zinc-900/40 hover:border-emerald-500/30 cursor-pointer transition-all relative block group",
+                                   isCurrentAsset ? "bg-emerald-950/10 border-emerald-500/30 border-l-2 border-l-emerald-500" : "bg-black/20"
                                  )}
+                               >
+                                 <div className="flex justify-between items-center mb-1">
+                                   <span className="text-emerald-500 font-bold font-mono tracking-wider">[{n.symbol}]</span>
+                                   {n.published_at && (
+                                     <span className="text-zinc-500 font-mono text-[7.5px]">
+                                       {new Date(n.published_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                     </span>
+                                   )}
+                                 </div>
+                                 <div className="leading-snug font-bold text-zinc-100 text-[9.5px] mb-1 tracking-tight group-hover:text-emerald-300 transition-colors">
+                                   {n.translatedTitle || n.title}
+                                 </div>
+                                 {n.description && (
+                                   <p className="text-[8px] text-zinc-500 line-clamp-2 leading-relaxed font-sans mt-1">
+                                     {n.description}
+                                   </p>
+                                 )}
+                                 <div className="text-[7px] text-emerald-500/70 font-mono tracking-widest mt-2 uppercase font-black flex items-center gap-1 group-hover:text-emerald-400 transition-all">
+                                   <Zap className="w-2.5 h-2.5 animate-pulse" /> TARGET_SYSTEM_BRIEFING &gt;
+                                 </div>
                                </div>
-                               <div className="leading-tight font-bold text-zinc-100 text-[10px] mb-0.5 tracking-tight">{n.translatedTitle || n.title}</div>
-                             </div>
-                           ))
+                             );
+                           })
                         ) : (
-                          <div className="text-[9px] text-zinc-600 italic">No news matches current filters.</div>
+                          <div className="text-[9px] text-zinc-600 italic font-mono py-4 text-center border border-dashed border-zinc-900">
+                            NO REAL-TIME COGNITIVE SIGNALS DETECTED
+                          </div>
                         )}
                       </div>
                     </div>
