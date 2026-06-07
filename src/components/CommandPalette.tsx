@@ -3,6 +3,7 @@ import { Command, Search, Globe, Activity, Terminal, X, Zap } from "lucide-react
 import { Company, COMPANIES } from "../data/companies";
 import { searchAndScoreCompanies } from "../lib/searchEngine";
 import { motion, AnimatePresence } from "motion/react";
+import { useCompanies } from "../context/CompaniesContext";
 
 interface CommandPaletteProps {
   onSelect: (company: Company) => void;
@@ -13,10 +14,11 @@ interface CommandPaletteProps {
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelect, isOpen, onClose }) => {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const { allCompanies } = useCompanies();
 
   const parsedMatches = useMemo(() => {
-    return searchAndScoreCompanies(COMPANIES, query).slice(0, 8);
-  }, [query]);
+    return searchAndScoreCompanies(allCompanies || COMPANIES, query).slice(0, 8);
+  }, [allCompanies, query]);
 
   const filtered = useMemo(() => {
     return parsedMatches.map(m => m.company);
@@ -61,8 +63,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelect, isOpen
         >
           <div 
             onClick={onClose}
-            className="absolute inset-0 bg-black/80 backdrop-blur-md"
-          />
+            className="absolute inset-0 bg-black/80 backdrop-blur-md overflow-hidden"
+          >
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none animate-[flicker_0.15s_infinite]" style={{
+              backgroundImage: 'repeating-linear-gradient(0deg, #fff, #fff 1px, transparent 1px, transparent 2px)'
+            }} />
+          </div>
           
           <motion.div
             initial={{ scale: 0.95, opacity: 0, y: 20 }}

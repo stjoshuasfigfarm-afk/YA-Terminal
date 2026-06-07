@@ -275,3 +275,27 @@
 .leaflet-tooltip.network-node-tooltip::before {
   display: none !important;
 }
+
+@keyframes flicker {
+  0% { opacity: 0.02; }
+  5% { opacity: 0.01; }
+  10% { opacity: 0.03; }
+  15% { opacity: 0.01; }
+  20% { opacity: 0.02; }
+  25% { opacity: 0.04; }
+  30% { opacity: 0.01; }
+  35% { opacity: 0.02; }
+  40% { opacity: 0.01; }
+  45% { opacity: 0.03; }
+  50% { opacity: 0.02; }
+  55% { opacity: 0.01; }
+  60% { opacity: 0.03; }
+  65% { opacity: 0.01; }
+  70% { opacity: 0.02; }
+  75% { opacity: 0.04; }
+  80% { opacity: 0.01; }
+  85% { opacity: 0.02; }
+  90% { opacity: 0.01; }
+  95% { opacity: 0.03; }
+  100% { opacity: 0.02; }
+}

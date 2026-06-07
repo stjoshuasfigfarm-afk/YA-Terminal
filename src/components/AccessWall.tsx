@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Globe } from './Globe';
+import { OrbitalMap } from './OrbitalMap';
 import { COMPANIES } from '../data/companies';
+import { isWebGLSupported } from '../utils/webgl';
 import { motion, AnimatePresence } from 'motion/react';
 import { getApiBaseUrl } from '../lib/utils';
 
@@ -8,20 +9,9 @@ export const AccessWall: React.FC = () => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState(false);
+  const [webglSupported, setWebglSupported] = useState(() => isWebGLSupported());
 
-  // Default props for a "living" globe on the login page
-  const globeProps = {
-    selectedStock: null,
-    onSelectNode: () => {},
-    viewportLock: false,
-    setViewportLock: () => {},
-    autoRotateEnabled: true,
-    setAutoRotateEnabled: () => {},
-    marketData: {},
-    newsData: [],
-    showAllConnections: true,
-    presentationMode: true
-  };
+
 
   useEffect(() => {
     const verifyToken = async (token: string) => {
@@ -88,7 +78,21 @@ export const AccessWall: React.FC = () => {
       {/* Left Panel: Globe Showcase (Simulated Recording Style) */}
       <div className="hidden md:block w-full h-full relative border-r border-zinc-900 bg-zinc-900/10 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 z-0 opacity-100 origin-center">
-          <Globe {...globeProps} />
+          {webglSupported ? (
+            <OrbitalMap autoRotate={true} is3D={true} entities={COMPANIES} />
+          ) : (
+            <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center p-8">
+              <div className="w-10 h-10 border border-zinc-800 rounded-full flex items-center justify-center mb-4">
+                <span className="text-zinc-500 font-mono text-sm animate-pulse">⊕</span>
+              </div>
+              <div className="text-emerald-500/40 font-mono text-[8px] tracking-[0.3em] uppercase text-center max-w-xs leading-relaxed">
+                TACTICAL NETWORK OFFLINE IN STANDALONE MODE
+              </div>
+              <div className="mt-2 text-zinc-600 font-mono text-[7px] tracking-wider text-center max-w-[220px] leading-relaxed">
+                WebGL context is unavailable or disabled in this browser runtime. The Yield Terminal is optimized to default to a 2D interface.
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Subtle scanline overlay to simulate a screen/recording */}
@@ -160,6 +164,10 @@ export const AccessWall: React.FC = () => {
               >
                 ENTER TERMINAL
               </button>
+              
+              <div className="text-center text-[8.5px] text-emerald-400/90 font-mono tracking-[0.25em] uppercase mt-1.5 animate-pulse">
+                — FREE UNTIL OCTOBER 15 —
+              </div>
               <div className="mt-4 p-4 border border-zinc-900 bg-black/50 rounded-sm">
                 <div className="text-[9px] text-zinc-500 text-center tracking-widest uppercase leading-relaxed">
                   Donations help us continue to bring you this product <span className="text-emerald-500">Completely Free</span>

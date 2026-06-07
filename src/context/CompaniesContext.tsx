@@ -4,9 +4,11 @@ import companiesData from '../../public/data/companies_large.json';
 
 const CompaniesContext = createContext<{
   companies: Company[];
+  allCompanies: Company[];
   setCompanies: (companies: Company[]) => void;
   loading: boolean;
   tickerLimit: number;
+  setTerminalLimit?: (limit: number) => void; // backwards compat if any
   setTickerLimit: (limit: number) => void;
   totalAvailable: number;
 } | undefined>(undefined);
@@ -31,7 +33,24 @@ const deduplicateCompanies = (list: Company[]): Company[] => {
       }
     }
   });
-  return Array.from(map.values());
+  
+  const result = Array.from(map.values());
+  
+  // Prioritize and hoist critical, highly targeted benchmark tickers so they are never gated out by Density Limits
+  const prioritizedSymbols = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSM", "ASML", "TSLA", "AMZN", "META", "GOOGL"];
+  const prioritized: Company[] = [];
+  const other: Company[] = [];
+  
+  result.forEach(c => {
+    if (prioritizedSymbols.includes(c.symbol)) {
+      prioritized.push(c);
+    } else {
+      other.push(c);
+    }
+  });
+  
+  prioritized.sort((a, b) => prioritizedSymbols.indexOf(a.symbol) - prioritizedSymbols.indexOf(b.symbol));
+  return [...prioritized, ...other];
 };
 
 export const CompaniesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -61,6 +80,7 @@ export const CompaniesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   return (
     <CompaniesContext.Provider value={{ 
       companies, 
+      allCompanies: rawCompanies,
       setCompanies, 
       loading, 
       tickerLimit, 

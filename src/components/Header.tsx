@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   yields, 
   onOpenSettings,
   onSelectStock,
-  riskScore = 25
+  riskScore = 25,
 }) => {
   const [time, setTime] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -134,7 +134,13 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 select-none">
+        <div className="flex items-center gap-2.5 select-none relative group">
+          <button 
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            className="absolute -right-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 border border-zinc-800 text-[8px] font-mono text-zinc-500 px-1 py-0.5 rounded-xs pointer-events-none"
+          >
+            ⌘K
+          </button>
           <div className="relative flex items-center justify-center">
             <img 
               src="/logo.svg" 
@@ -148,9 +154,14 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">YIELD ANALYSIS TERMINAL</span>
               <span className="sm:hidden font-black">TERMINAL</span>
             </span>
-            <span className="text-[6.5px] text-zinc-650 font-mono font-bold tracking-[0.4em] uppercase leading-none mt-1.5 hidden sm:flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-emerald-500 inline-block opacity-40 rounded-full"></span>
-              CORE_NODE_UPLINK
+            <span className="text-[6.5px] text-zinc-650 font-mono font-bold tracking-[0.4em] uppercase leading-none mt-1.5 hidden sm:flex items-center gap-1.5 overflow-hidden">
+              <span className="w-1.5 h-1.5 bg-emerald-500 inline-block opacity-40 rounded-full shrink-0"></span>
+              <span className="shrink-0">CORE_NODE_UPLINK</span>
+              <span className="text-zinc-500 font-mono font-medium tracking-normal normal-case ml-2 text-[6.5px] pl-1 border-l border-zinc-800 truncate select-all">
+                <span className="hidden xl:inline">OWNER: /OPERATOR: / CORE DEVELOPER: // JEROME JACKSON</span>
+                <span className="hidden md:inline xl:hidden">OWNER/DEV: JEROME JACKSON</span>
+                <span className="inline md:hidden">JEROME JACKSON</span>
+              </span>
             </span>
           </div>
         </div>
@@ -203,13 +214,22 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center gap-4 font-mono">
-            {treasuryData && Object.entries(treasuryData).map(([key, val]: [string, any]) => {
+            {treasuryData && Object.entries(treasuryData).map(([key, val]: [string, any], idx) => {
               const prevVal = prevTreasuryData.current[key] || val;
               const trend = val > prevVal ? '↑' : val < prevVal ? '↓' : '-';
               const trendColor = val > prevVal ? 'text-emerald-500' : val < prevVal ? 'text-red-500' : 'text-zinc-600';
               
+              // Only show idx 0 (03M), 5 (10Y), 6 (30Y) on lg:flex, and show all on xl:flex to prevent overflow
+              const isResponsiveVisible = idx === 0 || idx === 5 || idx === 6;
+              
               return (
-                <div key={key} className="hidden sm:flex items-center gap-1.5 bg-zinc-950/50 px-2 py-0.5 border border-zinc-800/50 group hover:border-emerald-500/30 transition-colors">
+                <div 
+                  key={key} 
+                  className={cn(
+                    "hidden sm:flex items-center gap-1.5 bg-zinc-950/50 px-2 py-0.5 border border-zinc-800/50 group hover:border-emerald-500/30 transition-colors",
+                    !isResponsiveVisible && "hidden xl:flex"
+                  )}
+                >
                   <Activity className="w-2.5 h-2.5 text-zinc-600 group-hover:text-emerald-500" />
                   <span className="text-zinc-500 text-[8px] font-bold uppercase tracking-tighter">M.{key}</span>
                   <span className="text-cyan-400/90 text-[9px] font-black tabular-nums tracking-wider">

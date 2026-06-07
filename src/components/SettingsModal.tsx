@@ -5,13 +5,15 @@ import { useCompanies } from '../context/CompaniesContext';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  mapLayers: { hq: boolean; arcs: boolean; heatmap: boolean; satellite: boolean; borders: boolean };
+  mapLayers: { hq: boolean; arcs: boolean; satellite: boolean; borders: boolean };
   toggleMapLayer: (layer: string) => void;
   viewportLock: boolean;
   setViewportLock: (val: boolean) => void;
   autoRotateEnabled: boolean;
   setAutoRotateEnabled: (val: boolean) => void;
   logs?: string[];
+  terminalScale: number;
+  setTerminalScale: (val: number) => void;
 }
 
 const DEFAULT_MODELS = [
@@ -32,11 +34,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   setViewportLock,
   autoRotateEnabled,
   setAutoRotateEnabled,
-  logs = []
+  logs = [],
+  terminalScale,
+  setTerminalScale
 }) => {
   const { companies, tickerLimit, setTickerLimit, totalAvailable } = useCompanies();
-
-  if (!isOpen) return null;
 
   const [orKey, setOrKey] = useState(() => localStorage.getItem('openrouter_api_key') || '');
   const [orModel, setOrModel] = useState(() => {
@@ -50,6 +52,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [pingStatus, setPingStatus] = useState<'IDLE' | 'TESTING' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [pingMsg, setPingMsg] = useState('');
+
+  if (!isOpen) return null;
 
   const updateKey = (key: string) => {
     setOrKey(key);
@@ -236,7 +240,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
              {[
                { id: 'hq', label: 'Company HQ' },
                { id: 'arcs', label: 'Trade Arcs' },
-               { id: 'heatmap', label: 'Heatmap' },
                { id: 'satellite', label: 'Satellite (Globe)' },
                { id: 'borders', label: 'Land/Borders' }
              ].map((layer) => (
@@ -347,6 +350,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {autoRotateEnabled ? 'ENABLED' : 'DISABLED'}
                 </button>
              </div>
+          </div>
+
+          {/* Terminal Layout Sizing */}
+          <div className="border-t border-zinc-900 pt-5 space-y-4">
+             <h3 className="text-[8px] font-bold text-emerald-500 uppercase tracking-[0.2em] mb-3">Terminal Layout Scale</h3>
+             
+             <div className="grid grid-cols-5 gap-1">
+               {[0.8, 0.9, 1.0, 1.1, 1.2].map((scale) => (
+                 <button
+                   key={scale}
+                   onClick={() => setTerminalScale(scale)}
+                   className={cn(
+                     "py-1 text-[8.5px] font-bold uppercase tracking-wider border rounded-sm transition-all cursor-pointer",
+                     Math.abs(terminalScale - scale) < 0.01
+                       ? "text-emerald-400 border-emerald-500/50 bg-emerald-950/20 shadow-[0_0_5px_rgba(16,185,129,0.15)]"
+                       : "text-zinc-500 border-zinc-900 hover:border-zinc-805 hover:text-zinc-400"
+                   )}
+                 >
+                   {Math.round(scale * 100)}%
+                 </button>
+               ))}
+             </div>
+             
+             <p className="text-[7px] text-zinc-500 leading-normal font-sans">
+               Adjust core dashboard viewport multiplier to fit smaller laptops or expansive high-density monitors.
+             </p>
           </div>
 
           {/* Telemetry Logs Section */}

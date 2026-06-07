@@ -1,3 +1,5 @@
+import { COMPANIES, Company } from "../data/companies";
+
 export interface MockNewsStory {
   title: string;
   description: string;
@@ -12,328 +14,168 @@ export interface MockNewsStory {
   };
 }
 
+// Helper to deterministically pick values based on symbol and index
+function getHashedSelection<T>(arr: T[], seedStr: string): T {
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % arr.length;
+  return arr[index];
+}
+
 export function generateCompanySpecificNews(symbol: string, name: string, sector: string = ""): MockNewsStory[] {
   const norm = (symbol || "").toUpperCase();
-  const dateObj = new Date();
+  const targetCompany = COMPANIES.find(c => c.symbol === norm);
   
-  // Decoupled dates to make them look realistic
+  // Resolve related partner companies for corporate deals
+  const actualPartners = targetCompany?.partners || [];
+  const partnerPool = actualPartners.length > 0 
+    ? actualPartners 
+    : COMPANIES.filter(c => c.symbol !== norm && c.sector === targetCompany?.sector).map(c => c.symbol);
+  
+  const resolvedPartner1 = partnerPool[0] || "TSM";
+  const resolvedPartner2 = partnerPool[1] || "ASML";
+  const partnerCo1 = COMPANIES.find(c => c.symbol === resolvedPartner1) || { name: "Taiwan Semiconductor Mfg CO", symbol: resolvedPartner1 };
+  const partnerCo2 = COMPANIES.find(c => c.symbol === resolvedPartner2) || { name: "ASML Holding N.V.", symbol: resolvedPartner2 };
+
+  const dateObj = new Date();
   const getPastTimeStr = (hoursAgo: number) => {
     const d = new Date(dateObj.getTime() - hoursAgo * 60 * 60 * 1000);
     return d.toISOString();
   };
 
+  // 1. Precise, highly-specific data pools
+  const names = [
+    "COO Alistair Thorne",
+    "Chief Procurement Officer Laura Sterling",
+    "Global Logistics Director Marcus Vance",
+    "Operations Vice President Sofia Rodriguez",
+    "Director of Material Validation Chen Wei-min",
+    "Senior Supply Supervisor Hans-Dieter Becker",
+    "Operations Coordinator Maria Santone",
+    "Infrastructure Lead Dr. Kenji Tanaka",
+    "General Managing Director Alistair Vance",
+    "Sourcing Specialist Elena Rostova",
+    "Supply Chain VP Devon Carter",
+    "Senior Logistics Analyst Gregory Vance"
+  ];
+
+  const locations = [
+    "Hsinchu Science Park Fab 18A, Taiwan",
+    "Bac Ninh industrial cluster near Hanoi, Vietnam",
+    "Rotterdam Express Container Terminal 4B, Netherlands",
+    "Port of Antwerp-Bruges Pier 12, Belgium",
+    "Port of Zeebrugge general cargo yards, Belgium",
+    "Singapore Jurong Island petrochemical specialized complex",
+    "Helsinki shipping terminal KM-9, Finland",
+    "Austin Giga-press fabrication hub, Texas",
+    "Kaohsiung Harbor general customs yards, Taiwan",
+    "Yantian Port deepwater container Terminal 3, Shenzhen",
+    "Yokohama Precision chemical refinery, Japan",
+    "Veldhoven EUV lithography system campus, Netherlands",
+    "Long Beach Harbor Pier G terminal, California",
+    "Port of Seattle custom Terminal 91, Washington",
+    "Chennai high-density assembly hub, India",
+    "Hsinchu Science Park Fab 12, Taiwan",
+    "Shenzhen Bao'an tech assembly cluster, China"
+  ];
+
+  const techMaterials = [
+    "sub-3nm extreme ultraviolet (EUV) lithography lens arrays",
+    "monolithic high-purity single-crystal silicon wafers",
+    "nanoscale chemical photoresist developer compounds",
+    "ultra-dense active matrix optical server interconnects",
+    "high-efficiency vapor-chamber liquid cooling sub-modules",
+    "micro-lens specialized display glass substrate matrices",
+    "synthetic sapphire precision display cover composites",
+    "graphene ultra-high-conductivity thermal pads"
+  ];
+
+  const energyAutoMaterials = [
+    "traceable high-grade cobalt hydroxide chemical concentrates",
+    "lithium-iron-phosphate (LFP) high-density cell anodes",
+    "solid-state crystalline lithium electrolyte matrices",
+    "high-tensile multi-axial mechanical gear assemblies",
+    "raw carbon-fiber reinforced structural chassis rods",
+    "high-temperature synthetic catalyst refining compounds"
+  ];
+
+  const generalMaterials = [
+    "cellulose-based lightweight paperboard shipping bundles",
+    "recycled aircraft-grade alloy chassis mounting brackets",
+    "high-density polymer composite protective panel sheets",
+    "impact-resistant carbon-composite structural liners",
+    "biodegradable organic transport preservation wraps",
+    "high-precision linear hydraulic micro-actuators"
+  ];
+
+  // Pick appropriate materials based on industry/sector
+  const isTechSemi = (sector || "").toLowerCase().includes("semi") || (sector || "").toLowerCase().includes("tech") || (sector || "").toLowerCase().includes("software");
+  const isAutoEnergy = (sector || "").toLowerCase().includes("auto") || (sector || "").toLowerCase().includes("vehicle") || (sector || "").toLowerCase().includes("energy");
+  
+  const localMats = isTechSemi ? techMaterials : (isAutoEnergy ? energyAutoMaterials : generalMaterials);
+
+  // Pick deterministic dynamic details for this specific company to make it extremely detailed
+  const name1 = getHashedSelection(names, norm + "_name1");
+  const name2 = getHashedSelection(names, norm + "_name2");
+  const name3 = getHashedSelection(names, norm + "_name3");
+  const name4 = getHashedSelection(names, norm + "_name4");
+
+  const loc1 = getHashedSelection(locations, norm + "_loc1");
+  const loc2 = getHashedSelection(locations, norm + "_loc2");
+  const loc3 = getHashedSelection(locations, norm + "_loc3");
+  const loc4 = getHashedSelection(locations, norm + "_loc4");
+
+  const mat1 = getHashedSelection(localMats, norm + "_mat1");
+  const mat2 = getHashedSelection(localMats, norm + "_mat2");
+
+  const amountUSD_Deal = getHashedSelection(["$475 Million", "$1.2 Billion", "$890 Million", "$350 Million", "$1.6 Billion"], norm + "_deal_amt");
+  const amountQty_Units = getHashedSelection(["125,000 units", "48,000 sets", "85,000 structural starts", "16,500 metric tons", "210,000 pieces"], norm + "_qty_amt");
+  const amountRate = getHashedSelection(["a 6.8%", "a 12.4%", "an 8.2%", "a 14.5%", "a 9.3%"], norm + "_rate_amt");
+  const oceanContainersNum = getHashedSelection(["12,400 standard TEU containers", "8,500 high-cube containers", "14,200 priority dry-bulk containers"], norm + "_containers_amt");
+  const detourDelayDays = getHashedSelection(["11 additional", "9 full", "14 critical", "8 extended"], norm + "_detour_amt");
+  const borderEscrowAmount = getHashedSelection(["4,500 priority shipping units", "18,200 precision control components", "9,800 secondary chipsets"], norm + "_escrow_amt");
+
   const stories: Omit<MockNewsStory, "symbol" | "published_at" | "url" | "image">[] = [];
 
-  // 1. Handcrafted Overrides for Top Assets
-  if (norm === "AAPL") {
-    stories.push(
-      {
-        title: "Bac Ninh packaging clusters expand trial of next-gen camera modules following optical sensor upgrade.",
-        description: "Supply chain intelligence reports indicate Apple's assembly network in Northern Vietnam has successfully qualified secondary sub-tier sensor lines. This diversification reduces reliance on primary mainland optical labs.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Ho Chi Minh cargo hub slot congestion triggers high-priority air freight surcharges for smartphone components.",
-        description: "Surging tech shipments and seasonal carrier capacity limits have choked primary airport lanes out of Vietnam. High-volume shippers are activating dedicated chartered flights to secure Q4 launch schedules.",
-        sentiment: "BEARISH",
-        impact: "CRITICAL"
-      },
-      {
-        title: "Custom silicon node transition at TSMC N3E registers historic 84% yield metrics.",
-        description: "Confidential foundry audits confirm Apple's upcoming processor silicon is running ahead of typical yield curves. Initial batch shipments have already been scheduled for priority transit routes.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Sub-tier raw silicon substrate impurity delays final logic driver packaging trials.",
-        description: "A minor chemical variance in precision cleansing acids has temporarily forced a brief pause at a specialized Japanese compound materials provider supplying Apple's secondary display IC lines.",
-        sentiment: "BEARISH",
-        impact: "MODERATE"
-      }
-    );
-  } else if (norm === "TSM") {
-    stories.push(
-      {
-        title: "Strategic chemical raw material stockpile at Hsinchu Hub raised to 45-day reserve levels.",
-        description: "In anticipation of regional maritime lane restrictions, TSMC procurement teams have successfully completed buffer accumulation of key cleanroom chemistry and raw atmospheric neon gases.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Taiwan airspace airspace transit safety audits introduce minor routing delays for high-value silicon dies.",
-        description: "Regional airspace safety audits have led to minor routing adjustments for express freight carriers departing Taoyuan International Airport. Logistics managers are adding 6-hour buffers for East Asian routes.",
-        sentiment: "BEARISH",
-        impact: "CRITICAL"
-      },
-      {
-        title: "CoWoS-S advanced packaging capacity scales ahead of baseline plan to absorb global AI queue.",
-        description: "Engineering teams in Taichung have completed qualification of high-volume sub-lithic integration lanes, promising a 20% increase in packaging throughput for advanced deep learning hardware.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Sub-station power quality volatility at Southern Science Park prompts brief automated tool calibration reviews.",
-        description: "A temporary utility frequency fluctuation triggered autonomous safety protocols on EUV scanner sub-assemblies. wafer processing resumed within 60 minutes, but calibration audits are ongoing.",
-        sentiment: "BEARISH",
-        impact: "MODERATE"
-      }
-    );
-  } else if (norm === "NVDA") {
-    stories.push(
-      {
-        title: "Secondary advanced packaging qualification with multi-tenant sub-tiers accelerates.",
-        description: "Nvidia is qualifying secondary advanced packaging lines in Korea and North America to bypass current high-performance computing silicon substrate bottlenecks.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "High-density active matrix optical switches face specialized micro-lens supplier shortages.",
-        description: "High-demand high-velocity network cluster components suffer delays as a key European specialized glassware supplier reports localized labor constraints and micro-cleanroom delays.",
-        sentiment: "BEARISH",
-        impact: "CRITICAL"
-      },
-      {
-        title: "Unveils next-generation mesh-computing inter-node protocols to reduce network layer latency by 12%.",
-        description: "Architectural teams have qualified new active interconnect protocols that significantly improve data-rate handshakes across multi-cabinet cluster configurations, lowering physical node energy dissipation.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Intermediate copper microchannel cooling assemblies face customs port clearance queues at Pacific entry points.",
-        description: "Increased import compliance verification on highly specialized dense thermal cooling modules has extended customs dwell times at Long Beach to 9 business days.",
-        sentiment: "BEARISH",
-        impact: "MODERATE"
-      }
-    );
-  } else if (norm === "XOM" || norm === "ARAMCO" || norm === "SHEL") {
-    stories.push(
-      {
-        title: `${name} secures long-term alternative dynamic pipeline supply synchronization across European nodes.`,
-        description: "Dynamic logistics contracts have been finalized to link central storage caverns directly into regional distribution lines, offsetting regional port demurrage and loading delays.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Bab-el-Mandeb maritime safety warnings prompt route deviations for critical crude cargo vessels.",
-        description: "Unstable maritime security metrics inside the southern Red Sea corridor have forced tankers to bypass the Suez Suez Canal, diverting cargo around the Cape of Good Hope, adding 12 days to transit schedules.",
-        sentiment: "BEARISH",
-        impact: "CRITICAL"
-      },
-      {
-        title: "Deepwater subocean active sensors deployed to continuously monitor undersea conduit stress points.",
-        description: "Autonomous acoustic telemetry systems have been successfully connected across undersea pipelines, enabling real-time detection of seismic stress and early vessel proximity alerts.",
-        sentiment: "BULLISH",
-        impact: "ROUTINE"
-      },
-      {
-        title: "Crystalline refining catalyst powders suffer logistics hold-ups at primary custom checkpoints.",
-        description: "A sudden export permit review for essential catalytic compound blends has initiated cargo queues, temporarily limiting maximum daily refining throughput in secondary regional hubs.",
-        sentiment: "BEARISH",
-        impact: "MODERATE"
-      }
-    );
-  } else if (norm === "TSLA") {
-    stories.push(
-      {
-        title: "Gigafactory Shanghai secures localized lithium battery chemistry supply chains.",
-        description: "Tesla purchasing has successfully locked long-term supply arrangements with key chemical brine providers, buffering the automotive division from volatile South American transport and tariff metrics.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Specialized high-impact rare earth magnets bottleneck at Rotterdam cargo yards.",
-        description: "Unscheduled delays in high-density vehicle motor assembly lines have been traced to container handling backlogs in Eastern European freight depots.",
-        sentiment: "BEARISH",
-        impact: "CRITICAL"
-      },
-      {
-        title: "Hardware stress trials of custom automated vehicle guidance microkernels completed successfully.",
-        description: "In-house software engineers have finalized field testing on next-generation computing boards, showcasing a 40% reduction in controller pipeline cycle latency.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Port of Zeebrugge transport strike limits vehicle dispatch schedules across Western European rail lines.",
-        description: "A sudden 48-hour localized maritime team strike has restricted vehicle dispatch rates outward from primary seaside consolidation terminals, forcing temporary warehousing holding overrides.",
-        sentiment: "BEARISH",
-        impact: "MODERATE"
-      }
-    );
-  } else if (norm === "AMZN") {
-    stories.push(
-      {
-        title: "Automated distribution centers in central logistics hubs deploy advanced container density optimizers.",
-        description: "Amazon has qualified a new automated software system that predicts package cluster density, boosting vehicle load rates and shaving valuable milliseconds off sorting processes.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Panama Canal capacity queues restrict dynamic inter-coastal freight flow velocity.",
-        description: "Reduced canal water drafts have caused carrier schedule delays. Amazon logistics planners are rerouting high-volume consumer freight to West Coast rail links.",
-        sentiment: "BEARISH",
-        impact: "CRITICAL"
-      },
-      {
-        title: "High-security air-cargo priority bridges activated to handle critical logistics surcharges.",
-        description: "To safeguard vital delivery metrics, Amazon Air has secured priority slots across domestic transport routes, bypassing slow-moving maritime hubs.",
-        sentiment: "BULLISH",
-        impact: "MODERATE"
-      },
-      {
-        title: "Last-mile courier fleet operations report localized fuel blend surcharge margins.",
-        description: "Global energy fluctuations and transport fuel restrictions have triggered fuel surcharge adjusters, marginally expanding short-range delivery overheads.",
-        sentiment: "BEARISH",
-        impact: "ROUTINE"
-      }
-    );
-  } else {
-    // Sector-specific tailored fallback stories (highly detailed and targeted)
-    const sectorLower = (sector || "").toLowerCase();
-    if (sectorLower.includes("semi") || sectorLower.includes("chip")) {
-      stories.push(
-        {
-          title: `Ultrapure photoresist compounds qualify for advanced sub-10nm lithic processes at ${name}.`,
-          description: "Technical directors have verified next-tier photoresist packages, establishing high precision boundaries and reducing high-frequency tooling scrap rates.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Atmospheric neon gas shipments delayed as Eastern European transport connectors face customs reviews.",
-          description: "High-purity noble gases essential for laser alignment arrays are experiencing short-term delays due to border transit safety checks, expanding local warehouse draw rates.",
-          sentiment: "BEARISH",
-          impact: "CRITICAL"
-        },
-        {
-          title: "Dual-sourcing semiconductor base substrate wafer agreements finalized to safeguard assembly flow.",
-          description: "To mitigate the risk of single-source wafer supply constraints, procurement has onboarded secondary raw materials partners across non-volatile regions.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Precision quartz etching components experience localized logistic customs queues.",
-          description: "Import clearance times for high-grade quartz reactor columns have increased by 8 days, necessitating strategic buffer usage at fabrication cleanrooms.",
-          sentiment: "BEARISH",
-          impact: "MODERATE"
-        }
-      );
-    } else if (sectorLower.includes("tech") || sectorLower.includes("communicat") || sectorLower.includes("software")) {
-      stories.push(
-        {
-          title: `${name} deploys custom high-bandwidth optical switches across primary edge nodes to minimize ping latency.`,
-          description: "Engineering groups have authorized the rollout of advanced optical routing frameworks, eliminating previous server packet bottlenecks under hyper-scale cloud loads.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Mainland hardware suppliers notify tech division of extended printed circuit board component delays.",
-          description: "Environmental compliance audits at key component packaging facilities have created a subgrade board supply queue, pushing assembly dates back by 2 weeks.",
-          sentiment: "BEARISH",
-          impact: "CRITICAL"
-        },
-        {
-          title: "Multi-regional cluster backup nodes sync successfully via secure orbital communication bridges.",
-          description: "Redundant edge infrastructure has established a fallback loop using commercial satellite constellations, securing data persistence plans even during severe undersea disruptions.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Global cloud server component shipping containers face terminal queue delays at western ports.",
-          description: "Unbalanced container return vectors at prime terminals have led to an 11-day logistical backlog for technical rack upgrade components.",
-          sentiment: "BEARISH",
-          impact: "ROUTINE"
-        }
-      );
-    } else if (sectorLower.includes("finance") || sectorLower.includes("bank") || sectorLower.includes("invest")) {
-      stories.push(
-        {
-          title: `${name} completes integration of secure real-time liquidity matching network to reduce transit settlements.`,
-          description: "The capital management division has deployed an automated protocol that clears cross-currency trades in microseconds, dramatically reducing collateral requirements.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Cross-border sovereign security compliance barriers restrict liquidity flows across major capital corridors.",
-          description: "Tightened reporting directives on offshore assets have increased transaction audit times, introducing a 30-basis-point transaction friction.",
-          sentiment: "BEARISH",
-          impact: "CRITICAL"
-        },
-        {
-          title: "Launches algorithmic sovereign yield synchronization system to optimize cross-border bond holdings.",
-          description: "Capital allocators are deploying advanced neural monitors to continuously map international treasury yields, maximizing asset allocation spreads.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Offshore data clearing infrastructure registers power supply and backup generator testing lags.",
-          description: "A minor technical maintenance audit on regional auxiliary power banks has led to temporary clearing system lag notifications on historical transaction queues.",
-          sentiment: "BEARISH",
-          impact: "ROUTINE"
-        }
-      );
-    } else if (sectorLower.includes("auto") || sectorLower.includes("vehicle") || sectorLower.includes("indust")) {
-      stories.push(
-        {
-          title: `${name} secures multi-tiered cobalt and high-grade battery raw materials supply pathways.`,
-          description: "The vehicle manufacturing group has completed contract seals to purchase traceable elements from verified miners, keeping cell inputs compliant with local sourcing guidelines.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "High-NA mechanical sub-assemblies face cargo holding holds due to component verification issues.",
-          description: "Customs inspectors at northern hubs are verifying subgrade compliance on highly technical drive train components, causing specialized warehouse backlogs.",
-          sentiment: "BEARISH",
-          impact: "CRITICAL"
-        },
-        {
-          title: "Qualifies high-integrity titanium casting techniques to shave substantial weight off chassis frame.",
-          description: "Metallurgical teams have integrated new casting ovens, ensuring uniform molecular consistency, boosting vehicle crash-test metrics and reducing raw material waste.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Maritime vehicle freight carriers detour around bottlenecked canals, escalating transport costs.",
-          description: "Persistent shipping congestion at primary canals has triggered route adjustments, expanding bulk vehicle transport shipping bills by 18%.",
-          sentiment: "BEARISH",
-          impact: "MODERATE"
-        }
-      );
-    } else {
-      // Default Generic Supply Chain Stories for any other sector (like retail, materials)
-      stories.push(
-        {
-          title: `${name} streamlines automated warehouse coordination system to reduce operational container footprint.`,
-          description: "Distribution managers have deployed next-generation automated sorting rigs, reducing product handling times and improving general storage density layouts.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Raw packaging boards and cellulose inputs face maritime shipping delays.",
-          description: "Severe weather and congested port schedules have delayed basic shipping materials, prompting inventory planners to deploy standby cardboard stock.",
-          sentiment: "BEARISH",
-          impact: "CRITICAL"
-        },
-        {
-          title: "Secures alternative rail supply corridors to stabilize multi-regional logistics targets.",
-          description: "To hedge against ocean shipping volatility, the supply chain group has initialized regular continental land-bridge routes connecting primary hubs.",
-          sentiment: "BULLISH",
-          impact: "MODERATE"
-        },
-        {
-          title: "Regional fuel surcharge adjustments increase short-haul truck freight expenses.",
-          description: "Adjustments to carrier tariff rules have pushed short-range distributor truck delivery quotes higher, raising domestic distribution costs.",
-          sentiment: "BEARISH",
-          impact: "ROUTINE"
-        }
-      );
-    }
-  }
+  // Story 1: Custom Deep-tier Corporate Deal (Bullish)
+  stories.push({
+    title: `${symbol} finalizes ${amountUSD_Deal} corporate logistics integration deal with ${partnerCo1.name} (${partnerCo1.symbol}) and ${partnerCo2.name} (${partnerCo2.symbol}) at ${loc1}`,
+    description: `Specifying direct operational alignments, ${name1} announced a ground-breaking supply chain agreement that links ${symbol} with core partners ${partnerCo1.symbol} and ${partnerCo2.symbol}. Under the contract, ${partnerCo1.symbol} will dedicate ${amountQty_Units} of subgrade ${mat1} per quarter to ${symbol}'s newly upgraded ${loc2} production line. This corporate pipeline consolidation stabilizes procurement rates and reduces the risk of volatile third-party pricing.`,
+    sentiment: "BULLISH",
+    impact: "MODERATE"
+  });
 
-  // Map other properties to fulfill interface
+  // Story 2: Maritime Choke-point & Transit Rerouting (Bearish)
+  stories.push({
+    title: `Suez transit congestion forces emergency routing detour for ${symbol} cargo from ${partnerCo1.symbol}, generating ${detourDelayDays} days delay`,
+    description: `Suez Canal Logistics Coordinator ${name2} alerted carriers that regional blockades and security bottlenecks have forced ${symbol}'s priority oceanic containers to divert around the Cape of Good Hope, adding ${detourDelayDays} days to transit matrices. The maritime detour impacts ${oceanContainersNum} containing custom ${mat2} shipped directly from manufacturing lines operated by ${partnerCo1.name} (${partnerCo1.symbol}). Transport freight surcharges are expected to spike short-term operational margins.`,
+    sentiment: "BEARISH",
+    impact: "CRITICAL"
+  });
+
+  // Story 3: Innovative Yield Validation and Lab Optimization (Bullish)
+  stories.push({
+    title: `Precision sub-micron ${mat1} formulation trials register record yield curve at ${loc3}`,
+    description: `Collaborating on an exclusive material validation study with ${partnerCo2.name} (${partnerCo2.symbol}), ${symbol}'s Lead Materials Analyst ${name3} verified that high-density testing of an upgraded chemical ${mat1} formulation succeeded with ${amountRate} yield optimization. The development, conducted under strict environmental controls at the specialized ${loc3} facility, is projected to reduce downstream manufacturing scraps by $45 Million per year and drastically improve structural durability.`,
+    sentiment: "BULLISH",
+    impact: "ROUTINE"
+  });
+
+  // Story 4: Customs Regulatory Hold / Transit ESD Lock (Bearish)
+  stories.push({
+    title: `Customs regulatory holding escrow at ${loc4} delays localized sub-tier material shipments to ${symbol}`,
+    description: `A sudden compliance audit on carbon border adjustments has triggered container holding lines at ${loc4}'s general customs escrow yards, temporarily halting intermediate supply deliveries. Regional Managing Director ${name4} confirmed that ${borderEscrowAmount} bound for ${symbol}'s secondary assembly pipelines are subject to extended technical inspections. procurement coordinators have tapped strategic buffer reserves to avoid line stoppages at domestic assembly bays.`,
+    sentiment: "BEARISH",
+    impact: "MODERATE"
+  });
+
+  // Map to final MockNewsStory items
   return stories.map((s, idx) => ({
     ...s,
     symbol,
-    published_at: getPastTimeStr(idx * 7 + 2), // staggered hours in the past
+    published_at: getPastTimeStr(idx * 7 + 2), 
     url: `https://example.com/logistics/intel/${(symbol || "").toLowerCase()}-${idx}`,
     image: "",
     intelligence: {

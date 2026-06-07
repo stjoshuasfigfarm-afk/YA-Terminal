@@ -6,22 +6,13 @@ import React, {
   useState,
   useMemo,
 } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Polyline,
-  useMap,
-  GeoJSON,
-  Tooltip,
-  Circle,
-} from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import "leaflet.heat";
+// Tactically re-saving file to clear potential fetch issues
+import { Typewriter } from "./Typewriter";
+import { OrbitalMap } from "./OrbitalMap";
 import { COMPANIES, Company } from "../data/companies";
 import { useCompanies } from "../context/CompaniesContext";
+import { formatSafeTime } from "../utils/date";
+import { isWebGLSupported } from "../utils/webgl";
 import {
   TrendingUp,
   MessageSquare,
@@ -43,201 +34,36 @@ import {
   Satellite,
   VolumeX,
   Volume2,
+  Compass,
+  Minus,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import Markdown from "react-markdown";
 import { cn, getApiBaseUrl } from "../lib/utils";
 import {
   CORRIDORS,
   getCorridorHeadquartersLinks,
+  TopologyMap,
 } from "./yield-terminal/TopologyMap";
 import { analyzeSentimentAndImpact } from "../lib/sentiment";
 import { AnimatePresence, motion } from "motion/react";
-// Dynamic import for Globe to improve initial load performance (Three.js/react-globe.gl)
-const Globe = lazy(() => import("./Globe").then((m) => ({ default: m.Globe })));
-
-const Typewriter = ({
-  text,
-  className = "text-emerald-500/80",
-}: {
-  text: string;
-  className?: string;
-}) => {
-  const [displayedText, setDisplayedText] = useState("");
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    setDisplayedText("");
-    setIndex(0);
-  }, [text]);
-
-  useEffect(() => {
-    if (index < text.length) {
-      const timeout = setTimeout(() => {
-        setDisplayedText((prev) => prev + text[index]);
-        setIndex((prev) => prev + 1);
-      }, 5);
-      return () => clearTimeout(timeout);
-    }
-  }, [index, text]);
-
-  return (
-    <div
-      className={cn(
-        "markdown-body font-sans text-[9.5px] leading-relaxed space-y-1.5 relative",
-        className,
-      )}
-    >
-      <Markdown>{displayedText}</Markdown>
-    </div>
-  );
-};
-
-// Fix leaflet icon issue
-// @ts-ignore
-import icon from "leaflet/dist/images/marker-icon.png";
-// @ts-ignore
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
-// Custom Marker Creator
-const createPulseIcon = (color: string) =>
-  L.divIcon({
-    className: "custom-pulsing-icon",
-    html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 10px ${color};"></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
-  });
-
-const defaultIcon = createPulseIcon("#ffffff");
-const activeIcon = createPulseIcon("#ffffff");
-
-const HeatmapLayer = ({ data }: { data: [number, number, number][] }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!map || !data || data.length === 0) return;
-
-    // @ts-ignore
-    const heatLayer = L.heatLayer(data, {
-      radius: 35,
-      blur: 20,
-      maxZoom: 1,
-      max: 1.0,
-      gradient: {
-        0.2: 'rgba(16, 185, 129, 0.2)',
-        0.4: 'rgba(16, 185, 129, 0.4)',
-        0.6: 'rgba(245, 158, 11, 0.6)',
-        0.8: 'rgba(239, 68, 68, 0.8)',
-        1.0: 'rgba(239, 68, 68, 1)'
-      }
-    }).addTo(map);
-
-    return () => {
-      map.removeLayer(heatLayer);
-    };
-  }, [map, data]);
-
-  return null;
-};
 
 // Utility to validate coordinates
-const isValidCoord = (val: any): val is number =>
-  typeof val === "number" && !isNaN(val) && Number.isFinite(val);
-
 const isSafeLatLng = (lat: any, lng: any): boolean => {
   try {
     if (lat === null || lat === undefined || lng === null || lng === undefined)
       return false;
-
-    // Check if it's already a number or can be converted
     const nLat = typeof lat === "number" ? lat : parseFloat(String(lat));
     const nLng = typeof lng === "number" ? lng : parseFloat(String(lng));
-
-    // Explicit checks for NaN and Infinity using the most robust methods
-    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) {
-      return false;
-    }
-
-    // Valid coordinate ranges for Earth
+    if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return false;
     return nLat >= -90 && nLat <= 90 && nLng >= -180 && nLng <= 180;
   } catch {
     return false;
   }
 };
 
-// Safety wrapper for L.latLng to prevent crashes
-const safeLatLng = (lat: any, lng: any): L.LatLng | null => {
-  if (isSafeLatLng(lat, lng)) {
-    try {
-      return L.latLng(Number(lat), Number(lng));
-    } catch {
-      return null;
-    }
-  }
-  return null;
-};
 
-// Controller component to handle fly-to
-const MapController = ({
-  selectedPosition,
-  zoomLevel = 6,
-  onAnimationEnd,
-  networkAnchor,
-  is3DMode,
-}: {
-  selectedPosition: [number, number] | null;
-  zoomLevel?: number;
-  onAnimationEnd?: () => void;
-  networkAnchor?: any;
-  is3DMode: boolean;
-}) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (map && !is3DMode) {
-      const timer = setTimeout(() => {
-        map.invalidateSize();
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [map, is3DMode]);
-  
-  useEffect(() => {
-    if (map && selectedPosition && Array.isArray(selectedPosition)) {
-      const lat = selectedPosition[0];
-      const lng = selectedPosition[1];
-
-      const pos = safeLatLng(lat, lng);
-      if (pos) {
-        try {
-          const handleMoveEnd = () => {
-            if (onAnimationEnd) onAnimationEnd();
-            map.off("moveend", handleMoveEnd);
-          };
-          map.on("moveend", handleMoveEnd);
-
-          const targetZoom = networkAnchor ? 15 : zoomLevel;
-
-          map.flyTo(pos, targetZoom, {
-            duration: 1.8,
-            easeLinearity: 0.25,
-          });
-        } catch (err) {
-          console.error("Map flyTo critically failed:", err, pos);
-        }
-      }
-    }
-  }, [selectedPosition, zoomLevel, map, onAnimationEnd, networkAnchor]);
-
-  return null;
-};
 
 interface MapLayerProps {
   selectedStock: Company | null;
@@ -254,7 +80,7 @@ interface MapLayerProps {
   allNewsData?: any[];
   sentiment?: any;
   onInjectLiveNews?: () => void;
-  mapLayers: { hq: boolean; arcs: boolean; heatmap: boolean; satellite: boolean; borders: boolean };
+  mapLayers: { hq: boolean; arcs: boolean; satellite: boolean; borders: boolean };
   activeCorridorId?: string | null;
   onSelectCorridor?: (id: string | null) => void;
   agentFocus?: any | null;
@@ -273,6 +99,8 @@ interface MapLayerProps {
   onToggleVocalizer: (val: boolean) => void;
   riskScore?: number;
   relationships?: { suppliers: any[]; customers: any[] };
+  isTransitioning?: boolean;
+  activeNewsIdx?: number;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({
@@ -309,8 +137,11 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   onToggleVocalizer,
   riskScore = 25,
   relationships = { suppliers: [], customers: [] },
+  isTransitioning = false,
+  activeNewsIdx: propActiveNewsIdx = 0,
 }) => {
   const setIsVocalizerEnabled = onToggleVocalizer;
+  const [isSwapped, setIsSwapped] = useState(false);
   const { companies: contextCompanies } = useCompanies();
   const companies = useMemo(() => {
     return contextCompanies && contextCompanies.length > 0 ? contextCompanies : COMPANIES;
@@ -326,10 +157,10 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       list.push(c);
     };
 
-    if (selectedStock) addCo(selectedStock);
-    if (focusStock) addCo(focusStock);
+    if (selectedStock && !isTransitioning) addCo(selectedStock);
+    if (focusStock && !isTransitioning) addCo(focusStock);
 
-    if (selectedStock && relationships) {
+    if (selectedStock && relationships && !isTransitioning) {
       if (Array.isArray(relationships.suppliers)) {
         relationships.suppliers.forEach(s => {
           const matched = companies.find(c => c.symbol === s.symbol);
@@ -344,7 +175,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       }
     }
 
-    const anchor = networkAnchor || selectedStock;
+    const anchor = (networkAnchor || selectedStock) && !isTransitioning ? (networkAnchor || selectedStock) : null;
     if (anchor) {
       if (anchor.partners) {
         anchor.partners.forEach(sym => {
@@ -359,25 +190,27 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       });
     }
 
-    if ((searchQuery || "").trim()) {
-      const queryLower = (searchQuery || "").toLowerCase();
-      const searchMatches = companies.filter(c => 
-        (c.symbol || "").toLowerCase().includes(queryLower) ||
-        (c.name || "").toLowerCase().includes(queryLower) ||
-        (c.sector || "").toLowerCase().includes(queryLower)
-      );
-      searchMatches.slice(0, 50).forEach(addCo);
-    } else {
-      COMPANIES.forEach(addCo);
+    if (!isTransitioning) {
+      if ((searchQuery || "").trim()) {
+        const queryLower = (searchQuery || "").toLowerCase();
+        const searchMatches = companies.filter(c => 
+          (c.symbol || "").toLowerCase().includes(queryLower) ||
+          (c.name || "").toLowerCase().includes(queryLower) ||
+          (c.sector || "").toLowerCase().includes(queryLower)
+        );
+        searchMatches.slice(0, 50).forEach(addCo);
+      } else {
+        COMPANIES.forEach(addCo);
+      }
     }
 
     return list;
-  }, [companies, selectedStock, focusStock, relationships, searchQuery, networkAnchor, showGlobalNetwork]);
+  }, [companies, selectedStock, focusStock, relationships, searchQuery, networkAnchor, showGlobalNetwork, isTransitioning]);
 
-  const [is3DMode, setIs3DMode] = useState(true);
   const [showNewsSummary, setShowNewsSummary] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsCooldownRef = useRef<number>(0);
+  const ttsRequestIdRef = useRef<number>(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
@@ -414,18 +247,8 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     };
   }, []);
 
-  // Generate heatmap data based on market activity
-  const heatmapData = useMemo(() => {
-    return companiesToRender.map(c => {
-      if (!isSafeLatLng(c.lat, c.lng)) return null;
-      const quote = marketData[c.symbol];
-      const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
-      const companyNewsCount = allNewsData.filter(n => n.symbol === c.symbol).length;
-      // Synthetic activity score 0.1 to 1.0
-      const weight = Math.min(1, 0.1 + (volatility / 5) + (companyNewsCount / 8));
-      return [Number(c.lat), Number(c.lng), weight] as [number, number, number];
-    }).filter((x): x is [number, number, number] => x !== null);
-  }, [companiesToRender, marketData, allNewsData]);
+  // Heatmap disabled
+  const heatmapData: [number, number, number][] = [];
 
   // Global Keydown Hotkeys for HUD controls mapping
   useEffect(() => {
@@ -440,13 +263,8 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       }
 
       const key = (e.key || "").toLowerCase();
-      if (key === "g" || key === "3") {
-        e.preventDefault();
-        setIs3DMode((prev) => {
-          const next = !prev;
-          setViewportLock(next);
-          return next;
-        });
+      if (false) {
+        // ... (removed)
       } else if (key === "s") {
         e.preventDefault();
         setAutoRotateEnabled(true);
@@ -467,6 +285,20 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
   }, [setViewportLock, setAutoRotateEnabled]);
+
+  // Gracefully fallback to 2D Planar projection dynamically if WebGL is unavailable or fails context creation
+  useEffect(() => {
+    const handleWebGLFailure = () => {
+      console.warn("WebGL Context Failure Detected. Switching projection to 2D Map Container...");
+      setIs3DMode(false);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("webgl-context-failed", handleWebGLFailure);
+      return () => window.removeEventListener("webgl-context-failed", handleWebGLFailure);
+    }
+  }, []);
+
   const [newsActiveTab, setNewsActiveTab] = useState("FLASH_URGENT");
   const [eiaData, setEiaData] = useState<any>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -501,6 +333,11 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
   }, [newsActiveTab, eiaData]);
   const [activeNewsIdx, setActiveNewsIdx] = useState(0);
+  
+  // Sync local activeNewsIdx with prop if provided
+  useEffect(() => {
+    setActiveNewsIdx(propActiveNewsIdx);
+  }, [propActiveNewsIdx]);
   const [neuralBloom, setNeuralBloom] = useState<{ lat: number, lng: number, timestamp: number } | null>(null);
   
   useEffect(() => {
@@ -526,7 +363,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
   };
   const [isCyclingTriggered, setIsCyclingTriggered] = useState(false); 
-  const [lastTimerReset, setLastTimerReset] = useState(Date.now());
   const prevLatestNewsRef = useRef<any>(null);
 
   useEffect(() => {
@@ -616,6 +452,10 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   const speakWithEnhancedVoice = async (text: string) => {
     if (!isVocalizerEnabled) return;
     
+    // Increment request ID to supersede any active loading/fetch
+    ttsRequestIdRef.current += 1;
+    const currentRequestId = ttsRequestIdRef.current;
+
     // Stop any current speaking
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     if (audioRef.current) {
@@ -659,6 +499,11 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         body: JSON.stringify({ text, voice: "Zephyr" })
       });
       
+      // If superseded during fetch, bail immediately!
+      if (currentRequestId !== ttsRequestIdRef.current) {
+        return;
+      }
+
       if (!response.ok) {
         if (response.status === 429) {
           // Engage cooldown for 10 minutes if quota hit
@@ -669,6 +514,12 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       }
       
       const data = await response.json();
+
+      // Check again if superseded before playing
+      if (currentRequestId !== ttsRequestIdRef.current) {
+        return;
+      }
+
       if (data.audio) {
         // Handle Gemini TTS output: directly decode PCM for optimal stability
         try {
@@ -697,11 +548,19 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             }
           };
           
+          // One final check before setting and starting standard source!
+          if (currentRequestId !== ttsRequestIdRef.current) {
+            return;
+          }
+
           (window as any)._activeTtsSourceMap = source;
           setIsSpeaking(true);
           source.start();
         } catch (pcmErr) {
           console.warn("PCM Playback failed, trying standard HTML5 audio fallbacks:", pcmErr);
+          
+          if (currentRequestId !== ttsRequestIdRef.current) return;
+
           const audio = new Audio("data:audio/wav;base64," + data.audio);
           audioRef.current = audio;
           audio.onended = () => {
@@ -710,22 +569,30 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           };
           audio.onerror = () => {
             setIsSpeaking(false);
-            triggerBrowserFallback(text);
+            if (currentRequestId === ttsRequestIdRef.current) {
+              triggerBrowserFallback(text);
+            }
           };
           setIsSpeaking(true);
           await audio.play().catch((playErr) => {
             console.warn("Direct HTML5 audio play failed:", playErr);
-            triggerBrowserFallback(text);
+            if (currentRequestId === ttsRequestIdRef.current) {
+              triggerBrowserFallback(text);
+            }
           });
         }
       }
     } catch (err: any) {
-      if (err.message !== "QUOTA_EXHAUSTED" && err.message !== "Failed to fetch") {
-        console.error("News vocalization failed:", err);
+      if (currentRequestId === ttsRequestIdRef.current) {
+        if (err.message !== "QUOTA_EXHAUSTED" && err.message !== "Failed to fetch") {
+          console.error("News vocalization failed:", err);
+        }
+        triggerBrowserFallback(text);
       }
-      triggerBrowserFallback(text);
     } finally {
-      setIsSpeechLoading(false);
+      if (currentRequestId === ttsRequestIdRef.current) {
+        setIsSpeechLoading(false);
+      }
     }
   };
 
@@ -764,9 +631,50 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   const [typedBriefing, setTypedBriefing] = useState("");
   const [localIsSearching, setLocalIsSearching] = useState(false);
 
-  // Typewriter stream and reset animation flag when navigation target updates
+  // Persistent briefing states to stay open and support minimize functionality
+  const [preservedBriefing, setPreservedBriefing] = useState<any | null>(null);
+  const [isBriefingMinimized, setIsBriefingMinimized] = useState(false);
+
+  // Sync state: capture briefing updates when they happen
   useEffect(() => {
-    if (!agentFocus) {
+    if (briefing && Object.keys(briefing).length > 0) {
+      setPreservedBriefing({
+        type: "briefing",
+        data: briefing,
+        title: selectedStock ? `${selectedStock.symbol} _INTEL_DECK` : "TACTICAL_BRIEFING",
+        subTitle: selectedStock ? selectedStock.name : "OPERATIONS STREAM"
+      });
+      setIsBriefingMinimized(false);
+    }
+  }, [briefing, selectedStock]);
+
+  // Sync state: capture agentFocus updates when they happen
+  useEffect(() => {
+    if (agentFocus && agentFocus.briefing) {
+      let extractedText = "";
+      if (typeof agentFocus.briefing === "string") {
+        extractedText = agentFocus.briefing;
+      } else if (Array.isArray(agentFocus.briefing)) {
+        extractedText = agentFocus.briefing.join(" ");
+      } else if (typeof agentFocus.briefing === "object" && agentFocus.briefing !== null) {
+        extractedText = JSON.stringify(agentFocus.briefing);
+      } else {
+        extractedText = String(agentFocus.explanation || agentFocus.briefing || "");
+      }
+      
+      setPreservedBriefing({
+        type: "agentFocus",
+        text: extractedText,
+        title: "ANALYSIS_STREAM",
+        subTitle: agentFocus.locationName ? agentFocus.locationName.toUpperCase() : "TARGET REGION"
+      });
+      setIsBriefingMinimized(false);
+    }
+  }, [agentFocus]);
+
+  // Typewriter effect watching preserved briefing content rather than transient agentFocus focus state
+  useEffect(() => {
+    if (!preservedBriefing || preservedBriefing.type !== "agentFocus") {
       setTypedBriefing("");
       setIsNavAnimationFinished(false);
       return;
@@ -776,19 +684,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     setTypedBriefing("");
     let index = 0;
     
-    // Safely extract text to avoid [object Object] gibberish if the AI returned a nested structure
-    let extractedText = "";
-    if (typeof agentFocus.briefing === "string") {
-      extractedText = agentFocus.briefing;
-    } else if (Array.isArray(agentFocus.briefing)) {
-      extractedText = agentFocus.briefing.join(" ");
-    } else if (typeof agentFocus.briefing === "object" && agentFocus.briefing !== null) {
-      extractedText = JSON.stringify(agentFocus.briefing);
-    } else {
-      extractedText = String(agentFocus.explanation || agentFocus.briefing || "");
-    }
-    
-    const fullText = extractedText;
+    const fullText = preservedBriefing.text || "";
     if (!fullText) return;
     
     const chars = Array.from(fullText);
@@ -802,7 +698,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }, 15);
 
     return () => clearInterval(interval);
-  }, [agentFocus]);
+  }, [preservedBriefing]);
 
   const [countriesGeoJson, setCountriesGeoJson] = useState<any>(null);
   const [statesGeoJson, setStatesGeoJson] = useState<any>(null);
@@ -926,8 +822,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         speakWithEnhancedVoice(text);
       }
       if (isNewsCyclingActive) {
-        setActiveNewsIdx(0);
-        setLastTimerReset(Date.now());
+        // App-level cycle timer will handle this
       }
       const company = companies.find(
         (c) => c.symbol === (currentLatest.symbol || currentLatest.ticker),
@@ -940,60 +835,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     prevLatestNewsRef.current = currentLatest;
   }, [allNewsData, isNewsCyclingActive, onSelectNode]);
 
-  // Auto-cycle through news stories if active - State Updater (Following the stories being streamed on the globe/map)
-  useEffect(() => {
-    if (!isNewsCyclingActive) return;
-    const storiesCount =
-      allNewsData.length > 0 ? allNewsData.length : filteredCompanyCache.length;
-    if (storiesCount === 0) return;
-
-    const interval = setInterval(() => {
-      setActiveNewsIdx((prev) => (prev + 1) % storiesCount);
-    }, 30000); // 30-second cycle interval
-
-    return () => clearInterval(interval);
-  }, [
-    isNewsCyclingActive,
-    allNewsData.length,
-    filteredCompanyCache.length,
-    lastTimerReset,
-  ]);
-
-  // Handle focusing the node when activeNewsIdx changes in auto news cycle
-  useEffect(() => {
-    if (!isNewsCyclingActive) return;
-
-    const feed = allNewsData.length > 0 ? allNewsData : filteredCompanyCache;
-    if (feed.length === 0) return;
-
-    const currentNews = feed[activeNewsIdx % feed.length];
-    const company = companies.find(
-      (c) => c.symbol === (currentNews?.symbol || currentNews?.ticker),
-    );
-    if (company && company.symbol !== selectedStock?.symbol) {
-      // Small debounce to prevent rapid fire-storm of focus events during transitions
-      const timer = setTimeout(() => {
-        onSelectNode(company, true);
-        if (viewportLock) {
-          setAgentFocus?.({
-            locationName: company.name,
-            lat: company.lat,
-            lng: company.lng,
-            zoomLevel: 5,
-          });
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    activeNewsIdx,
-    isNewsCyclingActive,
-    onSelectNode,
-    selectedStock,
-    allNewsData,
-    filteredCompanyCache,
-    setAgentFocus,
-  ]);
+  // Local cycling effects removed in favor of App-level cycle control
 
   const fetchLiveNews = async (ticker: string) => {
     setIsFetchingNews(true);
@@ -1097,6 +939,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
 
   const activePosition = React.useMemo((): [number, number] | null => {
     try {
+      if (isTransitioning) return null;
       if (isNewsCyclingActive && currentNewsItem) {
         const company = companies.find(
           (c) =>
@@ -1291,1038 +1134,72 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     return lines;
   }, [selectedStock, activeTab, hoveredCompany, showGlobalNetwork, networkAnchor, relationships]);
 
-  // Ref to store markers for programmatic popup opening
-  const markerRefs = useRef<{ [key: string]: L.Marker | null }>({});
-
-  useEffect(() => {
-    if (is3DMode || !viewportLock) return;
-    try {
-      const target = focusStock || selectedStock;
-      if (target && markerRefs.current[target.symbol]) {
-        const marker = markerRefs.current[target.symbol];
-        if (marker) {
-          // Delay to allow flyTo to progress
-          const timer = setTimeout(() => {
-            try {
-              if (marker && typeof marker.openPopup === "function") {
-                marker.openPopup();
-              }
-            } catch (err) {
-              console.warn(
-                "Could not open popup for marker",
-                target.symbol,
-                err,
-              );
-            }
-          }, 1200);
-          return () => clearTimeout(timer);
-        }
-      }
-    } catch (err) {
-      console.warn("Popup effect failed gracefully", err);
-    }
-  }, [focusStock, selectedStock, is3DMode]);
-
   return (
     <div className="flex-1 relative bg-[#050505] overflow-hidden map-green-hued tactical-grid">
       <div className="absolute top-1 right-1 z-[1002] flex flex-col gap-1 pointer-events-auto items-end">
-        {/* Main Control Cluster */}
-        <div className="bg-black/90 backdrop-blur-xl border border-emerald-500/25 p-1.5 flex flex-col gap-1.5 shadow-2xl scale-[0.7] sm:scale-85 md:scale-90 lg:scale-100 origin-top-right w-[170px]">
-          {/* Section: Projection Mode Segmented Picker */}
-          <div className="flex flex-col gap-1 border-b border-emerald-500/15 pb-1.5">
-            <span className="text-[7px] text-zinc-500 uppercase tracking-widest font-mono select-none px-1 text-left font-bold">
-              PROJECTION SYSTEM
-            </span>
-            <div className="grid grid-cols-2 gap-0.5 bg-black/40 border border-zinc-900 p-0.5 rounded-none">
-              <button
-                onClick={() => {
-                  setIs3DMode(true);
-                  setViewportLock(true);
-                }}
-                className={cn(
-                  "h-7 flex items-center justify-center gap-1 transition-all text-[8px] font-black uppercase tracking-wider border select-none cursor-pointer",
-                  is3DMode
-                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                    : "bg-transparent border-transparent text-zinc-500 hover:text-zinc-400 hover:bg-zinc-900/30",
-                )}
-                title="Tactical 3D Globe Projection [G]"
-              >
-                <GlobeIcon className="w-3 h-3" />
-                <span>3D GLOBE</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setIs3DMode(false);
-                  setViewportLock(false);
-                }}
-                className={cn(
-                  "h-7 flex items-center justify-center gap-1 transition-all text-[8px] font-black uppercase tracking-wider border select-none cursor-pointer",
-                  !is3DMode
-                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                    : "bg-transparent border-transparent text-zinc-500 hover:text-zinc-400 hover:bg-zinc-900/30",
-                )}
-                title="Strategy 2D Map Projection [G]"
-              >
-                <MapIcon className="w-3 h-3" />
-                <span>2D MAP</span>
-              </button>
-            </div>
-          </div>
-
-            <div className="grid grid-cols-1 gap-1">
-            {selectedStock && (
-              <div className="relative group/btn">
-                <button
-                  id="network-toggle-btn"
-                  onClick={() => {
-                    if (toggleGlobalNetwork) toggleGlobalNetwork();
-                    if (!showGlobalNetwork) {
-                      if (isNewsCyclingActive) {
-                        setIsNewsCyclingActive(false);
-                        setIsCyclingTriggered(false);
-                      }
-                      if (showNewsSummary) setShowNewsSummary(false);
-                    }
-                  }}
-                  className={cn(
-                    "w-full h-9 border flex items-center justify-center transition-all duration-200 group relative overflow-hidden cursor-pointer",
-                    showGlobalNetwork
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.6)]"
-                      : "bg-zinc-900/50 border-zinc-800 text-zinc-500 hover:border-emerald-500/50 hover:text-emerald-500 hover:shadow-[0_0_10px_rgba(16,185,129,0.2)] hover:bg-emerald-950/40",
-                  )}
-                >
-                  <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <Network className={cn("w-4 h-4", showGlobalNetwork ? "drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]" : "")} />
-                </button>
-                <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap bg-zinc-950 border border-emerald-500/40 text-[9px] text-emerald-400 font-mono font-black py-1 px-2 tracking-widest uppercase shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                  {networkAnchor ? `LOCKED: ${networkAnchor.symbol} NETWORKS` : "SUPPLIERS & CUSTOMERS"}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Section: Observation Mode Segmented Picker */}
-          <div className="flex flex-col gap-1 border-t border-emerald-500/15 pt-1.5">
-            <span className="text-[7px] text-zinc-500 uppercase tracking-widest font-mono select-none px-1 text-left font-bold">
-              OBSERVATION PROFILE
-            </span>
-            <div className="grid grid-cols-3 gap-0.5 bg-black/40 border border-zinc-900 p-0.5 rounded-none">
-              {/* SPIN button */}
-              <button
-                onClick={() => {
-                  setAutoRotateEnabled(true);
-                  setViewportLock(false);
-                }}
-                className={cn(
-                  "h-[36px] flex flex-col items-center justify-center transition-all text-[7px] md:text-[8px] font-black uppercase tracking-tighter border select-none leading-none gap-1 cursor-pointer",
-                  autoRotateEnabled && !viewportLock
-                    ? "bg-emerald-500/25 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/50"
-                    : "bg-zinc-900/60 border-zinc-800 text-zinc-500 hover:text-zinc-400 hover:bg-zinc-900/80",
-                )}
-                title="Continuous axis scan rotation [S]"
-              >
-                <div className="relative">
-                  <RefreshCcw className={cn("w-3 h-3", autoRotateEnabled && !viewportLock ? "animate-[spin_3s_linear_infinite]" : "")} />
-                </div>
-                <span className="flex flex-col items-center gap-px">
-                  <span>SPIN</span>
-                  <span className="text-[6px] opacity-60 font-mono">[S]</span>
-                </span>
-              </button>
-
-              {/* FREE button */}
-              <button
-                onClick={() => {
-                  setAutoRotateEnabled(false);
-                  setViewportLock(false);
-                }}
-                className={cn(
-                  "h-[36px] flex flex-col items-center justify-center transition-all text-[7px] md:text-[8px] font-black uppercase tracking-tighter border select-none leading-none gap-1 cursor-pointer",
-                  !autoRotateEnabled && !viewportLock
-                    ? "bg-zinc-700 border-zinc-500 text-white shadow-[0_0_10px_rgba(255,255,255,0.1)]"
-                    : "bg-zinc-900/60 border-zinc-800 text-zinc-500 hover:text-zinc-400 hover:bg-zinc-900/80",
-                )}
-                title="Unrestricted interactive manual orbit [F]"
-              >
-                <Crosshair className="w-3 h-3" />
-                <span className="flex flex-col items-center gap-px">
-                  <span>FREE</span>
-                  <span className="text-[6px] opacity-60 font-mono">[F]</span>
-                </span>
-              </button>
-
-              {/* LOCK button */}
-              <button
-                onClick={() => {
-                  setAutoRotateEnabled(false);
-                  if (viewportLock) {
-                    setViewportLock(false);
-                    setTimeout(() => setViewportLock(true), 50);
-                  } else {
-                    setViewportLock(true);
-                  }
-                }}
-                className={cn(
-                  "h-[36px] flex flex-col items-center justify-center transition-all text-[7px] md:text-[8px] font-black uppercase tracking-tighter border select-none leading-none gap-1 cursor-pointer",
-                  viewportLock
-                    ? "bg-blue-600/30 border-blue-400 text-blue-100 shadow-[0_0_15px_rgba(59,130,246,0.2)] ring-1 ring-blue-500/50"
-                    : "bg-zinc-900/60 border-zinc-800 text-zinc-500 hover:text-zinc-400 hover:bg-zinc-900/80",
-                )}
-                title="Viewport tracking lock on active node [L]"
-              >
-                <Target className={cn("w-3 h-3", viewportLock ? "animate-pulse" : "")} />
-                <span className="flex flex-col items-center gap-px">
-                  <span>LOCK</span>
-                  <span className="text-[6px] opacity-60 font-mono">[L]</span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* GlobeMinimap is handled via separate component */}
       </div>
 
-      <div className="absolute top-[210px] right-3 md:top-[220px] md:right-4 z-[1001] pointer-events-auto flex flex-col gap-2 w-[110px] md:w-[150px]">
-        {!showNewsSummary && (
-          <div className="bg-zinc-950/90 backdrop-blur-md border border-zinc-800/50 p-2.5 md:p-3 flex flex-col gap-1.5 rounded-none overflow-hidden relative shadow-[0_8px_32px_rgba(0,0,0,0.9)]">
-            {/* Subtle visual accent */}
-            <div
-              className="absolute top-0 right-0 w-4 h-4 bg-emerald-500/10 pointer-events-none"
-              style={{ clipPath: "polygon(0 0, 100% 0, 100% 100%)" }}
-            />
-
-            <div className="flex items-center justify-between font-mono text-[8px] md:text-[9px] text-zinc-500 border-b border-zinc-900 pb-1.5 font-sans">
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 uppercase font-bold tracking-wider",
-                  currentItem?.sentiment === "BULLISH"
-                    ? "text-emerald-400"
-                    : currentItem?.sentiment === "BEARISH"
-                    ? "text-red-400"
-                    : "text-amber-500/90",
-                )}
-              >
-                <span className="w-1.5 h-1.5 bg-current rounded-full" />
-                <span>FLASH INTEL STREAM</span>
-              </div>
-              <button
-                onClick={() => {
-                  const newState = !isNewsCyclingActive;
-                  setIsNewsCyclingActive(newState);
-                  setIsCyclingTriggered(newState);
-                  if (newState) {
-                    if (showGlobalNetwork && toggleGlobalNetwork) toggleGlobalNetwork();
-                    setViewportLock(true);
-                  }
-                }}
-                className={cn(
-                  "p-0.5 border transition-all cursor-pointer rounded-px",
-                  isNewsCyclingActive 
-                    ? "bg-emerald-500 border-emerald-400 text-black shadow-[0_0_8px_rgba(16,185,129,0.4)]"
-                    : "bg-zinc-900 border-zinc-700 text-zinc-500"
-                )}
-                title="Toggle Auto Intelligence Stream"
-              >
-                <RefreshCcw className={cn("w-2.5 h-2.5", isNewsCyclingActive ? "animate-[spin_4s_linear_infinite]" : "")} />
-              </button>
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={
-                  currentItem
-                    ? currentItem.intelligence?.translatedTitle ||
-                      currentItem.translatedTitle ||
-                      currentItem.headline ||
-                      currentItem.title ||
-                      currentItem.name
-                    : "empty-news"
-                }
-                initial={{ opacity: 0, x: -5 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 5 }}
-                transition={{ duration: 0.15, ease: "linear" }}
-                className="space-y-1 my-0.5"
-              >
-                {currentItem ? (
-                  <>
-                    <h4
-                      className={cn(
-                        "text-[10px] md:text-[12px] uppercase font-black leading-[1.1] tracking-tighter line-clamp-3 cursor-pointer hover:underline pl-2 border-l-2 border-zinc-700/50 mb-1",
-                        currentItem?.sentiment === "BULLISH"
-                          ? "text-emerald-400"
-                          : currentItem?.sentiment === "BEARISH"
-                          ? "text-red-400"
-                          : "text-amber-500/90",
-                      )}
-                      onClick={() => {
-                        setShowNewsSummary(true);
-                        const company = companies.find((c) => c.symbol === (currentItem.symbol || currentItem.ticker));
-                        if (company) onSelectNode(company, false);
-                      }}
-                    >
-                      {currentItem.intelligence?.translatedTitle ||
-                        currentItem.translatedTitle ||
-                        currentItem.headline ||
-                        currentItem.title ||
-                        currentItem.name}
-                    </h4>
-                    <div className="text-[7px] text-zinc-500 font-mono tracking-widest pl-2 opacity-60 uppercase">
-                      {currentItem.ticker || currentItem.symbol} //{" "}
-                      {currentItem.country || "GLOBAL_FEED"}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-[8px] md:text-[9px] text-zinc-600 uppercase font-mono tracking-tighter flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-zinc-800 animate-pulse" />
-                    WAIT_PACKET_QUEUE...
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            <div className="flex items-center justify-between pt-1.5 border-t border-zinc-900/80 gap-1.5">
-              <div className="flex gap-1">
-                <button
-                  onClick={() => {
-                    const count = activeNewsFeed.length;
-                    if (count > 0) {
-                      const nextIdx = (activeNewsIdx - 1 + count) % count;
-                      setActiveNewsIdx(nextIdx);
-                      const item = activeNewsFeed[nextIdx];
-                      if (item) {
-                        if (isVocalizerEnabled) {
-                          const text = `${item.translatedTitle || item.headline || item.title || item.name}.`;
-                          speakWithEnhancedVoice(text);
-                        }
-                        const company = companies.find((c) => c.symbol === (item.symbol || item.ticker));
-                        if (company) onSelectNode(company, true);
-                      }
-                    }
-                  }}
-                  className="w-5 h-4.5 border border-zinc-800 text-[8px] flex items-center justify-center hover:bg-zinc-900 hover:text-white cursor-pointer text-zinc-500 rounded-none transition-colors"
-                >
-                  «
-                </button>
-                <button
-                  onClick={() => {
-                    const count = activeNewsFeed.length;
-                    if (count > 0) {
-                      const nextIdx = (activeNewsIdx + 1) % count;
-                      setActiveNewsIdx(nextIdx);
-                      const item = activeNewsFeed[nextIdx];
-                      if (item) {
-                        if (isVocalizerEnabled) {
-                          const text = `${item.translatedTitle || item.headline || item.title || item.name}.`;
-                          speakWithEnhancedVoice(text);
-                        }
-                        const company = companies.find((c) => c.symbol === (item.symbol || item.ticker));
-                        if (company) onSelectNode(company, true);
-                      }
-                    }
-                  }}
-                  className="w-5 h-4.5 border border-zinc-800 text-[8px] flex items-center justify-center hover:bg-zinc-900 hover:text-white cursor-pointer text-zinc-500 rounded-none transition-colors"
-                >
-                  »
-                </button>
-                <button
-                  onClick={() => {
-                    setIsVocalizerEnabled(true);
-                    const text = `${currentItem.translatedTitle || currentItem.headline || currentItem.title || currentItem.name}.`;
-                    if (text) {
-                      speakWithEnhancedVoice(text);
-                    }
-                  }}
-                  className={cn(
-                    "w-5 h-4.5 border border-zinc-800 text-[8px] flex items-center justify-center hover:bg-emerald-900/50 hover:text-emerald-400 cursor-pointer rounded-none transition-colors",
-                    isVocalizerEnabled ? "text-emerald-400 bg-emerald-900/20 shadow-[0_0_5px_rgba(16,185,129,0.3)]" : "text-zinc-500"
-                  )}
-                >
-                  🔊
-                </button>
-              </div>
-              <button
-                onClick={() => setShowNewsSummary(true)}
-                className="uppercase font-black tracking-widest text-emerald-500 hover:text-emerald-300 cursor-pointer text-[6.5px] md:text-[7.5px] transition-colors flex items-center gap-1"
-              >
-                <span>DATA</span>
-                <Newspaper className="w-2 h-2" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className={cn("w-full h-full absolute inset-0 z-10 duration-200 transition-opacity", !is3DMode && "opacity-0 pointer-events-none")}>
+      <div className="w-full h-full absolute inset-0 z-20 opacity-100 pointer-events-auto">
         <Suspense
           fallback={
             <div className="absolute inset-0 bg-black flex flex-col items-center justify-center">
               <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full" />
               <div className="mt-4 text-emerald-500/50 font-mono text-[10px] tracking-widest uppercase">
-                INITIALIZING TACTICAL 3D...
+                INITIALIZING ORBITAL ENGINE...
               </div>
             </div>
           }
         >
-          <Globe
-            selectedStock={
-              viewportLock || isNewsCyclingActive ? selectedStock : null
-            }
-            onSelectNode={onSelectNode}
-            marketData={marketData}
-            newsData={allNewsData}
-            sentiment={sentiment}
-            showAllConnections={showGlobalNetwork}
-            networkAnchor={networkAnchor}
-            onInjectLiveNews={onInjectLiveNews}
-            activeCorridorId={activeCorridorId}
-            agentFocus={viewportLock || isNewsCyclingActive ? agentFocus : null}
-            agentEntities={agentEntities}
-            viewportLock={viewportLock}
-            setViewportLock={setViewportLock}
-            autoRotateEnabled={autoRotateEnabled}
-            setAutoRotateEnabled={setAutoRotateEnabled}
-            isNewsCyclingActive={isNewsCyclingActive}
-            mapLayers={mapLayers}
+          <OrbitalMap 
+            selectedStock={selectedStock as any}
+            agentFocus={agentFocus}
+            autoRotate={autoRotateEnabled}
+            entities={companiesToRender}
+            onSelectNode={(entity) => {
+              if (entity && onSelectNode) {
+                onSelectNode(entity);
+              }
+            }}
           />
         </Suspense>
       </div>
 
-      <div className={cn("w-full h-full absolute inset-0 z-20 duration-200 transition-opacity", is3DMode && "opacity-0 pointer-events-none")}>
-        <MapContainer
-          center={[20, 0]}
-          zoom={4}
-          className="w-full h-full bg-[#13263a]"
-          zoomControl={false}
-          attributionControl={false}
-          dragging={false}
-          touchZoom={false}
-          doubleClickZoom={false}
-          scrollWheelZoom={false}
-          boxZoom={false}
-          keyboard={false}
-        >
-          {mapLayers.satellite ? (
-            <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              className="map-tile-layer"
-            />
-          ) : (
-            <TileLayer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
-              className="map-tile-layer"
-            />
-          )}
-
-          {mapLayers.borders && (
-            <TileLayer
-              url="https://stamen-tiles-{s}.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}{r}.png"
-              opacity={0.3}
-              className="map-tile-layer-borders"
-            />
-          )}
-
-          {countriesGeoJson && (
-            <GeoJSON
-              key={`map-countries-${countriesGeoJson.features?.length || 0}`}
-              data={countriesGeoJson}
-              style={{
-                fillColor: "transparent",
-                color: "#1e40af", // deep base blue outline for countries
-                weight: 1.2,
-                opacity: 0.5,
-                fillOpacity: 0,
-              }}
-            />
-          )}
-
-          {statesGeoJson && (
-            <GeoJSON
-              key={`map-states-${statesGeoJson.features?.length || 0}`}
-              data={statesGeoJson}
-              style={{
-                fillColor: "transparent",
-                color: "#0369a1", // beautiful slate sky-blue state borders
-                weight: 0.6,
-                opacity: 0.5,
-                fillOpacity: 0,
-              }}
-            />
-          )}
-
-          <MapController
-            selectedPosition={
-              viewportLock || isNewsCyclingActive ? activePosition : null
-            }
-            zoomLevel={isNewsCyclingActive ? 9 : agentFocus?.zoomLevel || 6}
-            onAnimationEnd={() => setIsNavAnimationFinished(true)}
-            networkAnchor={networkAnchor}
-            is3DMode={is3DMode}
-          />
-
-          <div className="absolute bottom-4 left-4 z-[1002] flex flex-col gap-2 p-3 bg-black/90 backdrop-blur-xl border border-zinc-800 rounded-sm pointer-events-auto">
-            <div className="text-[8px] font-black font-mono text-zinc-500 uppercase tracking-widest mb-2 border-b border-zinc-900 pb-1">Tactical Map Legend</div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase">Primary Node [HQ]</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-600/40 border border-red-500/50" />
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase">Critical Activity Zone</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-[0.5px]">
-                  <div className="w-1.5 h-1.5 bg-emerald-500/20" />
-                  <div className="w-1.5 h-1.5 bg-amber-500/40" />
-                  <div className="w-1.5 h-1.5 bg-red-500/60" />
-                </div>
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase">Neural Heatmap [Volatility]</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full border border-emerald-500" />
-                <span className="text-[7.5px] font-mono text-zinc-400 uppercase">Neural Bloom [Active Intel]</span>
-              </div>
-            </div>
-          </div>
-
-          {mapLayers.heatmap && <HeatmapLayer data={heatmapData} />}
-
-          {neuralBloom && (
-            <Marker
-              key={`bloom-${neuralBloom.timestamp}`}
-              position={[neuralBloom.lat, neuralBloom.lng]}
-              icon={L.divIcon({
-                className: "neural-bloom-marker",
-                html: `<div style="position: relative; display: flex; align-items: center; justify-content: center;">
-                  <div style="position: absolute; width: 30px; height: 30px; border-radius: 50%; background-color: rgba(16, 185, 129, 0.4);"></div>
-                  <div style="position: absolute; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(16, 185, 129, 0.2);"></div>
-                </div>`,
-                iconSize: [0, 0],
-                iconAnchor: [0, 0]
-              })}
-            />
-          )}
-
-          {mapLayers.hq && companiesToRender.map((company, index) => {
-            if (!isSafeLatLng(company.lat, company.lng)) return null;
-
-            const isSelected = selectedStock?.symbol === company.symbol;
-            const anchor = networkAnchor || selectedStock;
-            
-            const isSupplier = anchor && company.partners?.includes(anchor.symbol);
-            const isCustomer = anchor && anchor.partners?.includes(company.symbol);
-            const isAnchor = anchor && anchor.symbol === company.symbol;
-            
-            // If in network mode, hide nodes that aren't connected
-            if (showGlobalNetwork && anchor) {
-              if (!isAnchor && !isSupplier && !isCustomer && !isSelected) {
-                return null;
-              }
-            }
-
-            const isFocus = focusStock?.symbol === company.symbol;
-            const hasNews =
-              isFocus && intelligenceFeed && intelligenceFeed.length > 0;
-            const isHighlighted =
-              hoveredCompany &&
-              (hoveredCompany.symbol === company.symbol ||
-                hoveredCompany.partners?.includes(company.symbol) ||
-                company.partners?.includes(hoveredCompany.symbol));
-
-            // Calculate activity score for 2D icons
-            const quote = marketData[company.symbol];
-            const volatility = quote ? Math.abs(parseFloat(quote.dp) || 0) : 0;
-            const companyNewsCount = allNewsData.filter(
-              (n) => n.symbol === company.symbol,
-            ).length;
-            const activityScore = Math.min(
-              1,
-              volatility / 5 + companyNewsCount / 10,
-            );
-
-            const iconColor =
-              activityScore > 0.7
-                ? "#f59e0b"
-                : activityScore > 0.4
-                  ? "#3b82f6"
-                  : "#10b981";
-            const pulseSpeed = 2 / (1 + activityScore * 3);
-
-            const newsIndicator =
-              companyNewsCount > 0
-                ? `<div style="position: absolute; top: -10px; right: -10px; background: #ef4444; color: white; font-size: 7px; border-radius: 50%; width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #000; box-shadow: 0 0 5px #ef4444;">${companyNewsCount > 9 ? "9+" : companyNewsCount}</div>`
-                : "";
-            const logoHtml = `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; background: #000; border: 1.5px solid ${isSelected || isHighlighted ? "#ffffff" : iconColor}; color: #fff; font-size: 8px; font-weight: 900;">${company.symbol.slice(0, 2)}</div>`;
-
-            const customIcon = L.divIcon({
-              className: "custom-tactical-icon",
-              html: `<div style="position: relative; width: ${isSelected || isHighlighted ? "28px" : "20px"}; height: ${isSelected || isHighlighted ? "28px" : "20px"};">
-                <div style="position: absolute; inset: -4px; border: 1.5px solid ${isSelected || isHighlighted ? "rgba(255,255,255,0.6)" : "rgba(16,185,129,0.1)"}; border-radius: 50%; opacity: 0.5;"></div>
-                <div style="position: relative; width: 100%; height: 100%;">
-                  ${logoHtml}
-                  ${newsIndicator}
-                  ${
-                    isSelected
-                      ? `
-                    <div style="position: absolute; width: 42px; height: 42px; left: -7px; top: -7px; border: 1.5px dotted #ffffff; border-radius: 50%; opacity: 0.8; pointer-events: none; z-index: -1;"></div>
-                    <div style="position: absolute; width: 56px; height: 56px; left: -14px; top: -14px; border: 2px dashed #ffffff; border-radius: 50%; box-sizing: border-box; pointer-events: none; z-index: -1;"></div>
-                  `
-                      : ""
-                  }
-                </div>
-              </div>`,
-              iconSize: [
-                isSelected || isHighlighted ? 28 : 20,
-                isSelected || isHighlighted ? 28 : 20,
-              ],
-              iconAnchor: [
-                isSelected || isHighlighted ? 14 : 10,
-                isSelected || isHighlighted ? 14 : 10,
-              ],
-            });
-
-            const pos = safeLatLng(company.lat, company.lng);
-            if (!pos) return null;
-
-            return (
-              <React.Fragment key={`${company.symbol}-${index}`}>
-                <Marker
-                  ref={(el) => {
-                    markerRefs.current[company.symbol] = el;
-                  }}
-                  position={pos}
-                  icon={customIcon}
-                  eventHandlers={{
-                    click: (e) => {
-                      onSelectNode(company);
-                      e.target.openPopup();
-                    },
-                    mouseover: () => setHoveredCompany(company),
-                    mouseout: () => setHoveredCompany(null),
-                  }}
-                >
-                  <Tooltip
-                    direction="bottom"
-                    offset={[0, 10]}
-                    opacity={1}
-                    permanent={showGlobalNetwork || isSupplier || isCustomer}
-                    className="network-node-tooltip"
-                  >
-                    <div className={cn(
-                      "px-1.5 py-0.5 text-[8px] font-black tracking-widest whitespace-nowrap flex flex-col shadow-[0_4px_12px_rgba(0,0,0,0.6)]",
-                      isSupplier ? "bg-yellow-950/95 border border-yellow-500/50 text-yellow-400" :
-                      isCustomer ? "bg-emerald-950/95 border border-emerald-500/50 text-emerald-400" :
-                      "bg-black/95 border border-zinc-700 text-white"
-                    )}>
-                      <div className="flex items-center gap-1.5 border-b border-white/5 pb-0.5 mb-0.5">
-                        {isSupplier && <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 border border-yellow-400" />}
-                        {isCustomer && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 border border-emerald-400" />}
-                        <span className="uppercase">{company.symbol}</span>
-                        {isSupplier && <span className="px-1 py-0.5 bg-black/50 border border-white/10 rounded-[2px] text-[5.5px] font-black tracking-normal">SUPPLIER</span>}
-                        {isCustomer && <span className="px-1 py-0.5 bg-black/50 border border-white/10 rounded-[2px] text-[5.5px] font-black tracking-normal">CUSTOMER</span>}
-                      </div>
-                      <div className="text-[7.5px] text-zinc-400 font-sans tracking-tight max-w-[130px] truncate normal-case font-medium">
-                        {company.name}
-                      </div>
-                    </div>
-                  </Tooltip>
-                  <Popup className="custom-popup" offset={[0, -10]}>
-                    <div className="bg-zinc-950 border border-emerald-500/30 text-white p-2 relative w-[200px] font-mono shadow-[0_0_15px_rgba(16,185,129,0.15)] overflow-hidden">
-                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#022c22_1px,transparent_1px),linear-gradient(to_bottom,#022c22_1px,transparent_1px)] bg-[size:5px_5px] opacity-10" />
-                      <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className="text-emerald-400 font-black text-lg tracking-wider leading-none">
-                              {company.symbol}
-                            </div>
-                          </div>
-                          <div className="text-[7px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-1 py-0.5 font-bold tracking-widest uppercase">
-                            UPLINKED
-                          </div>
-                        </div>
-                        <div className="text-[9px] text-zinc-300 font-sans mb-1.5 leading-tight">
-                          {company.name}
-                        </div>
-                        <div className="h-[1px] bg-emerald-500/20 w-full mb-1.5" />
-                        <div className="text-[7px] text-zinc-500 uppercase tracking-widest flex justify-between">
-                          <span>HQ</span>
-                          <span className="text-zinc-400">
-                            {company.headquarters || "CLASSIFIED"}
-                          </span>
-                        </div>
-                        
-                        {(isSupplier || isCustomer || isAnchor) && (
-                          <div className="mt-2">
-                            {isSupplier && (
-                              <div className="text-[8px] text-yellow-400 bg-yellow-400/10 border border-yellow-500/30 px-1.5 py-1 text-center truncate">
-                                SUPPLIES <strong className="ml-1 text-yellow-300 font-bold">{anchor?.symbol}</strong>
-                              </div>
-                            )}
-                            {isCustomer && (
-                              <div className="text-[8px] text-emerald-400 bg-emerald-400/10 border border-emerald-500/30 px-1.5 py-1 text-center truncate">
-                                BUYER FROM <strong className="ml-1 text-emerald-300 font-bold">{anchor?.symbol}</strong>
-                              </div>
-                            )}
-                            {isAnchor && (
-                              <div className="text-[8px] text-white bg-white/10 border border-white/20 px-1.5 py-1 uppercase tracking-widest text-center">
-                                Active Node
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              </React.Fragment>
-            );
-          })}
-
-          {mapLayers.arcs && partnerLines.map((line, idx) => {
-            const details = getRelationshipDetails(line.from, line.to);
-            const isCritical = riskScore >= 75 && (line.color.includes("red") || line.from.sector.includes("Semi") || line.to.sector.includes("Semi"));
-            return (
-              <Polyline
-                key={`${idx}-${line.color}`}
-                positions={line.coords}
-                pathOptions={{
-                  color: isCritical ? "#ef4444" : line.color,
-                  weight: hoveredCompany || isCritical ? 2.5 : 1.5,
-                  dashArray: isCritical ? "4, 4" : "5, 5",
-                  opacity: hoveredCompany || isCritical ? 0.9 : 0.5,
-                  className: cn("supply-chain-line", isCritical && "supply-chain-line-alert"),
-                }}
-              >
-                <Tooltip sticky direction="top" className="custom-tooltip">
-                  <div className="min-w-[200px] font-mono text-[9px] bg-black p-0 relative overflow-hidden">
-                    {/* Corner Accents */}
-                    <div className="absolute top-0 left-0 w-1.5 h-1.5 border-l border-t border-emerald-400" />
-                    <div className="absolute top-0 right-0 w-1.5 h-1.5 border-r border-t border-emerald-400" />
-                    <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-l border-b border-emerald-400" />
-                    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-r border-b border-emerald-400" />
-
-                    <div className="bg-emerald-500/5 px-2 py-1.5 border-b border-emerald-500/20 flex items-center justify-between">
-                      <span className="font-black text-emerald-400 tracking-widest uppercase">
-                        CORRIDOR_LINK // {idx}
-                      </span>
-                      <span className="text-emerald-100 font-bold">
-                        {line.from.symbol} » {line.to.symbol}
-                      </span>
-                    </div>
-                    <div className="p-2 space-y-1.5">
-                      <div className="text-zinc-200 font-bold uppercase truncate">
-                        {details.relType}
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-zinc-400 font-mono text-[8px]">
-                        <span className="text-emerald-900 uppercase font-black">
-                          Volume
-                        </span>
-                        <span className="text-right text-emerald-300 font-bold">
-                          {details.currencyVol}
-                        </span>
-                        <span className="text-emerald-900 uppercase font-black">
-                          Commodity
-                        </span>
-                        <span
-                          className="text-right text-zinc-100 truncate"
-                          title={details.commodity}
-                        >
-                          {details.commodity}
-                        </span>
-                        <span className="text-emerald-900 uppercase font-black">
-                          Quantity
-                        </span>
-                        <span className="text-right text-zinc-100 font-bold">
-                          {details.qty}
-                        </span>
-                      </div>
-                      {/* Scanning bar effect */}
-                      <div className="h-[1px] bg-emerald-950 w-full overflow-hidden relative mt-1">
-                        <div className="absolute inset-0 bg-emerald-500/40" />
-                      </div>
-                    </div>
-                  </div>
-                </Tooltip>
-              </Polyline>
-            );
-          })}
-
-          {/* Animated Glowing Corridors on 2D map */}
-          {CORRIDORS.map((corridor) => {
-            const isCorridorActive = corridor.id === activeCorridorId;
-            const markerColor =
-              corridor.baseRisk > 80
-                ? "#ef4444"
-                : corridor.baseRisk > 60
-                  ? "#f59e0b"
-                  : "#10b981";
-
-            return (
-              <Circle
-                key={`corridor-marker-${corridor.id}`}
-                center={corridor.coords}
-                radius={isCorridorActive ? 220000 : 120000}
-                pathOptions={{
-                  color: markerColor,
-                  fillColor: markerColor,
-                  fillOpacity: isCorridorActive ? 0.35 : 0.15,
-                  weight: isCorridorActive ? 3 : 1.5,
-                  className: "corridor-circle",
-                }}
-                eventHandlers={{
-                  click: () => {
-                    if (onSelectCorridor) onSelectCorridor(corridor.id);
-                  },
-                }}
-              >
-                <Tooltip direction="top" className="custom-tooltip">
-                  <div className="min-w-[180px] font-mono text-[9px] bg-black p-0 relative overflow-hidden">
-                    {/* Corner Accents */}
-                    <div className="absolute top-0 left-0 w-1.5 h-1.5 border-l border-t border-emerald-400" />
-                    <div className="absolute top-0 right-0 w-1.5 h-1.5 border-r border-t border-emerald-400" />
-                    <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-l border-b border-emerald-400" />
-                    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-r border-b border-emerald-400" />
-
-                    <div className="bg-emerald-500/5 px-2 py-1.5 border-b border-emerald-900 uppercase flex items-center justify-between">
-                      <span className="font-black text-emerald-400 tracking-widest truncate">
-                        {corridor.name}
-                      </span>
-                      <span className="text-[7px] text-zinc-400 font-bold">
-                        UID: {corridor.id.slice(0, 8)}
-                      </span>
-                    </div>
-                    <div className="p-2 space-y-1.5">
-                      <div className="flex justify-between items-center bg-emerald-950/20 px-1 py-0.5 rounded-sm">
-                        <span className="text-emerald-900 uppercase font-bold text-[7px]">
-                          Critical Risk
-                        </span>
-                        <span
-                          className={cn(
-                            "font-black",
-                            corridor.baseRisk > 80
-                              ? "text-red-500"
-                              : corridor.baseRisk > 60
-                                ? "text-amber-500"
-                                : "text-emerald-500",
-                          )}
-                        >
-                          {corridor.baseRisk}/100
-                        </span>
-                      </div>
-                      <div className="text-zinc-200 font-bold uppercase italic text-[8px] leading-tight mt-1">
-                        {corridor.commodityType}
-                      </div>
-                      <div className="flex justify-between text-[7px] text-zinc-500 mt-1 uppercase">
-                        <span>LatRef</span>
-                        <span>{corridor.coords[0].toFixed(2)}</span>
-                      </div>
-                      {/* Scanning bar effect */}
-                      <div className="h-[1px] bg-emerald-950 w-full overflow-hidden relative mt-1.5">
-                        <div className="absolute inset-0 bg-emerald-400/30" />
-                      </div>
-                    </div>
-                  </div>
-                </Tooltip>
-              </Circle>
-            );
-          })}
-
-          {/* If there's an active corridor, draw glowing lines connecting its origin to headquarter pins */}
-          {(() => {
-            const activeCorridor = CORRIDORS.find(
-              (c) => c.id === activeCorridorId,
-            );
-            if (!activeCorridor) return null;
-
-            const hqLinks = getCorridorHeadquartersLinks(activeCorridor);
-            const pathColor =
-              activeCorridor.baseRisk > 80
-                ? "#ef4444"
-                : activeCorridor.baseRisk > 60
-                  ? "#f59e0b"
-                  : "#10b981";
-
-            return (
-              <>
-                <style
-                  dangerouslySetInnerHTML={{
-                    __html: `
-                  .animated-corridor-path {
-                    stroke-dasharray: 8, 12;
-                    filter: drop-shadow(0 0 4px #10b981);
-                  }
-                  .animated-corridor-path-alert {
-                    stroke-dasharray: 8, 12;
-                    filter: drop-shadow(0 0 5px #f59e0b);
-                  }
-                  .animated-corridor-path-danger {
-                    stroke-dasharray: 8, 12;
-                    filter: drop-shadow(0 0 6px #ef4444);
-                  }
-                `,
-                  }}
-                />
-
-                {hqLinks.map((link, idx) => {
-                  const lineClass =
-                    activeCorridor.baseRisk > 80
-                      ? "animated-corridor-path-danger"
-                      : activeCorridor.baseRisk > 60
-                        ? "animated-corridor-path-alert"
-                        : "animated-corridor-path";
-
-                  return (
-                    <Polyline
-                      key={`hq-link-${activeCorridor.id}-${idx}`}
-                      positions={[link.fromCoords, link.toCoords]}
-                      pathOptions={{
-                        color: pathColor,
-                        weight: 4,
-                        opacity: 0.9,
-                        className: lineClass,
-                      }}
-                    >
-                      <Tooltip
-                        sticky
-                        direction="top"
-                        className="custom-tooltip"
-                      >
-                        <div className="min-w-[190px] font-mono text-[9px] bg-black border border-emerald-500/30 shadow-2xl">
-                          <div className="bg-black/80 px-2 py-1.5 border-b border-emerald-500/20 flex items-center gap-1.5">
-                            <span className="font-black text-emerald-400 tracking-widest uppercase truncate">
-                              {link.ticker}
-                            </span>
-                            <span className="text-zinc-500 font-bold">
-                              LINKAGE
-                            </span>
-                          </div>
-                          <div className="p-2 space-y-1.5">
-                            <div className="flex justify-between items-center text-zinc-400">
-                              <span>FROM</span>
-                              <span className="text-zinc-200 font-bold truncate max-w-[100px]">
-                                {link.fromName}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center text-zinc-400">
-                              <span>TO</span>
-                              <span className="text-zinc-200 font-bold truncate max-w-[100px]">
-                                {link.toName}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </Tooltip>
-                    </Polyline>
-                  );
-                })}
-              </>
-            );
-          })()}
-
-          {agentFocus && isSafeLatLng(agentFocus.lat, agentFocus.lng) && (
-            <Marker
-              position={[agentFocus.lat, agentFocus.lng]}
-              icon={L.divIcon({
-                className: "agent-drone-marker-container",
-                html: `
-                  <div style="position: relative; width: 0; height: 0; display: flex; align-items: center; justify-content: center;">
-                    <div style="position: absolute; width: 28px; height: 28px; border: 2px dashed #10b981; border-radius: 50%; box-shadow: 0 0 8px rgba(16,185,129,0.2);"></div>
-                    <div style="position: absolute; width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 12px #10b981;"></div>
-                    <div style="position: absolute; width: 1px; height: 20px; background: linear-gradient(to top, #10b981, transparent); bottom: 4px;"></div>
-                    ${
-                      isNavAnimationFinished
-                        ? `
-                      <div class="absolute w-2.5 h-2.5 bg-emerald-400 rounded-full" style="position: absolute; box-shadow: 0 0 15px #10b981;"></div>
-                      <div style="position: absolute; width: 24px; height: 1px; background: #34d399; pointer-events: none;"></div>
-                      <div style="position: absolute; height: 24px; width: 1px; background: #34d399; pointer-events: none;"></div>
-                    `
-                        : ""
-                    }
-                  </div>
-                `,
-                iconSize: [28, 28],
-                iconAnchor: [0, 0],
-              })}
-            >
-              <Popup>
-                <div className="bg-black font-sans text-[9px] text-emerald-400 p-2 uppercase border border-emerald-500/30">
-                  <span className="font-extrabold text-white block">
-                    [ACTIVE ANALYSIS]
-                  </span>
-                  <div className="text-zinc-300 mt-1">
-                    {agentFocus.locationName}
-                  </div>
-                  <div className="text-zinc-500 text-[8px] mt-0.5">
-                    LOCATION: {Number(agentFocus.lat).toFixed(3)}N,{" "}
-                    {Number(agentFocus.lng).toFixed(3)}E
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          )}
-
-          {agentEntities.map((entity, idx) => (
-            <Marker
-              key={`entity-2d-${entity.id || idx}`}
-              position={[entity.coordinates[0], entity.coordinates[1]]}
-              icon={L.divIcon({
-                className: "agent-entity-marker",
-                html: `
-                  <div style="position: relative; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center;">
-                    <div style="position: absolute; width: 8px; height: 8px; background: ${entity.type === "CONFLICT" ? "#ef4444" : entity.type === "CARGO" ? "#3b82f6" : "#10b981"}; border-radius: 50%; box-shadow: 0 0 8px currentColor;"></div>
-                  </div>
-                `,
-                iconSize: [12, 12],
-                iconAnchor: [6, 6],
-              })}
-            >
-              <Tooltip sticky direction="top" className="custom-tooltip">
-                <div className="min-w-[160px] font-mono text-[9px] bg-black border border-zinc-700 shadow-2xl">
-                  <div className="bg-black px-2 py-1.5 border-b border-zinc-800 flex justify-between items-center">
-                    <span className="font-bold text-zinc-300 uppercase truncate">
-                      {entity.name}
-                    </span>
-                    <span
-                      className={cn(
-                        "text-[7px] uppercase px-1 rounded-sm",
-                        entity.type === "CONFLICT"
-                          ? "bg-red-950 text-red-400"
-                          : entity.type === "CARGO"
-                            ? "bg-blue-950 text-blue-400"
-                            : "bg-emerald-950 text-emerald-400",
-                      )}
-                    >
-                      {entity.type}
-                    </span>
-                  </div>
-                  <div className="p-2 text-zinc-400 leading-tight">
-                    {entity.description}
-                  </div>
-                </div>
-              </Tooltip>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
-
-      <AnimatePresence>
-        {(agentFocus || briefing) && (
+        <AnimatePresence>
+        {preservedBriefing && isBriefingMinimized && (
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="absolute top-4 left-4 z-[1000] w-[22rem] bg-black/90 backdrop-blur-xl border border-emerald-500/40 p-3.5 pointer-events-auto select-none font-mono shadow-[0_0_30px_rgba(0,0,0,0.8)] hover:border-emerald-500/60 transition-all duration-300"
+            onClick={() => setIsBriefingMinimized(false)}
+            className="absolute top-4 left-4 z-[1000] flex items-center gap-2 bg-black/95 border border-emerald-500/40 px-3.5 py-2.5 cursor-pointer pointer-events-auto rounded-sm select-none font-mono text-[9px] text-emerald-400 hover:border-emerald-400 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-300 shadow-[0_0_20px_rgba(0,0,0,0.8)]"
+            title="Click to restore Strategic Briefing"
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+            <span className="font-bold tracking-widest text-[8.5px] uppercase">
+              {preservedBriefing.title || "TACTICAL_BRIEFING"} [MINIMIZED]
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-emerald-400 font-bold ml-1 animate-bounce" />
+          </motion.div>
+        )}
+
+        {preservedBriefing && !isBriefingMinimized && (
+          <motion.div 
+            id="tactical-briefing-panel"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="absolute top-4 left-4 z-[1000] w-[22rem] bg-black/90 backdrop-blur-xl border border-emerald-500/40 p-3.5 pointer-events-auto select-none font-mono shadow-[0_0_30px_rgba(0,0,0,0.8)] hover:border-emerald-500/60 transition-all duration-300 animate-none"
           >
             <div className="flex items-center justify-between mb-2 border-b border-emerald-900/50 pb-1.5 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <div className={cn("w-1.5 h-1.5 rounded-full shadow-[0_0_8px_#10b981]", isSpeaking ? "bg-cyan-400 animate-ping" : "bg-emerald-500 animate-pulse")} />
                 <div className="flex flex-col">
                   <span className="text-[8px] font-black text-emerald-400 tracking-widest uppercase">
-                    TACTICAL_BRIEFING
+                    {preservedBriefing.title || "TACTICAL_BRIEFING"}
                   </span>
-                  <span className="text-[7px] font-medium text-emerald-700 tracking-widest uppercase">
-                    OPERATIONS STREAM
+                  <span className="text-[7px] font-medium text-emerald-700 tracking-widest uppercase flex items-center gap-1.5">
+                    {preservedBriefing.subTitle || "OPERATIONS STREAM"}
                   </span>
                 </div>
                 {isSpeechLoading && (
@@ -2336,45 +1213,55 @@ export const MapLayer: React.FC<MapLayerProps> = ({
               
               <div className="flex items-center gap-1.5">
                 {/* Voice integration via MapLayer's Enhanced TTS */}
-                {(briefing || typedBriefing) && (
-                  <button
-                    onClick={() => {
-                      if (isSpeaking) {
-                        if (window.speechSynthesis) window.speechSynthesis.cancel();
-                        if (audioRef.current) {
-                          try {
-                            audioRef.current.pause();
-                          } catch (e) {}
-                          audioRef.current = null;
-                        }
-                        if ((window as any)._activeTtsSourceMap) {
-                          try {
-                            (window as any)._activeTtsSourceMap.stop();
-                          } catch (e) {}
-                          (window as any)._activeTtsSourceMap = null;
-                        }
-                        setIsSpeaking(false);
-                      } else {
-                        speakWithEnhancedVoice(briefing ? (briefing.summary || briefing.text || "Analyzing...") : typedBriefing);
+                <button
+                  onClick={() => {
+                    if (isSpeaking) {
+                      if (window.speechSynthesis) window.speechSynthesis.cancel();
+                      if (audioRef.current) {
+                        try {
+                          audioRef.current.pause();
+                        } catch (e) {}
+                        audioRef.current = null;
                       }
-                    }}
-                    disabled={isSpeechLoading}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2 py-0.5 border text-[7px] font-mono tracking-wider font-bold transition-all cursor-pointer rounded-sm shrink-0",
-                      isSpeaking 
-                        ? "bg-red-950/20 border-red-500/40 text-red-400" 
-                        : "bg-emerald-950/20 border-emerald-500/20 text-emerald-400 hover:border-emerald-500/40"
-                    )}
-                  >
-                    {isSpeaking ? (
-                      <VolumeX className="w-2.5 h-2.5" />
-                    ) : (
-                      <Volume2 className="w-2.5 h-2.5" />
-                    )}
-                    <span>{isSpeaking ? "TERMINATE" : "VOICE OVER"}</span>
-                  </button>
-                )}
+                      if ((window as any)._activeTtsSourceMap) {
+                        try {
+                          (window as any)._activeTtsSourceMap.stop();
+                        } catch (e) {}
+                        (window as any)._activeTtsSourceMap = null;
+                      }
+                      setIsSpeaking(false);
+                    } else {
+                      const textToSpeak = preservedBriefing.type === "briefing"
+                        ? (preservedBriefing.data.summary || preservedBriefing.data.text || "Analyzing...")
+                        : (preservedBriefing.text || "Analyzing...");
+                      speakWithEnhancedVoice(textToSpeak);
+                    }
+                  }}
+                  disabled={isSpeechLoading}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2 py-0.5 border text-[7px] font-mono tracking-wider font-bold transition-all cursor-pointer rounded-sm shrink-0",
+                    isSpeaking 
+                      ? "bg-red-950/20 border-red-500/40 text-red-400" 
+                      : "bg-emerald-950/20 border-emerald-500/20 text-emerald-400 hover:border-emerald-500/40"
+                  )}
+                >
+                  {isSpeaking ? (
+                    <VolumeX className="w-2.5 h-2.5" />
+                  ) : (
+                    <Volume2 className="w-2.5 h-2.5" />
+                  )}
+                  <span>{isSpeaking ? "TERMINATE" : "VOICE OVER"}</span>
+                </button>
                 
+                {/* Minimize Action */}
+                <button
+                  onClick={() => setIsBriefingMinimized(true)}
+                  className="p-1 border border-emerald-500/20 bg-zinc-900/50 text-emerald-500 hover:border-emerald-500 hover:text-emerald-400 font-mono transition-all duration-200 cursor-pointer"
+                  title="Minimize Strategic Briefing"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+
                 <button
                   onClick={() => {
                     const newState = !showNewsSummary;
@@ -2400,30 +1287,30 @@ export const MapLayer: React.FC<MapLayerProps> = ({
               </div>
             </div>
 
-            {briefing && Object.keys(briefing).length > 0 ? (
+            {preservedBriefing.type === "briefing" ? (
               <div className="space-y-4">
                 <Typewriter
                   className="text-zinc-300 font-mono text-[9.5px]"
                   text={
-                    briefing.summary ||
-                    briefing.text ||
+                    preservedBriefing.data.summary ||
+                    preservedBriefing.data.text ||
                     "Analyzing current operational strategy..."
                   }
                 />
                 
                 {/* ENHANCED: TACTICAL RECOMMENDATIONS */}
-                {briefing.tacticalRecommendations && (
+                {preservedBriefing.data.tacticalRecommendations && (
                   <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-sm space-y-2">
                      <div className="flex items-center gap-2 text-[8px] font-black text-emerald-400 uppercase tracking-widest font-mono">
                        <Shield className="w-3 h-3" />
                        OPERATIONAL_DIRECTIVES
                      </div>
                      <div className="space-y-1.5">
-                       {(briefing.tacticalRecommendations || []).map((rec: string, idx: number) => (
-                         <div key={idx} className="flex gap-2 text-[8.5px] text-zinc-300 font-mono">
-                           <span className="text-emerald-500 shrink-0">[{idx + 1}]</span>
-                           <span>{rec}</span>
-                         </div>
+                       {(preservedBriefing.data.tacticalRecommendations || []).map((rec: string, idx: number) => (
+                          <div key={idx} className="flex gap-2 text-[8.5px] text-zinc-300 font-mono">
+                            <span className="text-emerald-500 shrink-0">[{idx + 1}]</span>
+                            <span>{rec}</span>
+                          </div>
                        ))}
                      </div>
                   </div>
@@ -2434,17 +1321,17 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                      <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Vector</div>
                      <div className={cn(
                        "text-[9px] font-black font-mono truncate",
-                       briefing.outlook === "ACCELERATING" ? "text-emerald-400" :
-                       briefing.outlook === "VULNERABLE" || briefing.outlook === "COMPROMISED" ? "text-red-500" :
-                       briefing.outlook === "STRETCHED" ? "text-amber-500" : "text-white"
+                       preservedBriefing.data.outlook === "ACCELERATING" ? "text-emerald-400" :
+                       preservedBriefing.data.outlook === "VULNERABLE" || preservedBriefing.data.outlook === "COMPROMISED" ? "text-red-500" :
+                       preservedBriefing.data.outlook === "STRETCHED" ? "text-amber-500" : "text-white"
                      )}>
-                       {briefing.outlook || "STABLE"}
+                       {preservedBriefing.data.outlook || "STABLE"}
                      </div>
                   </div>
                   <div className="flex flex-col bg-black p-2 rounded-sm border border-zinc-900 col-span-2">
                      <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Primary Threat</div>
                      <div className="text-[8.5px] font-bold text-red-400 font-mono truncate">
-                       {briefing.riskFactors?.[0] || "None Detected"}
+                       {preservedBriefing.data.riskFactors?.[0] || "None Detected"}
                      </div>
                   </div>
                 </div>
@@ -2460,7 +1347,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                 </div>
             )}
 
-            <div className="mt-3 flex justify-between items-center text-[7px] text-zinc-600">
+            <div className="mt-3 flex justify-between items-center text-[7px] text-zinc-600 border-t border-zinc-900/40 pt-2">
                <span>TRANSIT_LOCK: {agentFocus ? `${Number(agentFocus.lat).toFixed(2)} / ${Number(agentFocus.lng).toFixed(2)}` : "STANDBY"}</span>
                <span>v4.2.0</span>
             </div>
@@ -2471,6 +1358,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       <AnimatePresence>
         {showNewsSummary && (
           <motion.div
+            id="news-summary-deck"
             initial={{ y: 200, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 200, opacity: 0 }}
@@ -2595,13 +1483,26 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                           </span>
                           <div className="flex-1 flex flex-col gap-1">
                             <div className="flex justify-between items-center text-[8.5px] text-zinc-500 font-black uppercase tracking-widest">
-                              <span>{item.source || activeCompany.symbol}</span>
+                              <span className="flex items-center gap-1.5">
+                                <span>{item.source || activeCompany.symbol}</span>
+                                {item.url && (
+                                  <a
+                                    href={item.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-emerald-500 hover:text-emerald-300 font-bold transition-all text-[7.5px]"
+                                    title="Open news story in a new tab"
+                                  >
+                                    [ARTICLE ↗]
+                                  </a>
+                                )}
+                              </span>
                               <span className="text-emerald-800">
-                                {new Date(
-                                  item.published_at ||
-                                    item.timestamp ||
-                                    Date.now(),
-                                ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                {formatSafeTime(
+                                  item.published_at || item.timestamp,
+                                  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                                )}
                               </span>
                             </div>
                             <div className="text-[11px] text-emerald-400/90 font-bold group-hover:text-emerald-300 transition-colors">

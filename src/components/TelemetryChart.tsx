@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Activity, TrendingUp } from "lucide-react";
+import { Activity, TrendingUp, RefreshCw } from "lucide-react";
 import { formatCurrency, cn } from "../lib/utils";
 import { useTerminal } from "../context/TerminalContext";
 import { 
@@ -21,12 +21,45 @@ interface TelemetryChartProps {
 export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps) => {
   const { marketData } = useTerminal();
   const [timeframe, setTimeframe] = useState('1M');
+  const [chartHistory, setChartHistory] = useState<any[]>(data);
   const [liveTicks, setLiveTicks] = useState<{ timestamp: number; price: number }[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
   
-  // Reset live tracking when the ticker context changes to a new asset
+  // Reset live tracking and initial data when the ticker context changes to a new asset
   useEffect(() => {
     setLiveTicks([]);
-  }, [ticker]);
+    setChartHistory(data);
+  }, [ticker, data]);
+
+  // Fetch dynamic history upon timeframe or ticker coordinate shifts
+  useEffect(() => {
+    let active = true;
+    setIsFetching(true);
+
+    fetch(`/api/history?symbol=${ticker}&timeframe=${timeframe}`)
+      .then(res => {
+        if (!res.ok) throw new Error("Telemetry history failure");
+        return res.json();
+      })
+      .then(resData => {
+        if (active && resData?.processed) {
+          setChartHistory(resData.processed);
+        }
+      })
+      .catch(err => {
+        console.warn("Failed to load historical charts, using fallback data", err);
+        if (active && timeframe === '1M') {
+          setChartHistory(data);
+        }
+      })
+      .finally(() => {
+        if (active) setIsFetching(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [ticker, timeframe]);
 
   // Intercept the 10-second heartbeat and append it to our local live buffer
   useEffect(() => {
@@ -55,29 +88,15 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
 
   const chartData = useMemo(() => {
     // Process historical data
-    const historical = [...data].filter(d => d.timestamp > 0 && d.price > 0);
+    const historical = [...chartHistory].filter(d => d.timestamp > 0 && d.price > 0);
     
     // Concatenate historical and live heartbeat telemetry
     const merged = [...historical, ...liveTicks].sort((a, b) => a.timestamp - b.timestamp);
     
     if (merged.length === 0) return [];
     
-    const now = Date.now();
-    const msInDay = 24 * 60 * 60 * 1000;
-    
-    let filtered = merged;
-    if (timeframe === '1D') filtered = filtered.filter(d => (now - d.timestamp) <= msInDay);
-    else if (timeframe === '1W') filtered = filtered.filter(d => (now - d.timestamp) <= 7 * msInDay);
-    else if (timeframe === '1M') filtered = filtered.filter(d => (now - d.timestamp) <= 30 * msInDay);
-    else if (timeframe === '1Y') filtered = filtered.filter(d => (now - d.timestamp) <= 365 * msInDay);
-
-    // If historical data is too old/sparse for the selected timeframe, ensure we at least show live ticks
-    if (filtered.length < 2 && liveTicks.length > 0) {
-        return liveTicks;
-    }
-
-    return filtered;
-  }, [data, liveTicks, timeframe]);
+    return merged;
+  }, [chartHistory, liveTicks]);
 
   const stats = useMemo(() => {
     if (chartData.length < 2) return { change: 0, isPositive: true };
@@ -86,6 +105,21 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
     const change = first === 0 ? 0 : ((last - first) / first) * 100;
     return { change: change.toFixed(2), isPositive: change >= 0 };
   }, [chartData]);
+
+  // Custom adaptive label formatter for tooltips based on the active timeframe
+  const formatTooltipLabel = (timestamp: any) => {
+    if (!timestamp) return "";
+    const date = new Date(Number(timestamp));
+    if (timeframe === "1D") {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (timeframe === "1W") {
+      return date.toLocaleDateString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    } else if (timeframe === "1M") {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } else {
+      return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+  };
 
   if (chartData.length === 0) return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 bg-zinc-950/40 border border-zinc-900 shadow-inner">
@@ -108,20 +142,23 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
             <span className={`text-[11px] font-mono font-black ${stats.isPositive ? "text-emerald-400" : "text-rose-400"} tracking-tighter`}>
               {stats.isPositive ? "+" : ""}{stats.change}%
             </span>
+            {isFetching && (
+              <RefreshCw className="w-2.5 h-2.5 text-emerald-500/60 animate-spin ml-1.5" />
+            )}
           </div>
         </div>
       </div>
 
       {/* Timeframe Selector */}
       <div className="absolute top-2 right-2 z-10 flex gap-1">
-        {['1W', '1M', '1Y'].map(tf => (
+        {['1D', '1W', '1M', '1Y', '5Y'].map(tf => (
           <button
             key={tf}
             onClick={() => setTimeframe(tf)}
             className={`text-[6px] px-1 py-0.5 font-mono font-bold border transition-all ${
               timeframe === tf 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
-                : 'bg-black/60 border-zinc-900 text-zinc-600 hover:border-zinc-800'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-extrabold' 
+                : 'bg-black/60 border-zinc-900 text-zinc-600 hover:border-zinc-800 hover:text-zinc-400'
             }`}
           >
             {tf}
@@ -129,7 +166,10 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
         ))}
       </div>
 
-      <div className="flex-1 w-full mt-4 -mb-1 opacity-80 transition-opacity group-hover:opacity-100">
+      <div className={cn(
+        "flex-1 w-full mt-5 -mb-1 transition-opacity duration-150", 
+        isFetching ? "opacity-30" : "opacity-80 group-hover:opacity-100"
+      )}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#18181b" vertical={false} />
@@ -138,20 +178,22 @@ export const TelemetryChart = React.memo(({ data, ticker }: TelemetryChartProps)
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: '#09090b', 
-                border: '1px solid #27272a',
+                border: '1px solid #1f1f22',
                 borderRadius: '0px',
                 fontSize: '8px',
-                fontFamily: 'monospace'
+                fontFamily: 'monospace',
+                padding: '4px 6px'
               }}
-              itemStyle={{ color: stats.isPositive ? '#10b981' : '#ef4444' }}
-              labelStyle={{ display: 'none' }}
-              formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, 'PRICE']}
+              itemStyle={{ color: stats.isPositive ? '#10b981' : '#ef4444', padding: 0 }}
+              labelStyle={{ color: '#52525b', fontSize: '7px', fontFamily: 'monospace', marginBottom: '2px' }}
+              labelFormatter={formatTooltipLabel}
+              formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, 'VAL']}
             />
             <Line 
               type="monotone" 
               dataKey="price" 
               stroke={stats.isPositive ? "#10b981" : "#ef4444"} 
-              strokeWidth={2}
+              strokeWidth={1.5}
               dot={false}
               connectNulls={true}
               activeDot={{ r: 3, fill: stats.isPositive ? "#10b981" : "#ef4444", strokeWidth: 0 }}

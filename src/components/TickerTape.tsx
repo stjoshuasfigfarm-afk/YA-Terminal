@@ -1,0 +1,93 @@
+import React, { useEffect, useState, useMemo } from "react";
+import { Company, COMPANIES } from "../data/companies";
+import { cn } from "../lib/utils";
+import { TrendingUp, TrendingDown } from "lucide-react";
+
+interface TickerTapeProps {
+  onSelectStock?: (company: Company) => void;
+}
+
+export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
+  const [prices, setPrices] = useState<Record<string, { price: number; change: number }>>({});
+
+  const tickerItems = useMemo(() => {
+    // Pick a diverse set of companies for the ticker
+    return COMPANIES.slice(0, 15).map(c => ({
+      symbol: c.symbol,
+      name: c.name,
+    }));
+  }, []);
+
+  useEffect(() => {
+    // Initial random prices
+    const initial: Record<string, { price: number; change: number }> = {};
+    tickerItems.forEach(item => {
+      initial[item.symbol] = {
+        price: 100 + Math.random() * 900,
+        change: (Math.random() * 4 - 2)
+      };
+    });
+    setPrices(initial);
+
+    const interval = setInterval(() => {
+      setPrices(prev => {
+        const next = { ...prev };
+        const keyToUpdate = tickerItems[Math.floor(Math.random() * tickerItems.length)].symbol;
+        if (next[keyToUpdate]) {
+            const delta = (Math.random() * 0.4 - 0.2);
+            next[keyToUpdate] = {
+                price: Math.max(1, next[keyToUpdate].price + delta),
+                change: Number((next[keyToUpdate].change + (delta / 10)).toFixed(2))
+            };
+        }
+        return next;
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [tickerItems]);
+
+  return (
+    <div className="h-7 border-t border-zinc-900 bg-black flex items-center overflow-hidden w-full select-none">
+      <div className="flex items-center gap-1 px-3 border-r border-zinc-900 h-full shrink-0 bg-zinc-950 z-10">
+        <span className="text-[7.5px] font-black text-emerald-500 font-mono tracking-widest uppercase">INTEL_TICKER</span>
+        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+      </div>
+      
+      <div className="flex-1 relative overflow-hidden h-full">
+        <div className="flex items-center whitespace-nowrap animate-[marquee_60s_linear_infinite] hover:[animation-play-state:paused] h-full">
+          {[...tickerItems, ...tickerItems].map((item, idx) => {
+            const data = prices[item.symbol];
+            if (!data) return null;
+            const isPositive = data.change >= 0;
+            
+            return (
+              <button 
+                key={`${item.symbol}-${idx}`} 
+                onClick={() => {
+                  const company = COMPANIES.find(c => c.symbol === item.symbol);
+                  if (company && onSelectStock) onSelectStock(company);
+                }}
+                className="flex items-center gap-2 px-6 border-r border-zinc-900/30 h-full group hover:bg-emerald-500/5 transition-all cursor-pointer active:scale-95"
+              >
+                <span className="text-[10px] font-black text-zinc-300 font-mono tracking-tight group-hover:text-emerald-400 transition-colors">{item.symbol}</span>
+                <span className="text-[9px] font-mono text-zinc-500 tabular-nums">${data.price.toFixed(2)}</span>
+                <div className={cn("flex items-center gap-0.5 font-mono text-[8px] font-bold", isPositive ? "text-emerald-500" : "text-rose-500")}>
+                  {isPositive ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                  <span>{isPositive ? "+" : ""}{data.change.toFixed(2)}%</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}} />
+    </div>
+  );
+};

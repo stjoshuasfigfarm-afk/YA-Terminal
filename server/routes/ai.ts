@@ -440,8 +440,34 @@ function getFallbackEnrichedNews(data: any[] = []) {
   });
 }
 
-function getFallbackBriefing(symbol: string = "AAPL") {
+function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
   const norm = symbol.toUpperCase();
+  
+  if (storyContext) {
+    const title = storyContext.title || "Target Logistics Telemetry Signal";
+    const desc = storyContext.description || "";
+    const sentiment = storyContext.sentiment || "NEUTRAL";
+    
+    return {
+      summary: `STRATEGIC INTELLIGENCE UPDATE: Analyzing "${title}". Our tactical networks are assessing ${symbol}'s immediate exposure to these local conditions: ${desc} Supply hubs are working closely with all corresponding partners to offset delays and capitalize on yield milestones.`,
+      growthVectors: [
+        `Proactive scheduling adjustments in response to "${title}" details`,
+        `Consolidation of regional pipeline reserves near affected nodes`,
+        "Onboarding secondary strategic freight operators dynamically"
+      ],
+      riskFactors: [
+        `Direct operational latency derived from "${title}"`,
+        "Slight transport premium surcharges matching high-volume logistics congestion",
+        "Sub-tier capacity boundaries stalling final assembly cycles"
+      ],
+      tacticalRecommendations: [
+        `Submit immediate telemetry review request for operations near affected node`,
+        "Leverage long-term partner contracts to insulate raw material sourcing",
+        "Maintain a minimum 30-day safety buffer for critical assembly parts"
+      ],
+      outlook: (sentiment === "BULLISH" ? "ACCELERATING" : sentiment === "BEARISH" ? "VULNERABLE" : "STABLE") as any,
+    };
+  }
   
   if (norm === "AAPL") {
     return {
@@ -697,13 +723,15 @@ router.post("/briefing", async (req, res) => {
   const { symbol, data } = req.body;
   if (!symbol) return res.status(400).json({ error: "Missing symbol" });
 
+  const storyContext = data?.storyContext || data?.news?.[0];
+
   try {
     const openRouterKey = req.headers['x-openrouter-api-key'] as string || process.env.OPENROUTER_API_KEY || "";
     const hasOpenRouter = isKeyReady(openRouterKey);
     const hasGemini = isKeyReady(GEMINI_API_KEY);
     
     if (!hasOpenRouter && !hasGemini) {
-      return res.json(getFallbackBriefing(symbol));
+      return res.json(getFallbackBriefing(symbol, storyContext));
     }
 
     const results = await withRetry(async () => {
@@ -715,6 +743,13 @@ router.post("/briefing", async (req, res) => {
          Focus on the interconnectedness of global logistics, raw material dependencies, and geopolitical stressors.
 
          Analyze the target's current positioning using this telemetry data: ${JSON.stringify(data)}
+         
+         ${storyContext ? `
+         CRITICAL FOCUS MANDATE: An active intelligence news story is currently selected and MUST be the central focus of your report:
+         - Title of Selected News: "${storyContext.title}"
+         - Description of Selected News: "${storyContext.description}"
+         
+         Your "summary", "riskFactors", "growthVectors", and "tacticalRecommendations" MUST explicitly analyze the direct micro and macro consequences of this specific event, its location, the involved names, amounts, and partner dependencies. Make your briefing highly cohesive, precise, and targeted directly around this selected news.` : ""}
          
          Structure your response as follows:
          1. Summary: A high-density, authoritative executive summary (approx 60-80 words).
@@ -745,7 +780,7 @@ router.post("/briefing", async (req, res) => {
     } else {
       console.log(`[AI_INFO] Briefing generation fallback engaged: ${err.message}`);
     }
-    res.json(getFallbackBriefing(symbol));
+    res.json(getFallbackBriefing(symbol, storyContext));
   }
 });
 
