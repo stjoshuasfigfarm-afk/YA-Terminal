@@ -72,6 +72,14 @@ export default function App() {
   const [isAutopilot, setIsAutopilot] = useState(false);
   const [isAutopilotTransitioning, setIsAutopilotTransitioning] = useState(false);
   const [autopilotNewsIndex, setAutopilotNewsIndex] = useState(0);
+  const [isAutopilotPaused, setIsAutopilotPaused] = useState(false);
+  const isAutopilotPausedRef = useRef(false);
+  useEffect(() => {
+    isAutopilotPausedRef.current = isAutopilotPaused;
+  }, [isAutopilotPaused]);
+  const [isLiveNewsZoomEnabled, setIsLiveNewsZoomEnabled] = useState(false);
+  const [lastSelectionSource, setLastSelectionSource] = useState<"user" | "ai">("user");
+  const [activeNewsPopup, setActiveNewsPopup] = useState<{ lat: number; lng: number; title: string; symbol: string } | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [terminalScale, setTerminalScale] = useState<number>(() => {
@@ -100,6 +108,10 @@ export default function App() {
   });
   // heatmapMetric state removed
   const [networkAnchor, setNetworkAnchor] = useState<Company | null>(null);
+  const marketDataRef = useRef(marketData);
+  useEffect(() => {
+    marketDataRef.current = marketData;
+  }, [marketData]);
   const [isSearchSidebarMinimized, setIsSearchSidebarMinimized] =
     useState(false);
   const [isIntelSidebarMinimized, setIsIntelSidebarMinimized] = useState(false);
@@ -190,47 +202,6 @@ export default function App() {
   }, []);
   const [viewportLock, setViewportLock] = useState(true);
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(true);
-  const [activeStoryIdx, setActiveStoryIdx] = useState(0);
-
-  // Auto-cycle effect for 3D Globe: Zoom out, select next story, zoom back in every 30s
-  useEffect(() => {
-    let cycleTimer: NodeJS.Timeout;
-    
-    if (isAutopilot) {
-      cycleTimer = setInterval(() => {
-        // Force a zoom out first for cinematic feel
-        setAgentFocus(prev => prev ? { ...prev, zoomLevel: 1.5 } : { lat: 20, lng: 0, locationName: "ORBIT", zoomLevel: 1.5 });
-        
-        // After 5s of "being zoomed out", pick the next story and zoom in
-        setTimeout(() => {
-          const news = marketData.news || [];
-          if (news.length > 0) {
-            const nextIdx = (activeStoryIdx + 1) % news.length;
-            setActiveStoryIdx(nextIdx);
-            const story = news[nextIdx];
-            
-            // Try to find a related company
-            const company = COMPANIES.find(c => 
-              story.title.includes(c.symbol) || 
-              story.title.includes(c.name) || 
-              (story.summary && (story.summary.includes(c.symbol) || story.summary.includes(c.name)))
-            );
-            
-            if (company) {
-              handleSelectNode(company, false, true, story);
-            } else {
-              // Otherwise just pick a random major company to keep it moving
-              const randomCo = COMPANIES[Math.floor(Math.random() * Math.min(COMPANIES.length, 20))];
-              handleSelectNode(randomCo, false, true, story);
-            }
-          }
-        }, 5000);
-        
-      }, 30000);
-    }
-    
-    return () => clearInterval(cycleTimer);
-  }, [isAutopilot, marketData.news, activeStoryIdx]);
 
   // System-wide Global Risk Matrix (World Shocks)
   const [taiwanStraitBlocked, setTaiwanStraitBlocked] = useState(false);
@@ -561,10 +532,12 @@ export default function App() {
   );
 
   const fetchData = useCallback(
-    async (symbol: string) => {
+    async (symbol: string, isSilent = false) => {
       if (!symbol) return;
-      setIsLoading(true);
-      addLog(`INITIALIZING_TELEMETRY: ${symbol}`);
+      if (!isSilent) {
+        setIsLoading(true);
+      }
+      addLog(`INITIALIZING_TELEMETRY: ${symbol}${isSilent ? " (SILENT_VERIFICATION)" : ""}`);
 
       const headers = { "Content-Type": "application/json" };
 
@@ -835,9 +808,11 @@ export default function App() {
       skipFetch = false,
       isSearch = false,
       activeStoryContext?: any,
+      source: "user" | "ai" = "user",
     ) => {
       setSelectedStock(company);
       setMapFocusStock(company);
+      setLastSelectionSource(source);
       setViewportLock(true);
 
       if (isSearch) {
@@ -854,7 +829,8 @@ export default function App() {
 
       if (!skipFetch) {
         selectionTimeoutRef.current = setTimeout(() => {
-          fetchData(company.symbol);
+          const isSilent = source === "ai";
+          fetchData(company.symbol, isSilent);
           if (activeStoryContext) {
             generateBriefing(company.symbol, {
               news: [activeStoryContext],
@@ -875,8 +851,14 @@ export default function App() {
       generateBriefing,
       marketData.quote,
       marketData.yields,
+      setLastSelectionSource,
     ],
   );
+
+  const handleSelectNodeRef = useRef(handleSelectNode);
+  useEffect(() => {
+    handleSelectNodeRef.current = handleSelectNode;
+  }, [handleSelectNode]);
 
   // Live Simulated Break News Pipeline
   const injectLiveNews = useCallback(() => {
@@ -948,23 +930,40 @@ export default function App() {
       `SIGNAL_DECODED: ${randomCompany.symbol} news injected into stream.`,
     );
 
-    // Center the location dynamically
-    setAgentFocus({
-      locationName: randomCompany.name,
-      lat: randomCompany.lat,
-      lng: randomCompany.lng,
-      zoomLevel: 5,
-      briefing: `URGENT_TELEMETRY: ${headline}`,
+    // Active news alert window pointing to headline coordinates, enabled by default
+    setActiveNewsPopup({
+      lat: Number(randomCompany.lat),
+      lng: Number(randomCompany.lng),
+      title: headline,
+      symbol: randomCompany.symbol
     });
 
-    // Reset center focus after 8 seconds to resume normal operation
+    // Auto-clear popups after 15 seconds to keep map clean
     setTimeout(() => {
-      setAgentFocus((prev) =>
-        prev?.locationName === randomCompany.name ? null : prev,
+      setActiveNewsPopup((prev) => 
+        prev?.title === headline ? null : prev
       );
-      setViewportLock(false);
-    }, 8000);
-  }, [addLog, setMarketData, setAgentFocus, setViewportLock]);
+    }, 15000);
+
+    // Zoom and position camera to live news location dynamically only if enabled (default disabled)
+    if (isLiveNewsZoomEnabled) {
+      setAgentFocus({
+        locationName: randomCompany.name,
+        lat: randomCompany.lat,
+        lng: randomCompany.lng,
+        zoomLevel: 5,
+        briefing: `URGENT_TELEMETRY: ${headline}`,
+      });
+
+      // Reset center focus after 8 seconds to resume normal operation
+      setTimeout(() => {
+        setAgentFocus((prev) =>
+          prev?.locationName === randomCompany.name ? null : prev,
+        );
+        setViewportLock(false);
+      }, 8000);
+    }
+  }, [addLog, setMarketData, setAgentFocus, setViewportLock, isLiveNewsZoomEnabled, companies]);
 
   // Periodic News Injection Heartbeat
   useEffect(() => {
@@ -981,45 +980,134 @@ export default function App() {
   }, [injectLiveNews, isAiProcessing]);
 
   // Intelligence Stream Cycle (Neural Stream)
-  useEffect(() => {
-    let timer: any;
-    if (isAutopilot) {
-      const cycle = () => {
-        // Step 1: Zoom Out
-        setIsAutopilotTransitioning(true);
-        setSelectedStock(null);
-        
-        // Step 2: Next Story & Zoom In (after a delay for zoom out)
-        setTimeout(() => {
-          const stories = marketData.news || [];
-          if (stories.length > 0) {
-            setAutopilotNewsIndex((prevIndex) => (prevIndex + 1) % stories.length);
-          } else {
-            const randomIndex = Math.floor(Math.random() * companies.length);
-            const nextCompany = companies[randomIndex];
-            if (nextCompany) {
-              handleSelectNode(nextCompany, false, false);
-            }
-          }
-          setIsAutopilotTransitioning(false);
-        }, 4000); // 4 seconds for a broad zoom out and pause before next story
-      };
+  const getSortedNewsQueue = useCallback(() => {
+    const rawNews = marketDataRef.current?.news || [];
+    return [...rawNews].sort((a, b) => {
+      const dateA = a.published_at ? new Date(a.published_at).getTime() : 0;
+      const dateB = b.published_at ? new Date(b.published_at).getTime() : 0;
+      return dateA - dateB;
+    });
+  }, []);
 
-      // Run once immediately if not already set
-      if (autopilotNewsIndex === 0) {
-         cycle();
-      }
+  const autopilotResumeTimeoutRef = useRef<any>(null);
 
-      timer = setInterval(cycle, 35000); // 35 seconds total per cycle (30s stay + 5s transition)
+  const handleAutopilotInteraction = useCallback((paused: boolean) => {
+    if (autopilotResumeTimeoutRef.current) {
+      clearTimeout(autopilotResumeTimeoutRef.current);
+      autopilotResumeTimeoutRef.current = null;
     }
 
-    return () => clearInterval(timer);
-  }, [isAutopilot, marketData.news, companies, handleSelectNode, setSelectedStock]);
+    if (paused) {
+      if (!isAutopilotPausedRef.current) {
+        setIsAutopilotPaused(true);
+        addLog("AUTOPILOT_STATUS: PAUSED_BY_USER_INTERACTION");
+      }
+    } else {
+      // Resume the timer 5 seconds after the interaction ends
+      autopilotResumeTimeoutRef.current = setTimeout(() => {
+        setIsAutopilotPaused(false);
+        addLog("AUTOPILOT_STATUS: RESUMED_OPERATIONAL_CYCLE");
+      }, 5000);
+    }
+  }, [addLog]);
+
+  const autopilotTimerRef = useRef(30);
+
+  useEffect(() => {
+    if (!isAutopilot) {
+      setIsAutopilotPaused(false);
+      autopilotTimerRef.current = 30;
+      return;
+    }
+
+    autopilotTimerRef.current = 30;
+
+    const timerInterval = setInterval(() => {
+      if (isAutopilotPausedRef.current) {
+        return;
+      }
+
+      autopilotTimerRef.current -= 1;
+
+      // Silent Harvester Pre-fetching: 5 seconds before interval completes, pre-fetch/validate the next node's data
+      if (autopilotTimerRef.current === 5) {
+        const stories = getSortedNewsQueue();
+        let targetCompany: Company | null = null;
+        
+        if (stories.length > 0) {
+          const nextIndex = (autopilotNewsIndex + 1) % stories.length;
+          const nextStory = stories[nextIndex];
+          if (nextStory) {
+            targetCompany = companies.find(
+              (c) => c.symbol === (nextStory.symbol || nextStory.ticker)
+            ) || null;
+          }
+        } else {
+          targetCompany = companies[(autopilotNewsIndex + 1) % companies.length] || null;
+        }
+
+        if (targetCompany) {
+          addLog(`HARVESTER_SILENT_PREFETCH: validation for next sequence target [${targetCompany.symbol}] started.`);
+          fetchData(targetCompany.symbol, true); // true = silent pre-fetch
+        }
+      }
+
+      if (autopilotTimerRef.current <= 0) {
+        autopilotTimerRef.current = 30; // reset
+        
+        const stories = getSortedNewsQueue();
+        
+        const runCycleTransition = () => {
+          if (isLiveNewsZoomEnabled) {
+            // Zoom Out / transition animation
+            setIsAutopilotTransitioning(true);
+            setSelectedStock(null);
+
+            setTimeout(() => {
+              if (stories.length > 0) {
+                setAutopilotNewsIndex((prevIndex) => {
+                  const nextIndex = prevIndex + 1;
+                  if (nextIndex >= stories.length) {
+                    injectLiveNews();
+                    addLog("HARVESTER_SILENT_PREFETCH: incident queue exhausted. Triggered automatic news stream harvesting.");
+                    return 0;
+                  }
+                  return nextIndex;
+                });
+              } else {
+                setAutopilotNewsIndex((prevIndex) => (prevIndex + 1) % companies.length);
+              }
+              setIsAutopilotTransitioning(false);
+            }, 4000);
+          } else {
+            // SILENT CYCLE: updates only telemetry and alert popup instantly without central viewport reset or fly
+            if (stories.length > 0) {
+              setAutopilotNewsIndex((prevIndex) => {
+                const nextIndex = prevIndex + 1;
+                if (nextIndex >= stories.length) {
+                  injectLiveNews();
+                  addLog("HARVESTER_SILENT_PREFETCH: incident queue exhausted. Triggered automatic news stream harvesting.");
+                  return 0;
+                }
+                return nextIndex;
+              });
+            } else {
+              setAutopilotNewsIndex((prevIndex) => (prevIndex + 1) % companies.length);
+            }
+          }
+        };
+
+        runCycleTransition();
+      }
+    }, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [isAutopilot, companies, autopilotNewsIndex, isLiveNewsZoomEnabled, getSortedNewsQueue, injectLiveNews, fetchData, addLog]);
 
   // Handle focusing nodes when autopilot news index changes
   useEffect(() => {
     if (!isAutopilot || isAutopilotTransitioning) return;
-    const stories = marketData.news || [];
+    const stories = getSortedNewsQueue();
     if (stories.length > 0 && autopilotNewsIndex >= 0) {
       const story = stories[autopilotNewsIndex % stories.length];
       if (story) {
@@ -1027,11 +1115,20 @@ export default function App() {
           (c) => c.symbol === (story.symbol || story.ticker)
         );
         if (company) {
-          handleSelectNode(company, false, false, story);
+          if (handleSelectNodeRef.current) {
+            handleSelectNodeRef.current(company, false, false, story, "ai");
+          }
+        }
+      }
+    } else if (stories.length === 0 && autopilotNewsIndex >= 0) {
+      const company = companies[autopilotNewsIndex % companies.length];
+      if (company) {
+        if (handleSelectNodeRef.current) {
+          handleSelectNodeRef.current(company, false, false, null, "ai");
         }
       }
     }
-  }, [autopilotNewsIndex, isAutopilot, marketData.news, companies, handleSelectNode, isAutopilotTransitioning]);
+  }, [autopilotNewsIndex, isAutopilot, isAutopilotTransitioning, companies, getSortedNewsQueue]);
 
   useEffect(() => {
     // Dynamically adjust root document zoom to scale the entire terminal UI cleanly
@@ -1290,17 +1387,37 @@ export default function App() {
                 className={cn(
                   "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1 cursor-pointer rounded-xs h-5 border",
                   isAutopilot
-                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                    ? "active bg-emerald-950/40 border-emerald-400 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.45)] ring-1 ring-emerald-500/20"
                     : "border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-500",
                 )}
               >
                 <div
                   className={cn(
                     "w-1 h-1 rounded-full",
-                    isAutopilot ? "bg-emerald-400 animate-pulse" : "bg-zinc-700",
+                    isAutopilot ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" : "bg-zinc-700",
                   )}
                 />
                 <span>AUTO_CYCLE</span>
+              </button>
+
+              <button
+                onClick={() => setIsLiveNewsZoomEnabled(!isLiveNewsZoomEnabled)}
+                title="Toggle Live News Camera Focus Link"
+                className={cn(
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1 cursor-pointer rounded-xs h-5 border",
+                  isLiveNewsZoomEnabled
+                    ? "active bg-emerald-950/40 border-emerald-400 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.45)] ring-1 ring-emerald-500/20"
+                    : "border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-500",
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-1 h-1 rounded-full",
+                    isLiveNewsZoomEnabled ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" : "bg-zinc-700",
+                  )}
+                />
+                <MapPin className="w-2.5 h-2.5" />
+                <span>LIVE_NEWS_TRACK</span>
               </button>
 
               <button
@@ -1356,7 +1473,6 @@ export default function App() {
                     );
                     return;
                   }
-                  setIs3DMode(true);
                   setAutoRotateEnabled(false);
                   if (viewportLock) {
                     setViewportLock(false);
@@ -1594,6 +1710,11 @@ export default function App() {
                 isIntelligenceStream={isAutopilot}
                 isTransitioning={isAutopilotTransitioning}
                 activeNewsIdx={autopilotNewsIndex}
+                activeNewsPopup={activeNewsPopup}
+                isLiveNewsZoomEnabled={isLiveNewsZoomEnabled}
+                isAutopilot={isAutopilot}
+                lastSelectionSource={lastSelectionSource}
+                onAutopilotInteraction={handleAutopilotInteraction}
                 toggleIntelligenceStream={() => {
                   const next = !isAutopilot;
                   setIsAutopilot(next);
@@ -1644,6 +1765,12 @@ export default function App() {
                 onAgentSearch={handleAgentSearch}
                 riskScore={systemRiskScore}
                 relationships={marketData.relationships}
+                shocks={{
+                  taiwanStraitBlocked,
+                  suezCanalBlocked,
+                  malaccaStraitBlocked,
+                  panamaCanalBlocked,
+                }}
               />
             </Suspense>
           </div>

@@ -36,6 +36,7 @@ import { analyzeSentimentAndImpact } from "../lib/sentiment";
 import { YieldCurveMonitor } from "./YieldCurveMonitor";
 import { SupplyChainPanel } from "./SupplyChainPanel";
 import { MacroCorridor } from "./yield-terminal/MacroCorridor";
+import { playTacticalAudio } from "../utils/audio";
 
 import { motion, AnimatePresence } from "motion/react";
 
@@ -1088,6 +1089,102 @@ export const IntelligenceSidebar = React.memo(
                         </div>
                         <div className="text-[8px] text-zinc-400 leading-normal border-l border-zinc-700 pl-1.5 italic font-mono">
                           STATUS // {threatLevelText}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SYSTEM RISK INJECTION CONTROLS */}
+                    <div className="p-3 border border-zinc-900 bg-black rounded-sm space-y-3.5">
+                      <div className="flex justify-between items-center border-b border-zinc-900/60 pb-2 font-mono">
+                        <div className="text-zinc-400 font-extrabold flex items-center gap-1.5 uppercase text-[9px] tracking-wider">
+                          <Sliders className="w-3.5 h-3.5 text-zinc-500" />
+                          TACTICAL RISK INJECTOR
+                        </div>
+                        <span className="text-[6.5px] text-zinc-650 font-bold uppercase select-none">
+                          SIM_CONTROL_SYS
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        {/* Macro Shocks Group */}
+                        <div className="space-y-1.5">
+                          <div className="text-[8px] font-mono font-black text-red-500/80 uppercase tracking-widest flex items-center gap-1 mb-1">
+                            <Flame className="w-3 h-3" />
+                            Macroeconomic Port & Strait Blockades
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5 font-mono">
+                            {[
+                              { id: "taiwanStrait", label: "Taiwan Strait Blockade", val: taiwanStraitBlocked, set: setTaiwanStraitBlocked },
+                              { id: "suezCanal", label: "Suez Canal Closure", val: suezCanalBlocked, set: setSuezCanalBlocked },
+                              { id: "malaccaStrait", label: "Malacca Strait Bottleneck", val: malaccaStraitBlocked, set: setMalaccaStraitBlocked },
+                              { id: "panamaCanal", label: "Panama Canal Draft Limits", val: panamaCanalBlocked, set: setPanamaCanalBlocked },
+                            ].map((shock) => (
+                              <button
+                                key={shock.id}
+                                onClick={() => {
+                                  if (shock.set) {
+                                    const nextVal = !shock.val;
+                                    shock.set(nextVal);
+                                    playTacticalAudio(nextVal ? "warning" : "click");
+                                    dispatchLog(
+                                      `RISK_INJECTOR: ${shock.label} is now ${nextVal ? "ARMED" : "NOMINAL"}.`
+                                    );
+                                  }
+                                }}
+                                className={cn(
+                                  "text-[7.5px] px-2 py-1.5 text-left transition-all border flex flex-col justify-between h-11 relative rounded-2xs cursor-pointer select-none",
+                                  shock.val
+                                    ? "bg-red-950/20 border-red-500/50 text-red-400 font-black shadow-[0_0_8px_rgba(239,68,68,0.1)]"
+                                    : "bg-black border-zinc-900 text-zinc-500 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                <span>{shock.label.toUpperCase()}</span>
+                                <span className={cn("text-[6px] font-black tracking-widest", shock.val ? "text-red-500 animate-pulse" : "text-zinc-650")}>
+                                  {shock.val ? "● ARMED" : "○ OFFLINE"}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Mitigations Group */}
+                        <div className="space-y-1.5">
+                          <div className="text-[8px] font-mono font-black text-emerald-500/80 uppercase tracking-widest flex items-center gap-1 mb-1">
+                            <Shield className="w-3 h-3 text-emerald-500" />
+                            Strategic Defensive Mitigations
+                          </div>
+                          <div className="grid grid-cols-3 gap-1 px-0.5 font-mono">
+                            {[
+                              { id: "airFreight", label: "Priority Air Bridge", val: airFreightActive, set: setAirFreightActive },
+                              { id: "stockpile", label: "Strategic Stockpile", val: strategicStockpileActive, set: setStrategicStockpileActive },
+                              { id: "dualSource", label: "Dual Sourcing", val: dualSourcingActive, set: setDualSourcingActive },
+                            ].map((mit) => (
+                              <button
+                                key={mit.id}
+                                onClick={() => {
+                                  if (mit.set) {
+                                    const nextVal = !mit.val;
+                                    mit.set(nextVal);
+                                    playTacticalAudio(nextVal ? "success" : "click");
+                                    dispatchLog(
+                                      `RISK_INJECTOR: ${mit.label} is now ${nextVal ? "ACTIVATED" : "OFFLINE"}.`
+                                    );
+                                  }
+                                }}
+                                className={cn(
+                                  "text-[7px] px-1.5 py-1 text-center transition-all border flex flex-col items-center justify-center gap-0.5 rounded-2xs cursor-pointer select-none h-11",
+                                  mit.val
+                                    ? "bg-emerald-950/25 border-emerald-500/50 text-emerald-400 font-black"
+                                    : "bg-black border-zinc-900 text-zinc-500 hover:border-zinc-800 hover:text-zinc-450"
+                                )}
+                              >
+                                <span className="line-clamp-2 uppercase font-semibold text-center">{mit.label}</span>
+                                <span className={cn("text-[6px] font-semibold text-[5.5px]", mit.val ? "text-emerald-400" : "text-zinc-600")}>
+                                  {mit.val ? "ACTIVE" : "OFFLINE"}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
