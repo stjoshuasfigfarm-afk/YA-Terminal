@@ -291,6 +291,26 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) 
         </div>
       </div>
 
+      {/* Prominent Rate Ticker */}
+      <div className="flex gap-1.5 mb-2 h-8 overflow-x-auto scrollbar-none pb-1">
+        {[
+          { label: "2Y", val: spreadDetails.y2 },
+          { label: "5Y", val: activeYields.treasuries?.['5Y'] ?? 4.45 },
+          { label: "10Y", val: spreadDetails.y10 },
+          { label: "30Y", val: activeYields.treasuries?.['30Y'] ?? 4.56 },
+        ].map((item) => (
+          <div 
+            key={item.label}
+            className="flex-1 min-w-[50px] bg-black/60 border border-zinc-900 px-1.5 py-0.5 flex flex-col justify-center rounded-xs"
+          >
+            <div className="text-[6px] text-zinc-650 font-black tracking-tighter uppercase whitespace-nowrap">{item.label} TREASURY</div>
+            <div className="text-[9px] text-emerald-400 font-bold font-mono tracking-tight">
+              {item.val.toFixed(2)}%
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Yield Curve Chart Rendering Stage */}
       <div className="relative w-full h-32 bg-zinc-950/30 rounded-sm overflow-hidden border border-zinc-900/60 shadow-inner">
          <div ref={chartRef} className="w-full h-full relative z-10" />

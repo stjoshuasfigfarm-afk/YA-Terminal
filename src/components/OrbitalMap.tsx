@@ -140,6 +140,17 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
 
     map.on("load", () => {
       setIsStyleLoaded(true);
+
+      // Atmospheric Fog
+      // @ts-ignore
+      if (map.setFog) {
+        // @ts-ignore
+        map.setFog({
+          "range": [0.5, 10],
+          "color": "#000000",
+          "horizon-blend": 0.05
+        });
+      }
       
       // Explicitly set globe projection
       // @ts-ignore
@@ -323,11 +334,27 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         
         // Use inline style & tailwind-like HTML for pulse effect
         el.innerHTML = `
-          <div class="relative w-3 h-3 rounded-full border-2 border-black/85 shadow-lg transition-transform duration-300 hover:scale-125" style="background-color: ${isSelected ? '#34d399' : color}; box-shadow: 0 0 10px ${isSelected ? '#34d399' : color + 'aa'};">
+          <div class="relative group/node">
+            <div class="w-2.5 h-2.5 rounded-full border border-black/50 shadow-xl transition-all duration-300 group-hover/node:scale-150" 
+                 style="background-color: ${isSelected ? '#34d399' : color}; box-shadow: 0 0 15px ${isSelected ? '#34d399' : color + 'aa'};">
+            </div>
+            
             ${isSelected ? `
-              <div class="absolute -inset-2 rounded-full border border-emerald-400 animate-ping opacity-60"></div>
-              <div class="absolute -inset-3 rounded-full border border-emerald-500 animate-[ping_1.5s_infinite] opacity-30"></div>
-            ` : ''}
+              <div class="absolute -inset-4 rounded-full border border-emerald-500/20 animate-[ping_3s_infinite]"></div>
+              <div class="absolute -inset-8 rounded-full border border-emerald-500/10 animate-[ping_5s_infinite] delay-1000"></div>
+              <div class="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pointer-events-none">
+                <div class="px-2 py-0.5 bg-black/90 border border-emerald-500/30 text-emerald-400 font-mono text-[8px] font-black tracking-widest whitespace-nowrap shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                  ${entity.symbol}
+                </div>
+                <div class="px-1.5 py-0.5 bg-emerald-500/10 border-l-2 border-emerald-500 text-emerald-500/60 font-mono text-[6px] font-bold uppercase tracking-tighter whitespace-nowrap">
+                  ACTIVE_NODE_SYSCORR
+                </div>
+              </div>
+            ` : `
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/node:opacity-100 transition-opacity pointer-events-none px-1.5 py-0.5 bg-black/80 border border-zinc-800 text-zinc-400 font-mono text-[7px] font-black tracking-wider whitespace-nowrap z-50">
+                ${entity.symbol}
+              </div>
+            `}
           </div>
         `;
 
@@ -349,6 +376,45 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       }
     });
   }, [entities, isStyleLoaded, selectedStock]);
+
+  // Tactical Scanning Grid
+  useEffect(() => {
+    if (!mapRef.current || !isStyleLoaded) return;
+    const map = mapRef.current;
+
+    const gridFeatures: any[] = [];
+    for (let lng = -180; lng <= 180; lng += 15) {
+      gridFeatures.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: [[lng, -82], [lng, 82]] }
+      });
+    }
+    for (let lat = -75; lat <= 75; lat += 15) {
+      gridFeatures.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: [[-180, lat], [180, lat]] }
+      });
+    }
+
+    const sourceId = "scanning-grid";
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: gridFeatures }
+      });
+
+      map.addLayer({
+        id: "scanning-grid-layer",
+        type: "line",
+        source: sourceId,
+        paint: {
+          "line-color": "#10b981",
+          "line-width": 0.5,
+          "line-opacity": 0.08
+        }
+      });
+    }
+  }, [isStyleLoaded]);
 
   // Sync Network Connections/Lines on Map
   useEffect(() => {
@@ -395,10 +461,37 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         },
         paint: {
           "line-color": ["get", "color"],
-          "line-width": 2.5,
-          "line-opacity": 0.8
+          "line-width": 1.5,
+          "line-opacity": 0.4
         }
       });
+
+      // Add a second layer for the glowing pulse animation
+      map.addLayer({
+        id: `${layerId}-pulse`,
+        type: "line",
+        source: sourceId,
+        layout: {
+          "line-join": "round",
+          "line-cap": "round"
+        },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 3,
+          "line-opacity": 0.8,
+          "line-dasharray": [1, 2]
+        }
+      });
+
+      let step = 0;
+      const animateDash = () => {
+        step = (step + 0.1) % 4;
+        if (map.getLayer(`${layerId}-pulse`)) {
+          map.setPaintProperty(`${layerId}-pulse`, "line-dasharray", [0, step, 1, 4 - step]);
+          requestAnimationFrame(animateDash);
+        }
+      };
+      animateDash();
     } else {
       const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
       if (source) {
@@ -691,6 +784,22 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           {shocks.malaccaStraitBlocked && <StatusLine label="MALACCA_STRAIT" status="BOTTLENECK" color="text-red-500" />}
           {shocks.panamaCanalBlocked && <StatusLine label="PANAMA_CANAL" status="DRAFT_LIMITS" color="text-orange-500" />}
         </AnimatePresence>
+      </div>
+
+      {/* LAT/LNG COORDINATE TICKER */}
+      <div className="absolute bottom-6 right-6 z-30 pointer-events-none font-mono flex flex-col items-end gap-1 select-none">
+        <div className="px-2 py-0.5 bg-black/60 border border-emerald-500/20 rounded-xs flex items-center gap-2">
+          <span className="text-[7.5px] text-zinc-500 font-bold uppercase tracking-widest">LAT</span>
+          <span className="text-[10px] text-emerald-500 font-black tabular-nums">{center[1].toFixed(4)}°</span>
+        </div>
+        <div className="px-2 py-0.5 bg-black/60 border border-emerald-500/20 rounded-xs flex items-center gap-2">
+          <span className="text-[7.5px] text-zinc-500 font-bold uppercase tracking-widest">LNG</span>
+          <span className="text-[10px] text-emerald-500 font-black tabular-nums">{center[0].toFixed(4)}°</span>
+        </div>
+        <div className="mt-1 flex items-center gap-1.5 opacity-40">
+          <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[6px] text-emerald-500 tracking-[0.2em] font-black uppercase whitespace-nowrap">GEO_SPACIAL_SYNC_ACTIVE</span>
+        </div>
       </div>
     </div>
   );

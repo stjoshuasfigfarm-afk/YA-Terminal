@@ -148,6 +148,64 @@ const Typewriter = ({
   );
 };
 
+const SpectralVoiceVisualizer = ({ isSpeaking }: { isSpeaking: boolean }) => {
+  return (
+    <div className="flex items-center gap-[1px] h-3 px-1.5">
+      {[...Array(12)].map((_, i) => (
+        <motion.div
+          key={i}
+          animate={isSpeaking ? {
+            height: [2, 10, 4, 8, 2],
+            backgroundColor: ["#10b981", "#34d399", "#10b981"],
+          } : {
+            height: 2,
+            backgroundColor: "#3f3f46",
+          }}
+          transition={{
+            duration: 0.5 + Math.random() * 0.5,
+            repeat: Infinity,
+            delay: i * 0.05,
+          }}
+          className="w-[2px] rounded-full"
+        />
+      ))}
+    </div>
+  );
+};
+
+const RiskMatrixHeatmap = ({ correlationMatrix }: { correlationMatrix: number[][] }) => {
+  const labels = ["LIQ", "GEO", "SUP", "FX", "CRD"];
+  return (
+    <div className="grid grid-cols-6 gap-[2px] font-mono select-none">
+      <div className="h-4" />
+      {labels.map(l => (
+        <div key={l} className="text-[6px] text-zinc-650 flex items-center justify-center font-black">{l}</div>
+      ))}
+      {correlationMatrix.map((row, i) => (
+        <React.Fragment key={i}>
+          <div className="text-[6px] text-zinc-650 flex items-center justify-start font-black pr-1">{labels[i]}</div>
+          {row.map((val, j) => (
+            <div
+              key={j}
+              className="group relative"
+            >
+              <div 
+                className="h-3.5 w-full transition-colors border border-black/20"
+                style={{ 
+                  backgroundColor: `rgba(16, 185, 129, ${val * 0.6})`,
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/90 text-[5.5px] text-emerald-400 font-bold z-10 p-0.5">
+                {(val * 100).toFixed(0)}
+              </div>
+            </div>
+          ))}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
+
 const NeuralStreamHeader = ({ riskScore }: { riskScore: number }) => {
   const colorStyle =
     riskScore >= 75
@@ -915,64 +973,12 @@ export const IntelligenceSidebar = React.memo(
     return (
       <aside
         className={cn(
-          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden relative transition-all duration-150",
+          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none transition-all duration-150 relative",
           "w-full",
         )}
       >
-        {!isMinimized && (
-          <div className="border-b border-zinc-900 bg-zinc-950/40 shrink-0">
-            {/* NEW: Strategic Macro Indicators Bar */}
-            <div className="flex divide-x divide-zinc-900 border-b border-zinc-900/40 bg-black/40 h-8">
-              {[
-                { label: "VIX", val: "14.22", chg: "-2.4%", color: "text-emerald-500" },
-                { label: "DXY", val: "103.45", chg: "+0.15%", color: "text-zinc-400" },
-                { label: "GOLD", val: "2350.2", chg: "+0.8%", color: "text-amber-500" },
-                { label: "BTC", val: "68.4k", chg: "-1.2%", color: "text-orange-500" },
-              ].map((m, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center justify-center font-mono">
-                  <span className="text-[6px] text-zinc-600 font-black">{m.label}</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-[8px] text-zinc-300 font-bold">{m.val}</span>
-                    <span className={cn("text-[6px] font-bold", m.color)}>{m.chg}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* NEW: Neural Intelligence Pulse Feed */}
-            <div className="mt-3 pt-3 border-t border-zinc-900/60">
-              <div className="flex items-center justify-between mb-2 px-1">
-                <div className="flex items-center gap-1 text-[8px] font-black text-zinc-500 font-mono tracking-[0.2em] uppercase">
-                  <Zap className="w-3 h-3 text-amber-500" />
-                  NEURAL_INTELLIGENCE_PULSE
-                </div>
-                <span className="text-[6px] text-zinc-700 font-mono">BETA_V1.2</span>
-              </div>
-              <div className="space-y-1.5 h-24 overflow-hidden mask-fade-bottom">
-                <AnimatePresence mode="popLayout">
-                  {pulseFeed.map((n, i) => (
-                    <motion.div 
-                      key={`${n.msg}-${i}`}
-                      initial={{ opacity: 0, x: -10, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, x: 10, filter: "blur(4px)" }}
-                      transition={{ duration: 0.4, ease: "easeOut" }}
-                      className="flex gap-2 group cursor-default"
-                    >
-                      <span className={cn("text-[7px] font-black px-1 border border-current bg-current/5 shrink-0 h-3.5 flex items-center min-w-[42px] justify-center", n.color)}>{n.tag}</span>
-                      <div className="flex flex-col min-w-0">
-                        <p className="text-[8px] text-zinc-400 line-clamp-2 leading-tight group-hover:text-white transition-colors">{n.msg}</p>
-                        <span className="text-[6px] text-zinc-700 mt-0.5">{n.time}</span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-      )}
-
-        <div className="h-10 border-b border-zinc-800 bg-zinc-950/90 flex items-center justify-between px-3">
+        {/* PANEL HEADER - FIXED */}
+        <div className="h-10 border-b border-zinc-800 bg-zinc-950/90 flex items-center justify-between px-3 shrink-0 z-50">
           {!isMinimized && (
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]" />
@@ -981,65 +987,139 @@ export const IntelligenceSidebar = React.memo(
               </span>
             </div>
           )}
-          <button onClick={onToggleMinimize} className="text-zinc-500">
+          <button onClick={onToggleMinimize} className="text-zinc-500 hover:text-white transition-colors">
             {isMinimized ? <ChevronsLeft /> : <ChevronsRight />}
           </button>
         </div>
 
         {!isMinimized && (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* PERMANENT YIELD STRUCTURE MONITOR */}
-            <div className="border-b border-zinc-900 p-3 bg-zinc-950/20 shrink-0">
-              <div className="text-[9px] font-black text-emerald-450 font-mono tracking-widest uppercase mb-1.5 flex items-center justify-between select-none">
-                <span className="flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                  YIELD STRUCTURE: {yields?.country || "US TREASURIES"}
-                </span>
-                <span className="text-[7.5px] text-zinc-500 font-normal normal-case">
-                  Trajectories & risk spreads
-                </span>
-              </div>
-              <div className="h-[150px] overflow-hidden">
-                <YieldCurveMonitor yields={yields} />
-              </div>
+            {/* TACTICAL NAVIGATION TABS - FIXED TOP */}
+            <div className="flex bg-black shrink-0 border-b border-zinc-900 h-10 p-1 gap-1 select-none z-40">
+              {[
+                {
+                  id: "STRATEGY",
+                  label: "NEWS FEEDS",
+                  icon: <Newspaper className="w-3.5 h-3.5" />,
+                },
+                {
+                  id: "LOGISTICS_COCKPIT",
+                  label: "LOGISTICS & MATRIX",
+                  icon: <Network className="w-3.5 h-3.5" />,
+                },
+              ].map((sub) => (
+                <button
+                  key={sub.id}
+                  id={`btn-tab-${sub.id}`}
+                  onClick={() => {
+                    setInnerLeftTab(sub.id as any);
+                  }}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 text-[8px] font-mono font-black transition-all border rounded-sm px-2 shrink-0 active:scale-95",
+                    innerLeftTab === sub.id
+                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-black shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                      : "border-zinc-900 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900",
+                  )}
+                >
+                  {sub.icon}
+                  <span className="truncate">{sub.label}</span>
+                </button>
+              ))}
             </div>
 
-            {/* Top Main Workspace */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-              {/* Inner Switch Row */}
-              <div className="flex bg-black shrink-0 border-b border-zinc-900 h-10 p-1 gap-1 select-none overflow-x-auto scrollbar-none transition-all duration-150">
+            {/* MAIN SCROLLABLE CONTENT */}
+            <div className="flex-1 overflow-y-auto scrollbar-tactical scroll-smooth">
+              {/* NEWS FEED SUB-NAVI - TOP LEVEL WHEN ACTIVE */}
+              {innerLeftTab === "STRATEGY" && (
+                <div className="border-b border-zinc-900 bg-black/60 p-3 pt-4 sticky top-0 z-30 shadow-2xl">
+                   {/* Search Control */}
+                   <div className="relative group mb-3">
+                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600 group-focus-within:text-emerald-500 transition-colors" />
+                    <input
+                      type="text"
+                      placeholder="SEARCH_NEWS_NODES..."
+                      value={newsSearch}
+                      onChange={(e) => setNewsSearch(e.target.value)}
+                      className="w-full bg-zinc-950/80 border border-zinc-900 rounded-sm py-1.5 pl-8 pr-3 text-[9px] font-mono text-zinc-300 placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500/50 transition-all shadow-inner tracking-wider"
+                    />
+                  </div>
+
+                  {/* Sub-tabs for feeds */}
+                  <div className="flex border border-zinc-900 bg-zinc-950/80 p-0.5 rounded-sm select-none gap-0.5">
+                    <button
+                      onClick={() => setStrategySubTab("detailed")}
+                      className={cn(
+                        "flex-1 py-1 px-1.5 text-[8.5px] font-mono font-black tracking-wider uppercase text-center transition-all bg-transparent border-0 cursor-pointer rounded-2xs flex items-center justify-center gap-1.5",
+                        strategySubTab === "detailed"
+                          ? "bg-emerald-950/40 text-emerald-400 font-extrabold border border-emerald-900/40 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
+                          : "text-zinc-500 hover:text-zinc-350",
+                      )}
+                    >
+                      <Newspaper className="w-2.5 h-2.5" />
+                      Detailed Feed
+                    </button>
+                    <button
+                      onClick={() => setStrategySubTab("filtered")}
+                      className={cn(
+                        "flex-1 py-1 px-1.5 text-[8.5px] font-mono font-black tracking-wider uppercase text-center transition-all bg-transparent border-0 cursor-pointer rounded-2xs flex items-center justify-center gap-1.5",
+                        strategySubTab === "filtered"
+                          ? "bg-emerald-950/40 text-emerald-400 font-extrabold border border-emerald-900/40 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
+                          : "text-zinc-500 hover:text-zinc-350",
+                      )}
+                    >
+                      <Filter className="w-2.5 h-2.5" />
+                      Filtered Feed
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* PERMANENT YIELD STRUCTURE MONITOR */}
+              <div className="border-b border-zinc-900 p-3 bg-zinc-950/20">
+                <div className="text-[9px] font-black text-emerald-450 font-mono tracking-widest uppercase mb-1.5 flex items-center justify-between select-none">
+                  <span className="flex items-center gap-1 text-emerald-500">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    YIELD STRUCTURE: {yields?.country || "US TREASURIES"}
+                  </span>
+                  <span className="text-[7.5px] text-zinc-500 font-normal">
+                    Trajectories & risk spreads
+                  </span>
+                </div>
+                <div className="h-[170px] overflow-hidden">
+                  <YieldCurveMonitor yields={yields} />
+                </div>
+                
+                <div className="mt-3 pt-3 border-t border-zinc-900/60">
+                  <div className="text-[8px] font-black text-emerald-500/60 font-mono tracking-widest uppercase mb-2 flex items-center gap-1.5">
+                    <Network className="w-3 h-3" />
+                    Cross-Asset Stress Correlation
+                  </div>
+                  <RiskMatrixHeatmap correlationMatrix={correlationMatrix} />
+                </div>
+              </div>
+
+              {/* STRATEGIC MACRO INDICATORS */}
+              <div className="flex divide-x divide-zinc-900 border-b border-zinc-900/40 bg-black/40 h-8 shrink-0">
                 {[
-                  {
-                    id: "STRATEGY",
-                    label: "STRATEGY",
-                    icon: <MapPin className="w-3.5 h-3.5" />,
-                  },
-                  {
-                    id: "LOGISTICS_COCKPIT",
-                    label: "LOGISTICS & MATRIX",
-                    icon: <Network className="w-3.5 h-3.5" />,
-                  },
-                ].map((sub) => (
-                  <button
-                    key={sub.id}
-                    id={`btn-tab-${sub.id}`}
-                    onClick={() => {
-                      setInnerLeftTab(sub.id as any);
-                    }}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1.5 text-[8px] font-mono font-black transition-all border rounded-sm px-2 shrink-0 active:scale-95",
-                      innerLeftTab === sub.id
-                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-black shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                        : "border-zinc-900 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900",
-                    )}
-                  >
-                    {sub.icon}
-                    <span className="truncate">{sub.label}</span>
-                  </button>
+                  { label: "VIX", val: "14.22", chg: "-2.4%", color: "text-emerald-500" },
+                  { label: "DXY", val: "103.45", chg: "+0.15%", color: "text-zinc-400" },
+                  { label: "GOLD", val: "2350.2", chg: "+0.8%", color: "text-amber-500" },
+                  { label: "BTC", val: "68.4k", chg: "-1.2%", color: "text-orange-500" },
+                ].map((m, idx) => (
+                  <div key={idx} className="flex-1 flex flex-col items-center justify-center font-mono">
+                    <span className="text-[6px] text-zinc-600 font-black">{m.label}</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[8px] text-zinc-300 font-bold">{m.val}</span>
+                      <span className={cn("text-[6px] font-bold", m.color)}>{m.chg}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
 
-              <div className="p-3.5 flex-1 overflow-y-auto">
+              {/* STRATEGIC MACRO INDICATORS */}
+
+              {/* TAB CONTENT */}
+              <div className="p-3.5">
                 {innerLeftTab === "LOGISTICS_COCKPIT" && selectedStock && (
                   <div className="space-y-4">
                     {/* Stress Monitor HUD */}
@@ -1207,7 +1287,7 @@ export const IntelligenceSidebar = React.memo(
                       </div>
 
                       {auditStatus === "completed" ? (
-                        <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                        <div className="space-y-1.5 pr-1">
                           {Object.entries(dynamicAuditedItems).map(
                             ([sym, report], idx) => (
                               <div
@@ -1284,7 +1364,7 @@ export const IntelligenceSidebar = React.memo(
                           </span>
                         </div>
 
-                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        <div className="space-y-2 pr-1">
                           {SOURCED_MATERIALS.map((mat, idx) => {
                             const isHighRisk =
                               (mat.vulnerability || "")
@@ -1345,90 +1425,10 @@ export const IntelligenceSidebar = React.memo(
                     />
                   </div>
                 )}
-                {innerLeftTab === "STRATEGY" && (
+                {innerLeftTab === "STRATEGY" && selectedStock && (
                   <div className="space-y-4">
-                    <div className="mb-4"></div>
-
-                    {/* SVG 10-Day Trend Sparkline Matrix */}
-                    {sentiment?.forecast &&
-                      Array.isArray(sentiment.forecast) && (
-                        <div className="p-2.5 border border-zinc-900 bg-black/45 rounded-sm space-y-2 select-none">
-                          <div className="flex justify-between items-center border-b border-zinc-900/40 pb-1.5">
-                            <span className="text-[7.5px] text-zinc-500 font-mono font-black tracking-widest uppercase">
-                              10-Day Projected Delta Forecast
-                            </span>
-                            <span className="text-[7px] text-emerald-400 font-mono uppercase bg-emerald-950/20 px-1 border border-emerald-900/30">
-                              NEURAL PREDICTOR
-                            </span>
-                          </div>
-
-                          <div className="h-10 w-full flex items-center justify-between gap-2.5 pt-1.5">
-                            <div className="flex-1 h-full flex items-end gap-[2px]">
-                              {sentiment.forecast.map(
-                                (val: number, i: number) => {
-                                  // range values are usually small deltas, let's normalize nicely
-                                  const heightPct = Math.max(
-                                    10,
-                                    Math.min(100, Math.abs(val) * 100 + 10),
-                                  );
-                                  const isPositive = val >= 0;
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="flex-1 h-full flex flex-col justify-end group relative"
-                                    >
-                                      {/* Tooltip on hover */}
-                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block bg-zinc-950 border border-zinc-800 text-[6.5px] text-zinc-300 px-1 py-0.5 rounded-sm whitespace-nowrap z-50 font-mono">
-                                        Day {i + 1}: {val > 0 ? "+" : ""}
-                                        {(val * 100).toFixed(1)}%
-                                      </div>
-                                      <div
-                                        className={cn(
-                                          "w-full rounded-2xs transition-all duration-300 opacity-80 hover:opacity-100",
-                                          isPositive
-                                            ? "bg-emerald-500/50 hover:bg-emerald-400"
-                                            : "bg-red-500/50 hover:bg-red-400",
-                                        )}
-                                        style={{ height: `${heightPct}%` }}
-                                      />
-                                    </div>
-                                  );
-                                },
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                    {/* Side-by-side Sub-tabs under Strategy */}
-                    <div className="flex border border-zinc-900 bg-zinc-950/80 p-0.5 rounded-sm select-none gap-0.5 mt-4">
-                      <button
-                        onClick={() => setStrategySubTab("detailed")}
-                        className={cn(
-                          "flex-1 py-1 px-1.5 text-[8.5px] font-mono font-black tracking-wider uppercase text-center transition-all bg-transparent border-0 cursor-pointer rounded-2xs flex items-center justify-center gap-1.5",
-                          strategySubTab === "detailed"
-                            ? "bg-emerald-950/40 text-emerald-400 font-extrabold border border-emerald-900/40 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
-                            : "text-zinc-500 hover:text-zinc-350",
-                        )}
-                      >
-                        <Newspaper className="w-2.5 h-2.5" />
-                        Detailed Feed
-                      </button>
-                      <button
-                        onClick={() => setStrategySubTab("filtered")}
-                        className={cn(
-                          "flex-1 py-1 px-1.5 text-[8.5px] font-mono font-black tracking-wider uppercase text-center transition-all bg-transparent border-0 cursor-pointer rounded-2xs flex items-center justify-center gap-1.5",
-                          strategySubTab === "filtered"
-                            ? "bg-emerald-950/40 text-emerald-400 font-extrabold border border-emerald-900/40 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
-                            : "text-zinc-500 hover:text-zinc-350",
-                        )}
-                      >
-                        <Filter className="w-2.5 h-2.5" />
-                        Filtered Feed
-                      </button>
-                    </div>
-
-                    <div className="mt-3">
+                    {/* FEEDS AT THE TOP OF COCKPIT - HANDLED AT TOP LEVEL */}
+                    <div className="mt-0">
                       {strategySubTab === "detailed" ? (
                         <>
                           <h4 className="text-[10px] font-black uppercase text-emerald-400 tracking-widest mb-2.5 font-mono border-b border-emerald-900/50 pb-1.5 flex justify-between items-center select-none">
@@ -1437,7 +1437,7 @@ export const IntelligenceSidebar = React.memo(
                               Global intelligence stream
                             </span>
                           </h4>
-                          <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                          <div className="space-y-2.5 pr-1">
                             {news && news.length > 0 ? (
                               news.slice(0, 8).map((n: any, i: number) => {
                                 const tDate = formatSafeTime(n.published_at);
@@ -1465,21 +1465,31 @@ export const IntelligenceSidebar = React.memo(
                                       <span className="text-emerald-500/80">
                                         [{tDate}]
                                       </span>
-                                      <span className="text-zinc-650 flex items-center gap-1">
-                                        <span>{n.source || "FINNHUB"}</span>
-                                        {n.url && (
-                                          <a
-                                            href={n.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="text-emerald-500 hover:text-emerald-300 font-bold ml-1 transition-colors"
-                                            title="Open article in a new tab"
-                                          >
-                                            [↗]
-                                          </a>
-                                        )}
-                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        {(() => {
+                                          const { sentiment: s, impact: im } = analyzeSentimentAndImpact(n);
+                                          return (
+                                            <>
+                                              <span className={cn(
+                                                "px-1 border font-black text-[6px]",
+                                                im === "CRITICAL" ? "bg-red-500/10 border-red-500 text-red-400" :
+                                                im === "MODERATE" ? "bg-amber-500/10 border-amber-500 text-amber-400" :
+                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
+                                              )}>
+                                                {im}
+                                              </span>
+                                              <span className={cn(
+                                                "px-1 border font-black text-[6px]",
+                                                s === "BULLISH" ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" :
+                                                s === "BEARISH" ? "bg-rose-500/10 border-rose-500 text-rose-400" :
+                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
+                                              )}>
+                                                {s}
+                                              </span>
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
                                     </div>
                                     <div className="leading-snug font-bold text-zinc-100 text-[9.5px] mb-1 tracking-tight group-hover:text-emerald-300 transition-colors">
                                       {tTitle}
@@ -1507,7 +1517,38 @@ export const IntelligenceSidebar = React.memo(
                               Select story to analyze
                             </span>
                           </h4>
-                          <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+
+                          {/* NEURAL INTELLIGENCE PULSE FEED - MOVED UNDER FILTERED INTEL HEADER */}
+                          <div className="mb-4 bg-zinc-950/40 p-2 border border-zinc-900/60 rounded-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-1 text-[7.5px] font-black text-zinc-500 font-mono tracking-[0.2em] uppercase">
+                                <Zap className="w-2.5 h-2.5 text-amber-500" />
+                                NEURAL_INTELLIGENCE_PULSE
+                              </div>
+                              <span className="text-[5.5px] text-zinc-700 font-mono">BETA_V1.2</span>
+                            </div>
+                            <div className="space-y-1.5 h-20 overflow-hidden mask-fade-bottom">
+                              <AnimatePresence mode="popLayout">
+                                {pulseFeed.slice(0, 4).map((n, i) => (
+                                  <motion.div 
+                                    key={`${n.msg}-${i}`}
+                                    initial={{ opacity: 0, x: -10, filter: "blur(4px)" }}
+                                    animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                                    exit={{ opacity: 0, x: 10, filter: "blur(4px)" }}
+                                    transition={{ duration: 0.4, ease: "easeOut" }}
+                                    className="flex gap-2 group cursor-default"
+                                  >
+                                    <span className={cn("text-[6.5px] font-black px-1 border border-current bg-current/5 shrink-0 h-3 flex items-center min-w-[38px] justify-center", n.color)}>{n.tag}</span>
+                                    <div className="flex flex-col min-w-0 font-mono">
+                                      <p className="text-[7.5px] text-zinc-400 line-clamp-2 leading-tight group-hover:text-white transition-colors">{n.msg}</p>
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </AnimatePresence>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2.5 pr-1">
                             {filteredNews.length > 0 ? (
                               filteredNews.map((n, i) => {
                                 const company = companies.find(
@@ -1531,31 +1572,39 @@ export const IntelligenceSidebar = React.memo(
                                     )}
                                   >
                                     <div className="flex justify-between items-center mb-1">
-                                      <span className="text-emerald-500 font-bold font-mono tracking-wider flex items-center gap-1.5">
-                                        <span>[{n.symbol}]</span>
+                                      <span className="text-emerald-500 font-bold font-mono tracking-wider flex items-center gap-1.5 line-clamp-1">
+                                        <span>[{n.symbol || n.ticker}]</span>
                                         {n.source && (
-                                          <span className="text-zinc-650 font-normal text-[7.5px] uppercase">
+                                          <span className="text-zinc-650 font-normal text-[7px] uppercase truncate max-w-[60px]">
                                             ({n.source})
                                           </span>
                                         )}
-                                        {n.url && (
-                                          <a
-                                            href={n.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="text-emerald-500 hover:text-emerald-300 font-bold transition-all text-[7.5px]"
-                                            title="Read Yahoo News article"
-                                          >
-                                            [↗]
-                                          </a>
-                                        )}
                                       </span>
-                                      {n.published_at && (
-                                        <span className="text-zinc-500 font-mono text-[7.5px]">
-                                          {formatSafeTime(n.published_at)}
-                                        </span>
-                                      )}
+                                      <div className="flex items-center gap-1">
+                                        {(() => {
+                                          const { sentiment: s, impact: im } = analyzeSentimentAndImpact(n);
+                                          return (
+                                            <>
+                                              <span className={cn(
+                                                "px-1 border font-black text-[6px]",
+                                                im === "CRITICAL" ? "bg-red-500/10 border-red-500 text-red-400" :
+                                                im === "MODERATE" ? "bg-amber-500/10 border-amber-500 text-amber-400" :
+                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
+                                              )}>
+                                                {im}
+                                              </span>
+                                              <span className={cn(
+                                                "px-1 border font-black text-[6px]",
+                                                s === "BULLISH" ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" :
+                                                s === "BEARISH" ? "bg-rose-500/10 border-rose-500 text-rose-400" :
+                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
+                                              )}>
+                                                {s}
+                                              </span>
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
                                     </div>
                                     <div className="leading-snug font-bold text-zinc-100 text-[9.5px] mb-1 tracking-tight group-hover:text-emerald-300 transition-colors">
                                       {n.translatedTitle || n.title}
@@ -1580,6 +1629,114 @@ export const IntelligenceSidebar = React.memo(
                           </div>
                         </>
                       )}
+                    </div>
+
+                    {/* Briefing and Trends - moved down */}
+                    <div className="space-y-4">
+                      {/* TACTICAL BRIEFING BLOCK */}
+                      {(briefing || isAiProcessing) && (
+                        <div className="p-3 border border-emerald-500/20 bg-emerald-500/5 rounded-sm relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 p-1">
+                            <SpectralVoiceVisualizer isSpeaking={isSpeaking} />
+                          </div>
+                          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2 mb-2.5 select-none font-mono">
+                            <div className="text-[10px] text-emerald-400 font-black tracking-widest uppercase flex items-center gap-2">
+                              <Shield className="w-3.5 h-3.5" />
+                              TACTICAL_AGENCY_BRIEFING
+                            </div>
+                            <button 
+                              onClick={() => briefing && handleSpeak(typeof briefing === 'string' ? briefing : JSON.stringify(briefing))}
+                              disabled={isSpeechLoading}
+                              className={cn(
+                                "flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 border transition-all cursor-pointer",
+                                isSpeaking 
+                                  ? "bg-emerald-500 border-emerald-400 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+                                  : "bg-black border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10"
+                              )}
+                            >
+                              {isSpeechLoading ? <RefreshCcw className="w-2.5 h-2.5 animate-spin" /> : isSpeaking ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
+                              {isSpeaking ? "MUTE" : "PLAY AUDIO"}
+                            </button>
+                          </div>
+                          
+                          {isAiProcessing ? (
+                            <div className="space-y-2 py-2">
+                              <div className="h-1.5 w-full bg-emerald-500/10 overflow-hidden">
+                                <motion.div 
+                                  animate={{ x: ["-100%", "100%"] }}
+                                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                                  className="h-full w-1/3 bg-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                                />
+                              </div>
+                              <div className="text-[8px] font-mono text-emerald-500/60 animate-pulse tracking-widest uppercase">
+                                Synthesizing intelligence vectors...
+                              </div>
+                            </div>
+                          ) : (
+                            <Typewriter 
+                              text={typeof briefing === 'string' ? briefing : JSON.stringify(briefing, null, 2)} 
+                              className="text-emerald-400/90"
+                            />
+                          )}
+                          
+                          <div className="mt-3 pt-2.5 border-t border-emerald-500/10 flex items-center justify-between">
+                            <div className="flex gap-2">
+                              <div className="text-[7px] text-zinc-600 font-mono uppercase bg-black px-1 border border-zinc-900">REL: 0.98</div>
+                              <div className="text-[7px] text-zinc-600 font-mono uppercase bg-black px-1 border border-zinc-900">CONF: HIGH</div>
+                            </div>
+                            <span className="text-[6.5px] text-emerald-500/40 font-mono italic">GENERATED_BY_GEMINI_V3</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SVG 10-Day Trend Sparkline Matrix */}
+                      {sentiment?.forecast &&
+                        Array.isArray(sentiment.forecast) && (
+                          <div className="p-2.5 border border-zinc-900 bg-black/45 rounded-sm space-y-2 select-none">
+                            <div className="flex justify-between items-center border-b border-zinc-900/40 pb-1.5">
+                              <span className="text-[7.5px] text-zinc-500 font-mono font-black tracking-widest uppercase">
+                                10-Day Projected Delta Forecast
+                              </span>
+                              <span className="text-[7px] text-emerald-400 font-mono uppercase bg-emerald-950/20 px-1 border border-emerald-900/30">
+                                NEURAL PREDICTOR
+                              </span>
+                            </div>
+
+                            <div className="h-10 w-full flex items-center justify-between gap-2.5 pt-1.5">
+                              <div className="flex-1 h-full flex items-end gap-[2px]">
+                                {sentiment.forecast.map(
+                                  (val: number, i: number) => {
+                                    const heightPct = Math.max(
+                                      10,
+                                      Math.min(100, Math.abs(val) * 100 + 10),
+                                    );
+                                    const isPositive = val >= 0;
+                                    return (
+                                      <div
+                                        key={i}
+                                        className="flex-1 h-full flex flex-col justify-end group relative"
+                                      >
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block bg-zinc-950 border border-zinc-800 text-[6.5px] text-zinc-300 px-1 py-0.5 rounded-sm whitespace-nowrap z-50 font-mono">
+                                          Day {i + 1}: {val > 0 ? "+" : ""}
+                                          {(val * 100).toFixed(1)}%
+                                        </div>
+                                        <div
+                                          className={cn(
+                                            "w-full rounded-2xs transition-all duration-300 opacity-80 hover:opacity-100",
+                                            isPositive
+                                              ? "bg-emerald-500/50 hover:bg-emerald-400"
+                                              : "bg-red-500/50 hover:bg-red-400",
+                                          )}
+                                          style={{ height: `${heightPct}%` }}
+                                        />
+                                      </div>
+                                    );
+                                  },
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                     </div>
                   </div>
                 )}
