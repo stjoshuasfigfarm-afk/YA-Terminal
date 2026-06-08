@@ -69,7 +69,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   const shockMarkersRef = useRef<{ [key: string]: maplibregl.Marker }>({});
   const liveNewsPopupRef = useRef<maplibregl.Popup | null>(null);
   const [zoom, setZoom] = useState(2);
-  const [center, setCenter] = useState<[number, number]>([0, 0]);
+  const centerRef = useRef<[number, number]>([0, 0]);
+  const [displayCenter, setDisplayCenter] = useState<[number, number]>([0, 0]);
   const [pitch, setPitch] = useState(0);
   const [bearing, setBearing] = useState(0);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
@@ -208,10 +209,23 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       setPitch(map.getPitch());
     });
 
+    let moveThrottleTimeout: any = null;
+
     map.on("move", () => {
       if (isAdjusting) return;
 
       const { lng, lat } = map.getCenter();
+      centerRef.current = [lng, lat];
+      
+      if (!moveThrottleTimeout) {
+        moveThrottleTimeout = setTimeout(() => {
+          setDisplayCenter(centerRef.current);
+          setZoom(map.getZoom());
+          setPitch(map.getPitch());
+          moveThrottleTimeout = null;
+        }, 500); // UI readouts don't need high frequency update
+      }
+
       let needsAdjustment = false;
       let newLat = lat;
 
@@ -241,9 +255,6 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         return;
       }
 
-      setCenter([lng, lat]);
-      setZoom(map.getZoom());
-      setPitch(map.getPitch());
       setBearing(0);
     });
 
@@ -299,62 +310,60 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   useEffect(() => {
     if (!mapRef.current || !isStyleLoaded) return;
 
-    // Remove old markers
-    Object.values(markersRef.current).forEach(m => m.remove());
-    markersRef.current = {};
+    // Diff markers instead of clearing all
+    const currentSymbols = new Set(entities.map(e => e.symbol || e.name));
+    
+    // Remove markers that are no longer present
+    Object.keys(markersRef.current).forEach(symbol => {
+      if (!currentSymbols.has(symbol)) {
+        markersRef.current[symbol].remove();
+        delete markersRef.current[symbol];
+      }
+    });
 
-    // Helper to determine sector color
-    const getSectorColor = (sector: string): string => {
-      if (!sector) return "#e2e8f0"; // Cool gray fallback
-      const norm = sector.toLowerCase();
-      if (norm.includes("semiconductor") || norm.includes("technology") || norm.includes("software")) {
-        return "#22d3ee"; // Cyber Cyan
-      }
-      if (norm.includes("financial") || norm.includes("banking") || norm.includes("capital")) {
-        return "#c084fc"; // Purple Flow
-      }
-      if (norm.includes("energy") || norm.includes("materials") || norm.includes("chemical")) {
-        return "#facc15"; // Solar Warning Yellow
-      }
-      if (norm.includes("automotive") || norm.includes("industrial") || norm.includes("retail") || norm.includes("consumer")) {
-        return "#60a5fa"; // Logistics Blue
-      }
-      return "#34d399"; // Tactical Emerald
-    };
+    // Unified tactical color for all nodes
+    const tacticalColor = "#34d399"; // Tactical Emerald
 
-    // Add new markers
+    // Add or Update markers
     entities.forEach(entity => {
       if (entity.lat && entity.lng) {
+        const symbol = entity.symbol || entity.name;
         const isSelected = selectedStock?.symbol === entity.symbol;
-        const color = getSectorColor(entity.sector);
+
+        if (markersRef.current[symbol]) {
+          // Update existing marker classes if status changed
+          const el = markersRef.current[symbol].getElement();
+          const markerContent = el.querySelector('.marker-pulse-wrapper');
+          if (markerContent) {
+            // Update color/active state if needed
+            markerContent.className = cn(
+              "relative group/node marker-pulse-wrapper",
+              isSelected && "is-selected"
+            );
+          }
+          return;
+        }
         
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.style.cursor = 'pointer';
         
-        // Use inline style & tailwind-like HTML for pulse effect
         el.innerHTML = `
-          <div class="relative group/node">
-            <div class="w-2.5 h-2.5 rounded-full border border-black/50 shadow-xl transition-all duration-300 group-hover/node:scale-150" 
-                 style="background-color: ${isSelected ? '#34d399' : color}; box-shadow: 0 0 15px ${isSelected ? '#34d399' : color + 'aa'};">
+          <div class="relative group/node marker-pulse-wrapper ${isSelected ? 'is-selected' : ''}">
+            <div class="marker-dot w-2.5 h-2.5 rounded-full border border-black/50 shadow-xl transition-all duration-300 group-hover/node:scale-150" 
+                 style="background-color: ${tacticalColor}; box-shadow: 0 0 15px ${tacticalColor}aa;">
             </div>
             
-            ${isSelected ? `
+            <div class="selection-rings hidden">
               <div class="absolute -inset-4 rounded-full border border-emerald-500/20 animate-[ping_3s_infinite]"></div>
               <div class="absolute -inset-8 rounded-full border border-emerald-500/10 animate-[ping_5s_infinite] delay-1000"></div>
-              <div class="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pointer-events-none">
-                <div class="px-2 py-0.5 bg-black/90 border border-emerald-500/30 text-emerald-400 font-mono text-[8px] font-black tracking-widest whitespace-nowrap shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                  ${entity.symbol}
-                </div>
-                <div class="px-1.5 py-0.5 bg-emerald-500/10 border-l-2 border-emerald-500 text-emerald-500/60 font-mono text-[6px] font-bold uppercase tracking-tighter whitespace-nowrap">
-                  ACTIVE_NODE_SYSCORR
-                </div>
-              </div>
-            ` : `
-              <div class="absolute left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/node:opacity-100 transition-opacity pointer-events-none px-1.5 py-0.5 bg-black/80 border border-zinc-800 text-zinc-400 font-mono text-[7px] font-black tracking-wider whitespace-nowrap z-50">
+            </div>
+
+            <div class="marker-label absolute left-6 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pointer-events-none opacity-0 group-hover/node:opacity-100 transition-opacity whitespace-nowrap z-50">
+              <div class="px-2 py-0.5 bg-black/90 border border-emerald-500/30 text-emerald-400 font-mono text-[8px] font-black tracking-widest">
                 ${entity.symbol}
               </div>
-            `}
+            </div>
           </div>
         `;
 
@@ -365,17 +374,12 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
 
         const marker = new maplibregl.Marker({ element: el })
           .setLngLat([entity.lng, entity.lat])
-          .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML(`
-            <div style="font-family: monospace; font-size: 10px; color: #34d399; background: black; padding: 4px; border: 1px solid rgba(52,211,153,0.3); border-radius: 2px;">
-              ${entity.symbol} | ${entity.name}
-            </div>
-          `))
           .addTo(mapRef.current!);
           
-        markersRef.current[entity.symbol || entity.name] = marker;
+        markersRef.current[symbol] = marker;
       }
     });
-  }, [entities, isStyleLoaded, selectedStock]);
+  }, [entities, isStyleLoaded, selectedStock, onSelectNode]);
 
   // Tactical Scanning Grid
   useEffect(() => {
@@ -484,14 +488,16 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       });
 
       let step = 0;
+      let rafId: number;
       const animateDash = () => {
-        step = (step + 0.1) % 4;
+        step = (step + 0.05) % 4; // Slower dash animation
         if (map.getLayer(`${layerId}-pulse`)) {
           map.setPaintProperty(`${layerId}-pulse`, "line-dasharray", [0, step, 1, 4 - step]);
-          requestAnimationFrame(animateDash);
+          rafId = requestAnimationFrame(animateDash);
         }
       };
       animateDash();
+      return () => cancelAnimationFrame(rafId);
     } else {
       const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
       if (source) {
@@ -660,6 +666,18 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           box-shadow: none !important;
           padding: 0 !important;
         }
+        .marker-pulse-wrapper.is-selected .selection-rings {
+          display: block !important;
+        }
+        .marker-pulse-wrapper.is-selected .marker-dot {
+          background-color: #34d399 !important;
+          box-shadow: 0 0 20px #34d399 !important;
+          transform: scale(1.3);
+        }
+        .marker-pulse-wrapper.is-selected .marker-label {
+          opacity: 1 !important;
+          pointer-events: auto !important;
+        }
         .maplibregl-popup-tip {
           border-bottom-color: rgba(16, 185, 129, 0.5) !important;
           border-top-color: rgba(16, 185, 129, 0.5) !important;
@@ -790,11 +808,11 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       <div className="absolute bottom-6 right-6 z-30 pointer-events-none font-mono flex flex-col items-end gap-1 select-none">
         <div className="px-2 py-0.5 bg-black/60 border border-emerald-500/20 rounded-xs flex items-center gap-2">
           <span className="text-[7.5px] text-zinc-500 font-bold uppercase tracking-widest">LAT</span>
-          <span className="text-[10px] text-emerald-500 font-black tabular-nums">{center[1].toFixed(4)}°</span>
+          <span className="text-[10px] text-emerald-500 font-black tabular-nums">{displayCenter[1].toFixed(4)}°</span>
         </div>
         <div className="px-2 py-0.5 bg-black/60 border border-emerald-500/20 rounded-xs flex items-center gap-2">
           <span className="text-[7.5px] text-zinc-500 font-bold uppercase tracking-widest">LNG</span>
-          <span className="text-[10px] text-emerald-500 font-black tabular-nums">{center[0].toFixed(4)}°</span>
+          <span className="text-[10px] text-emerald-500 font-black tabular-nums">{displayCenter[0].toFixed(4)}°</span>
         </div>
         <div className="mt-1 flex items-center gap-1.5 opacity-40">
           <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
@@ -805,7 +823,7 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   );
 };
 
-const StatusLine = ({ label, status, color }: { label: string; status: string; color: string }) => (
+const StatusLine = React.memo(({ label, status, color }: { label: string; status: string; color: string }) => (
   <motion.div 
     initial={{ opacity: 0, x: -10 }}
     animate={{ opacity: 1, x: 0 }}
@@ -816,9 +834,9 @@ const StatusLine = ({ label, status, color }: { label: string; status: string; c
     <span className="text-[7.5px] text-zinc-500 font-bold uppercase tracking-widest">{label}</span>
     <span className={`text-[7.5px] font-black uppercase tracking-tighter ${color}`}>{status}</span>
   </motion.div>
-);
+));
 
-const NavButton = ({ 
+const NavButton = React.memo(({ 
   icon, 
   onClick, 
   label, 
@@ -843,4 +861,4 @@ const NavButton = ({
       {label}
     </div>
   </button>
-);
+));

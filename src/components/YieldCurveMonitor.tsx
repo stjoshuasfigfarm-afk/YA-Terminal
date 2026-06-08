@@ -11,7 +11,7 @@ interface YieldCurveMonitorProps {
   } | null;
 }
 
-export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) => {
+export const YieldCurveMonitor = React.memo(({ yields }: YieldCurveMonitorProps) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -359,4 +359,4 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) 
       </div>
     </div>
   );
-};
+});

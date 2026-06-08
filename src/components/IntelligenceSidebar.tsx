@@ -128,7 +128,7 @@ const Typewriter = ({
       const timeout = setTimeout(() => {
         setDisplayedText((prev) => prev + text[index]);
         setIndex((prev) => prev + 1);
-      }, 5);
+      }, 15);
       return () => clearTimeout(timeout);
     }
   }, [index, text]);
@@ -173,7 +173,7 @@ const SpectralVoiceVisualizer = ({ isSpeaking }: { isSpeaking: boolean }) => {
   );
 };
 
-const RiskMatrixHeatmap = ({ correlationMatrix }: { correlationMatrix: number[][] }) => {
+const RiskMatrixHeatmap = React.memo(({ correlationMatrix }: { correlationMatrix: number[][] }) => {
   const labels = ["LIQ", "GEO", "SUP", "FX", "CRD"];
   return (
     <div className="grid grid-cols-6 gap-[2px] font-mono select-none">
@@ -204,7 +204,7 @@ const RiskMatrixHeatmap = ({ correlationMatrix }: { correlationMatrix: number[][
       ))}
     </div>
   );
-};
+});
 
 const NeuralStreamHeader = ({ riskScore }: { riskScore: number }) => {
   const colorStyle =
