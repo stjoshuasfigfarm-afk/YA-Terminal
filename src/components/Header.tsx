@@ -4,7 +4,6 @@ import { cn } from "../lib/utils";
 import { motion } from "motion/react";
 
 import { COMPANIES } from "../data/companies";
-import { playTacticalAudio } from "../utils/audio";
 
 interface HeaderProps {
   selectedStock?: any;
@@ -90,10 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Hamburger Dropdown Menu Container */}
         <div className="relative flex items-center" ref={menuRef}>
           <button
-            onClick={() => {
-              setMenuOpen(!menuOpen);
-              playTacticalAudio("click");
-            }}
+            onClick={() => setMenuOpen(!menuOpen)}
             className="p-1.5 hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-emerald-500 transition-colors rounded-sm uppercase font-sans text-[9px] flex items-center gap-1 cursor-pointer z-50 relative"
             title="Menu"
           >
@@ -110,7 +106,6 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => {
                   setMenuOpen(false);
                   onOpenSettings();
-                  playTacticalAudio("confirm");
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-[10px] text-zinc-300 hover:text-emerald-400 hover:bg-emerald-500/5 transition-all uppercase text-left font-bold cursor-pointer group"
               >
@@ -123,11 +118,8 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={() => {
                   setMenuOpen(false);
-                  playTacticalAudio("warning");
-                  setTimeout(() => {
-                    localStorage.removeItem('terminal_auth_token');
-                    window.location.reload();
-                  }, 400);
+                  localStorage.removeItem('terminal_auth_token');
+                  window.location.reload();
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-[10px] text-zinc-500 hover:text-red-400 hover:bg-red-500/5 transition-all uppercase text-left font-bold cursor-pointer group"
               >
@@ -254,30 +246,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* MACRO TICKER OVERLAY */}
-          <div className="hidden 2xl:flex items-center w-64 h-6 border-x border-zinc-900 bg-zinc-950/50 relative overflow-hidden group">
-            <div className="flex whitespace-nowrap animate-marquee px-4 gap-8">
-              {[...Array(2)].map((_, groupIdx) => (
-                <div key={groupIdx} className="flex gap-8">
-                  {[
-                    { label: "VIX_VOLATILITY", val: vix, trend: vixTrend },
-                    { label: "SYSTEM_RISK_INDEX", val: riskScore, trend: riskScore > 50 ? '↑' : '↓' },
-                    { label: "BRENT_CRUDE_NEAR", val: "84.22", trend: "↑" },
-                    { label: "SOX_SEMICON_IDX", val: "4,622", trend: "↓" }
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 font-mono text-[8.5px] font-black">
-                      <span className="text-zinc-500 tracking-widest">{item.label}</span>
-                      <span className={cn("tracking-tighter px-1", item.trend === '↑' ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400")}>
-                        {item.val} {item.trend}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-black to-transparent z-10" />
-            <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-black to-transparent z-10" />
-          </div>
         </div>
       </div>
       <div className="flex items-center gap-3 md:gap-5 font-mono text-[9px]">

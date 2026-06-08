@@ -103,14 +103,8 @@ interface MapLayerProps {
   activeNewsPopup?: { lat: number; lng: number; title: string; symbol: string } | null;
   isLiveNewsZoomEnabled?: boolean;
   isAutopilot?: boolean;
-  lastSelectionSource?: "user" | "ai";
-  onAutopilotInteraction?: (paused: boolean) => void;
-  shocks?: {
-    taiwanStraitBlocked: boolean;
-    suezCanalBlocked: boolean;
-    malaccaStraitBlocked: boolean;
-    panamaCanalBlocked: boolean;
-  };
+  toggleLiveNewsZoom?: () => void;
+  resetOrientationTrigger?: number;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({
@@ -152,14 +146,8 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   activeNewsPopup = null,
   isLiveNewsZoomEnabled = false,
   isAutopilot = false,
-  lastSelectionSource = "user",
-  shocks = {
-    taiwanStraitBlocked: false,
-    suezCanalBlocked: false,
-    malaccaStraitBlocked: false,
-    panamaCanalBlocked: false,
-  },
-  onAutopilotInteraction,
+  toggleLiveNewsZoom,
+  resetOrientationTrigger = 0,
 }) => {
   const setIsVocalizerEnabled = onToggleVocalizer;
   const [isSwapped, setIsSwapped] = useState(false);
@@ -1078,10 +1066,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     from: Company;
     to: Company;
   }[] => {
-    if (!showGlobalNetwork) {
-      return [];
-    }
-
     const lines: {
       coords: [[number, number], [number, number]];
       color: string;
@@ -1103,8 +1087,23 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       }
     };
 
+    // 1. If hovered, show all its connections
+    if (hoveredCompany && hoveredCompany.partners) {
+      hoveredCompany.partners.forEach((pSymbol) => {
+        const partner = companies.find((c) => c.symbol === pSymbol);
+        if (partner) addLine(hoveredCompany, partner, "#34d399"); // emerald-400
+      });
+    }
+    // 2. If Pinned Tab + selectedStock
+    if (activeTab === "PINNED" && selectedStock && selectedStock.partners) {
+      selectedStock.partners.forEach((pSymbol) => {
+        const partner = companies.find((c) => c.symbol === pSymbol);
+        if (partner) addLine(selectedStock, partner, "#ffffff"); // Highlight selected
+      });
+    }
+    // 3. If Global
     const anchor = networkAnchor || selectedStock;
-    if (anchor) {
+    if (showGlobalNetwork && anchor) {
       if (anchor.partners) {
         anchor.partners.forEach((pSymbol) => {
           const partner = companies.find((c) => c.symbol === pSymbol);
@@ -1118,30 +1117,30 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           addLine(fromStock, anchor, "#eab308"); // yellow-500 for incoming
         }
       });
+    }
 
-      // Draw dynamic supplier & customer stream nodes for selectedStock
-      if (relationships) {
-        if (Array.isArray(relationships.suppliers)) {
-          relationships.suppliers.forEach((s) => {
-            const partner = companies.find((c) => c.symbol === s.symbol);
-            if (partner) {
-              addLine(partner, anchor, "#38bdf8"); // sky-400 (Incoming supplier stream)
-            }
-          });
-        }
-        if (Array.isArray(relationships.customers)) {
-          relationships.customers.forEach((c) => {
-            const partner = companies.find((comp) => comp.symbol === c.symbol);
-            if (partner) {
-              addLine(anchor, partner, "#f97316"); // orange-500 (Outgoing customer stream)
-            }
-          });
-        }
+    // 4. Draw dynamic supplier & customer stream nodes for selectedStock
+    if (selectedStock && relationships) {
+      if (Array.isArray(relationships.suppliers)) {
+        relationships.suppliers.forEach((s) => {
+          const partner = companies.find((c) => c.symbol === s.symbol);
+          if (partner) {
+            addLine(partner, selectedStock, "#38bdf8"); // sky-400 (Incoming supplier stream)
+          }
+        });
+      }
+      if (Array.isArray(relationships.customers)) {
+        relationships.customers.forEach((c) => {
+          const partner = companies.find((comp) => comp.symbol === c.symbol);
+          if (partner) {
+            addLine(selectedStock, partner, "#f97316"); // orange-500 (Outgoing customer stream)
+          }
+        });
       }
     }
 
     return lines;
-  }, [selectedStock, showGlobalNetwork, networkAnchor, relationships, companies]);
+  }, [selectedStock, activeTab, hoveredCompany, showGlobalNetwork, networkAnchor, relationships]);
 
   return (
     <div className="flex-1 relative bg-[#050505] overflow-hidden map-green-hued tactical-grid">
@@ -1165,8 +1164,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             agentFocus={agentFocus}
             autoRotate={autoRotateEnabled}
             entities={companiesToRender}
-            partnerLines={partnerLines}
-            shocks={shocks}
             onSelectNode={(entity) => {
               if (entity && onSelectNode) {
                 onSelectNode(entity);
@@ -1175,8 +1172,9 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             activeNewsPopup={activeNewsPopup}
             isLiveNewsZoomEnabled={isLiveNewsZoomEnabled}
             isAutopilot={isAutopilot}
-            isAiTriggeredFocus={lastSelectionSource === "ai"}
-            onAutopilotInteraction={onAutopilotInteraction}
+            toggleGlobalNetwork={toggleGlobalNetwork}
+            toggleLiveNewsZoom={toggleLiveNewsZoom}
+            resetOrientationTrigger={resetOrientationTrigger}
           />
         </Suspense>
       </div>

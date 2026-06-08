@@ -9,7 +9,7 @@ const getCompanySymbolText = (symbol: string) => {
   return symbol.slice(0, 2).toUpperCase();
 };
 
-export const SupplyChainPanel = React.memo(({ company, onSelectNode }: { company: Company, onSelectNode: (c: Company) => void }) => {
+export const SupplyChainPanel = ({ company, onSelectNode }: { company: Company, onSelectNode: (c: Company) => void }) => {
   // Compute Tier 1 and Tier 2 relationships
   const suppliersT1 = useMemo(() => COMPANIES.filter(c => c.partners?.includes(company.symbol)), [company]);
   const customersT1 = useMemo(() => {
@@ -208,9 +208,9 @@ export const SupplyChainPanel = React.memo(({ company, onSelectNode }: { company
       </div>
     </div>
   );
-});
+};
 
-const SupplyChainNode = React.memo(({ data, type, highlight = false, onClick }: { data: Company, type: 'supplier' | 'customer', highlight?: boolean, onClick: () => void }) => {
+const SupplyChainNode = ({ data, type, highlight = false, onClick }: { data: Company, type: 'supplier' | 'customer', highlight?: boolean, onClick: () => void }) => {
   const colorClass = type === 'supplier' ? 'text-yellow-500 border-yellow-500/20 hover:border-yellow-500/60' : 'text-green-500 border-green-500/20 hover:border-green-500/60';
 
   return (
@@ -240,4 +240,4 @@ const SupplyChainNode = React.memo(({ data, type, highlight = false, onClick }: 
       </div>
     </div>
   );
-});
+};

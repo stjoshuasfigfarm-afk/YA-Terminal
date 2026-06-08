@@ -36,7 +36,6 @@ import { analyzeSentimentAndImpact } from "../lib/sentiment";
 import { YieldCurveMonitor } from "./YieldCurveMonitor";
 import { SupplyChainPanel } from "./SupplyChainPanel";
 import { MacroCorridor } from "./yield-terminal/MacroCorridor";
-import { playTacticalAudio } from "../utils/audio";
 
 import { motion, AnimatePresence } from "motion/react";
 
@@ -128,7 +127,7 @@ const Typewriter = ({
       const timeout = setTimeout(() => {
         setDisplayedText((prev) => prev + text[index]);
         setIndex((prev) => prev + 1);
-      }, 15);
+      }, 5);
       return () => clearTimeout(timeout);
     }
   }, [index, text]);
@@ -147,64 +146,6 @@ const Typewriter = ({
     </div>
   );
 };
-
-const SpectralVoiceVisualizer = ({ isSpeaking }: { isSpeaking: boolean }) => {
-  return (
-    <div className="flex items-center gap-[1px] h-3 px-1.5">
-      {[...Array(12)].map((_, i) => (
-        <motion.div
-          key={i}
-          animate={isSpeaking ? {
-            height: [2, 10, 4, 8, 2],
-            backgroundColor: ["#10b981", "#34d399", "#10b981"],
-          } : {
-            height: 2,
-            backgroundColor: "#3f3f46",
-          }}
-          transition={{
-            duration: 0.5 + Math.random() * 0.5,
-            repeat: Infinity,
-            delay: i * 0.05,
-          }}
-          className="w-[2px] rounded-full"
-        />
-      ))}
-    </div>
-  );
-};
-
-const RiskMatrixHeatmap = React.memo(({ correlationMatrix }: { correlationMatrix: number[][] }) => {
-  const labels = ["LIQ", "GEO", "SUP", "FX", "CRD"];
-  return (
-    <div className="grid grid-cols-6 gap-[2px] font-mono select-none">
-      <div className="h-4" />
-      {labels.map(l => (
-        <div key={l} className="text-[6px] text-zinc-650 flex items-center justify-center font-black">{l}</div>
-      ))}
-      {correlationMatrix.map((row, i) => (
-        <React.Fragment key={i}>
-          <div className="text-[6px] text-zinc-650 flex items-center justify-start font-black pr-1">{labels[i]}</div>
-          {row.map((val, j) => (
-            <div
-              key={j}
-              className="group relative"
-            >
-              <div 
-                className="h-3.5 w-full transition-colors border border-black/20"
-                style={{ 
-                  backgroundColor: `rgba(16, 185, 129, ${val * 0.6})`,
-                }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/90 text-[5.5px] text-emerald-400 font-bold z-10 p-0.5">
-                {(val * 100).toFixed(0)}
-              </div>
-            </div>
-          ))}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-});
 
 const NeuralStreamHeader = ({ riskScore }: { riskScore: number }) => {
   const colorStyle =
@@ -385,6 +326,7 @@ export const IntelligenceSidebar = React.memo(
 
     // --- Neural Intelligence Pulse Feed State ---
     const [pulseFeed, setPulseFeed] = useState([
+      { tag: "IMTC", msg: "Immersive Logistics Telemetry Controller initiated", time: "Just now", color: "text-purple-400" },
       { tag: "SIGNAL", msg: "Whale alert: $42M USDT move detected in SOL ecosystem", time: "1m ago", color: "text-amber-500" },
       { tag: "MACRO", msg: "ECB indicates flexible rate path despite inflation sticky", time: "4m ago", color: "text-zinc-500" },
       { tag: "TRADE", msg: "High convergence detected on Semi-cap yield spreads", time: "8m ago", color: "text-emerald-500" },
@@ -973,303 +915,293 @@ export const IntelligenceSidebar = React.memo(
     return (
       <aside
         className={cn(
-          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none transition-all duration-150 relative",
+          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden relative transition-all duration-150",
           "w-full",
         )}
       >
-        {/* PANEL HEADER - FIXED */}
-        <div className="h-10 border-b border-zinc-800 bg-zinc-950/90 flex items-center justify-between px-3 shrink-0 z-50">
-          {!isMinimized && (
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]" />
-              <span className="text-[10px] font-black uppercase text-white tracking-[0.2em] font-mono">
+        <div className="h-12 border-b border-zinc-800 bg-zinc-950/90 flex items-center justify-between px-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981] shrink-0" />
+              <span className="text-[11px] font-black uppercase text-white tracking-[0.2em] font-mono truncate">
                 INTEL_COCKPIT_V4
               </span>
             </div>
-          )}
           <button onClick={onToggleMinimize} className="text-zinc-500 hover:text-white transition-colors">
-            {isMinimized ? <ChevronsLeft /> : <ChevronsRight />}
+            {isMinimized ? <ChevronsLeft className="w-4 h-4" /> : <ChevronsRight className="w-4 h-4" />}
           </button>
         </div>
 
-        {!isMinimized && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* TACTICAL NAVIGATION TABS - FIXED TOP */}
-            <div className="flex bg-black shrink-0 border-b border-zinc-900 h-10 p-1 gap-1 select-none z-40">
-              {[
-                {
-                  id: "STRATEGY",
-                  label: "NEWS FEEDS",
-                  icon: <Newspaper className="w-3.5 h-3.5" />,
-                },
-                {
-                  id: "LOGISTICS_COCKPIT",
-                  label: "LOGISTICS & MATRIX",
-                  icon: <Network className="w-3.5 h-3.5" />,
-                },
-              ].map((sub) => (
-                <button
-                  key={sub.id}
-                  id={`btn-tab-${sub.id}`}
-                  onClick={() => {
-                    setInnerLeftTab(sub.id as any);
-                  }}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 text-[8px] font-mono font-black transition-all border rounded-sm px-2 shrink-0 active:scale-95",
-                    innerLeftTab === sub.id
-                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-black shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                      : "border-zinc-900 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900",
-                  )}
-                >
-                  {sub.icon}
-                  <span className="truncate">{sub.label}</span>
-                </button>
-              ))}
-            </div>
 
-            {/* MAIN SCROLLABLE CONTENT */}
-            <div className="flex-1 overflow-y-auto scrollbar-tactical scroll-smooth">
-              {/* NEWS FEED SUB-NAVI - TOP LEVEL WHEN ACTIVE */}
-              {innerLeftTab === "STRATEGY" && (
-                <div className="border-b border-zinc-900 bg-black/60 p-3 pt-4 sticky top-0 z-30 shadow-2xl">
-                   {/* Search Control */}
-                   <div className="relative group mb-3">
-                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600 group-focus-within:text-emerald-500 transition-colors" />
-                    <input
-                      type="text"
-                      placeholder="SEARCH_NEWS_NODES..."
-                      value={newsSearch}
-                      onChange={(e) => setNewsSearch(e.target.value)}
-                      className="w-full bg-zinc-950/80 border border-zinc-900 rounded-sm py-1.5 pl-8 pr-3 text-[9px] font-mono text-zinc-300 placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500/50 transition-all shadow-inner tracking-wider"
-                    />
-                  </div>
-
-                  {/* Sub-tabs for feeds */}
-                  <div className="flex border border-zinc-900 bg-zinc-950/80 p-0.5 rounded-sm select-none gap-0.5">
-                    <button
-                      onClick={() => setStrategySubTab("detailed")}
-                      className={cn(
-                        "flex-1 py-1 px-1.5 text-[8.5px] font-mono font-black tracking-wider uppercase text-center transition-all bg-transparent border-0 cursor-pointer rounded-2xs flex items-center justify-center gap-1.5",
-                        strategySubTab === "detailed"
-                          ? "bg-emerald-950/40 text-emerald-400 font-extrabold border border-emerald-900/40 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
-                          : "text-zinc-500 hover:text-zinc-350",
-                      )}
-                    >
-                      <Newspaper className="w-2.5 h-2.5" />
-                      Detailed Feed
-                    </button>
-                    <button
-                      onClick={() => setStrategySubTab("filtered")}
-                      className={cn(
-                        "flex-1 py-1 px-1.5 text-[8.5px] font-mono font-black tracking-wider uppercase text-center transition-all bg-transparent border-0 cursor-pointer rounded-2xs flex items-center justify-center gap-1.5",
-                        strategySubTab === "filtered"
-                          ? "bg-emerald-950/40 text-emerald-400 font-extrabold border border-emerald-900/40 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
-                          : "text-zinc-500 hover:text-zinc-350",
-                      )}
-                    >
-                      <Filter className="w-2.5 h-2.5" />
-                      Filtered Feed
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* PERMANENT YIELD STRUCTURE MONITOR */}
-              <div className="border-b border-zinc-900 p-3 bg-zinc-950/20">
-                <div className="text-[9px] font-black text-emerald-450 font-mono tracking-widest uppercase mb-1.5 flex items-center justify-between select-none">
-                  <span className="flex items-center gap-1 text-emerald-500">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    YIELD STRUCTURE: {yields?.country || "US TREASURIES"}
-                  </span>
-                  <span className="text-[7.5px] text-zinc-500 font-normal">
-                    Trajectories & risk spreads
-                  </span>
-                </div>
-                <div className="h-[170px] overflow-hidden">
-                  <YieldCurveMonitor yields={yields} />
-                </div>
-                
-                <div className="mt-3 pt-3 border-t border-zinc-900/60">
-                  <div className="text-[8px] font-black text-emerald-500/60 font-mono tracking-widest uppercase mb-2 flex items-center gap-1.5">
-                    <Network className="w-3 h-3" />
-                    Cross-Asset Stress Correlation
-                  </div>
-                  <RiskMatrixHeatmap correlationMatrix={correlationMatrix} />
-                </div>
-              </div>
-
-              {/* STRATEGIC MACRO INDICATORS */}
-              <div className="flex divide-x divide-zinc-900 border-b border-zinc-900/40 bg-black/40 h-8 shrink-0">
+             <div className="flex-1 flex flex-col min-h-0">
+              {/* Inner Switch Row */}
+              <div className="flex bg-black shrink-0 border-b border-zinc-900 h-10 p-1 gap-1 select-none overflow-x-auto scrollbar-none transition-all duration-150">
                 {[
-                  { label: "VIX", val: "14.22", chg: "-2.4%", color: "text-emerald-500" },
-                  { label: "DXY", val: "103.45", chg: "+0.15%", color: "text-zinc-400" },
-                  { label: "GOLD", val: "2350.2", chg: "+0.8%", color: "text-amber-500" },
-                  { label: "BTC", val: "68.4k", chg: "-1.2%", color: "text-orange-500" },
-                ].map((m, idx) => (
-                  <div key={idx} className="flex-1 flex flex-col items-center justify-center font-mono">
-                    <span className="text-[6px] text-zinc-600 font-black">{m.label}</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[8px] text-zinc-300 font-bold">{m.val}</span>
-                      <span className={cn("text-[6px] font-bold", m.color)}>{m.chg}</span>
-                    </div>
-                  </div>
+                  {
+                    id: "STRATEGY",
+                    label: "NEWS",
+                    icon: <MapPin className="w-3.5 h-3.5" />,
+                  },
+                  {
+                    id: "LOGISTICS_COCKPIT",
+                    label: "LOGISTICS & MATRIX",
+                    icon: <Network className="w-3.5 h-3.5" />,
+                  },
+                ].map((sub) => (
+                  <button
+                    key={sub.id}
+                    id={`btn-tab-${sub.id}`}
+                    onClick={() => {
+                      setInnerLeftTab(sub.id as any);
+                    }}
+                    className={cn(
+                      "flex-1 min-w-0 flex items-center justify-center gap-1.5 text-[8px] font-mono font-black transition-all border rounded-sm px-2 shrink-0 active:scale-95",
+                      innerLeftTab === sub.id
+                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-black shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                        : "border-zinc-900 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900",
+                    )}
+                  >
+                    {sub.icon}
+                    <span className="truncate">{sub.label}</span>
+                  </button>
                 ))}
               </div>
 
-              {/* STRATEGIC MACRO INDICATORS */}
+              {/* PERMANENT YIELD STRUCTURE MONITOR */}
+              <div className="border-b border-zinc-900 p-3 bg-zinc-950/20 shrink-0 min-h-0">
+                <div className="text-[9px] font-black text-emerald-450 font-mono tracking-widest uppercase mb-1.5 flex items-center justify-between select-none">
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                    YIELD STRUCTURE: {yields?.country || "US TREASURIES"}
+                  </span>
+                  <span className="text-[7.5px] text-zinc-500 font-normal normal-case">
+                    Trajectories & risk spreads
+                  </span>
+                </div>
+                <div className="h-[150px] overflow-hidden">
+                  <YieldCurveMonitor yields={yields} />
+                </div>
+              </div>
 
-              {/* TAB CONTENT */}
-              <div className="p-3.5">
-                {innerLeftTab === "LOGISTICS_COCKPIT" && selectedStock && (
+              <div className="p-3.5 flex-1 overflow-y-auto custom-scrollbar min-h-0">
+                {/* STRATEGY TAB CONTENT */}
+                {innerLeftTab === "STRATEGY" && selectedStock && (
                   <div className="space-y-4">
-                    {/* Stress Monitor HUD */}
-                    <div className="p-3 border border-red-900/30 bg-red-950/5 rounded-sm space-y-2">
-                      <div className="flex justify-between items-center border-b border-red-910/20 pb-1.5 font-mono">
-                        <div className="text-red-500 font-black flex items-center gap-1.5 uppercase text-[10px]">
-                          <ShieldAlert className="w-3.5 h-3.5" />
-                          Geopolitical Risk Matrix
+                    {/* Sentiment Analysis Display */}
+                    <div className="border border-zinc-900 bg-zinc-950/10 p-3 rounded-md space-y-2.5 select-none">
+                      <div className="text-[9px] font-black tracking-widest text-zinc-400 font-mono uppercase flex items-center justify-between">
+                        <span>SENTIMENT_EXPOSURE_INDEX</span>
+                        <span className="text-[7.5px] text-zinc-500 font-normal">REAL-TIME WEIGHTED</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="p-1.5 border border-zinc-900/60 bg-black/40 rounded-sm">
+                          <span className="text-zinc-600 block font-mono text-[6.5px] uppercase">Bullish Factor</span>
+                          <span className="text-emerald-400 font-semibold font-mono text-[11px] mt-0.5 block">{sentiment?.bullish ?? "68%"}</span>
                         </div>
-                        <span className="text-[7.5px] bg-red-950 text-red-400 px-1.5 py-0.5 border border-red-900/40 font-extrabold uppercase select-none">
-                          Stress HUD
-                        </span>
+                        <div className="p-1.5 border border-zinc-900/60 bg-black/40 rounded-sm">
+                          <span className="text-zinc-600 block font-mono text-[6.5px] uppercase">Bearish Alpha</span>
+                          <span className="text-rose-400 font-semibold font-mono text-[11px] mt-0.5 block">{sentiment?.bearish ?? "12%"}</span>
+                        </div>
+                        <div className="p-1.5 border border-zinc-900/60 bg-black/40 rounded-sm">
+                          <span className="text-zinc-600 block font-mono text-[6.5px] uppercase">Neutral Delta</span>
+                          <span className="text-zinc-400 font-semibold font-mono text-[11px] mt-0.5 block">{sentiment?.neutral ?? "20%"}</span>
+                        </div>
                       </div>
 
-                      {/* Concentric-style Risk Meter */}
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-center font-mono text-[9px]">
-                          <span className="text-zinc-500 uppercase">
-                            MATRIX STRESS INDEX
+                      {/* Directional bias banner */}
+                      <div className="text-[8px] font-mono p-1.5 bg-black border border-emerald-950/30 text-emerald-500/80 uppercase text-center tracking-wider">
+                        BIAS_TRAJECTORY_SIGNAL // NET_POSiTiVE [STABLE]
+                      </div>
+                    </div>
+
+                    {/* Live News Engine / Signal Feed Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between font-mono">
+                        <div className="text-[9px] text-zinc-400 font-black tracking-widest uppercase flex items-center gap-1.5 font-mono">
+                          <Newspaper className="w-3.5 h-3.5 text-emerald-500" />
+                          LIVE_COGNITIVE_NEWS_FEED
+                        </div>
+                        {quotaExhausted && (
+                          <span className="text-[7px] text-amber-500 border border-amber-500/30 px-1 py-0.5 font-bold animate-pulse">
+                            LIMIT_EXCLUSION_ACTIVE
                           </span>
-                          <span
+                        )}
+                      </div>
+
+                      {/* Filter Bar Controls */}
+                      <div className="flex gap-1 items-center bg-black p-1 border border-zinc-900 rounded-sm select-none">
+                        <Filter className="w-3 h-3 text-zinc-600 ml-1 shrink-0" />
+                        <input
+                          type="text"
+                          value={newsSearch}
+                          onChange={(e) => setNewsSearch(e.target.value)}
+                          placeholder="Filter intel signals..."
+                          className="bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none font-mono text-[8.5px] text-zinc-300 placeholder-zinc-750 flex-1 min-w-0"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-1">
+                        {/* Sentiment filter quick buttons */}
+                        {["ALL", "BULLISH", "BEARISH", "NEUTRAL"].map((f) => (
+                          <button
+                            key={f}
+                            onClick={() => setSentimentFilter(f as any)}
                             className={cn(
-                              "font-bold text-[10.5px]",
-                              calculatedRiskScore >= 75
-                                ? "text-red-500"
-                                : calculatedRiskScore >= 45
-                                  ? "text-amber-500"
-                                  : "text-emerald-500",
+                              "text-[6.5px] font-mono px-1.5 py-0.5 border cursor-pointer uppercase transition-all rounded-2xs",
+                              sentimentFilter === f
+                                ? "bg-emerald-950/25 border-emerald-500/50 text-emerald-400 font-bold"
+                                : "border-zinc-900 text-zinc-600 hover:text-zinc-400"
                             )}
                           >
-                            {calculatedRiskScore}% RISK
-                          </span>
-                        </div>
-                        <div className="h-1.5 bg-zinc-900 overflow-hidden rounded-full">
-                          <div
-                            className={cn(
-                              "h-full transition-all duration-300",
-                              calculatedRiskScore >= 75
-                                ? "bg-red-600"
-                                : calculatedRiskScore >= 45
-                                  ? "bg-amber-500"
-                                  : "bg-emerald-500",
-                            )}
-                            style={{ width: `${calculatedRiskScore}%` }}
-                            id="risk-meter-bar"
-                          />
-                        </div>
-                        <div className="text-[8px] text-zinc-400 leading-normal border-l border-zinc-700 pl-1.5 italic font-mono">
-                          STATUS // {threatLevelText}
-                        </div>
+                            {f}
+                          </button>
+                        ))}
                       </div>
-                    </div>
 
-                    {/* SYSTEM RISK INJECTION CONTROLS */}
-                    <div className="p-3 border border-zinc-900 bg-black rounded-sm space-y-3.5">
-                      <div className="flex justify-between items-center border-b border-zinc-900/60 pb-2 font-mono">
-                        <div className="text-zinc-400 font-extrabold flex items-center gap-1.5 uppercase text-[9px] tracking-wider">
-                          <Sliders className="w-3.5 h-3.5 text-zinc-500" />
-                          TACTICAL RISK INJECTOR
+                      {/* News List */}
+                      {filteredNews.length > 0 ? (
+                        <div className="space-y-2 pr-0.5">
+                          {filteredNews.slice(0, 8).map((item: any, idx: number) => {
+                            const { sentiment: compSentiment, impact: compImpact } =
+                              analyzeSentimentAndImpact(item);
+                            return (
+                              <div
+                                key={idx}
+                                className="p-2 border border-zinc-900 bg-black/40 hover:border-zinc-850 transition-all rounded-sm font-mono space-y-1.5"
+                              >
+                                <div className="flex justify-between items-start gap-2 select-none text-[7.5px]">
+                                  <span className="text-zinc-600 font-bold tracking-tight">
+                                    {item.source || "REUTERS_UPLINK"} • {formatSafeTime(item.datetime)}
+                                  </span>
+                                  <div className="flex gap-1 shrink-0">
+                                    <span
+                                      className={cn(
+                                        "px-1 font-extrabold uppercase border rounded-2xs text-[6.5px]",
+                                        compSentiment === "BULLISH"
+                                          ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-400"
+                                          : compSentiment === "BEARISH"
+                                            ? "bg-rose-950/20 border-rose-500/30 text-rose-450"
+                                            : "bg-zinc-900 border-zinc-850 text-zinc-400"
+                                      )}
+                                    >
+                                      {compSentiment}
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        "px-1 font-extrabold uppercase border rounded-2xs text-[6.5px]",
+                                        compImpact === "CRITICAL"
+                                          ? "bg-red-950/30 border-red-500/30 text-red-500"
+                                          : compImpact === "MODERATE"
+                                            ? "bg-amber-950/30 border-amber-500/30 text-amber-500"
+                                            : "bg-zinc-900 border-zinc-850 text-zinc-500"
+                                      )}
+                                    >
+                                      {compImpact}
+                                    </span>
+                                  </div>
+                                </div>
+                                <h4 className="text-[9px] font-sans font-bold leading-snug text-zinc-100 hover:text-emerald-400 transition-colors">
+                                  {item.title}
+                                </h4>
+                                {item.summary && (
+                                  <p className="text-[8px] leading-relaxed text-zinc-500 italic font-mono break-words border-t border-zinc-900/40 pt-1">
+                                    {item.summary.length > 120
+                                      ? `${item.summary.slice(0, 120)}...`
+                                      : item.summary}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                        <span className="text-[6.5px] text-zinc-650 font-bold uppercase select-none">
-                          SIM_CONTROL_SYS
+                      ) : (
+                        <div className="text-center py-6 text-zinc-600 text-[8px] font-mono border border-zinc-900/60">
+                          NO ACTIVE NEWS SIGNALS FOUND
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* LOGISTICS COCKPIT TAB CONTENT */}
+                {innerLeftTab === "LOGISTICS_COCKPIT" && selectedStock && (
+                  <div className="space-y-4">
+                    {/* Concentric-style Risk Meter */}
+                    <div className="p-3 border border-zinc-900 bg-zinc-950/15 rounded-md space-y-2">
+                      <div className="flex justify-between items-center font-mono text-[9px] select-none">
+                        <span className="text-zinc-500 uppercase">
+                          MATRIX STRESS INDEX
+                        </span>
+                        <span
+                          className={cn(
+                            "font-bold text-[10.5px]",
+                            calculatedRiskScore >= 75
+                              ? "text-red-500"
+                              : calculatedRiskScore >= 45
+                                ? "text-amber-500"
+                                : "text-emerald-500",
+                          )}
+                        >
+                          {calculatedRiskScore}% RISK
                         </span>
                       </div>
-
-                      <div className="space-y-2.5">
-                        {/* Macro Shocks Group */}
-                        <div className="space-y-1.5">
-                          <div className="text-[8px] font-mono font-black text-red-500/80 uppercase tracking-widest flex items-center gap-1 mb-1">
-                            <Flame className="w-3 h-3" />
-                            Macroeconomic Port & Strait Blockades
-                          </div>
-                          <div className="grid grid-cols-2 gap-1.5 font-mono">
-                            {[
-                              { id: "taiwanStrait", label: "Taiwan Strait Blockade", val: taiwanStraitBlocked, set: setTaiwanStraitBlocked },
-                              { id: "suezCanal", label: "Suez Canal Closure", val: suezCanalBlocked, set: setSuezCanalBlocked },
-                              { id: "malaccaStrait", label: "Malacca Strait Bottleneck", val: malaccaStraitBlocked, set: setMalaccaStraitBlocked },
-                              { id: "panamaCanal", label: "Panama Canal Draft Limits", val: panamaCanalBlocked, set: setPanamaCanalBlocked },
-                            ].map((shock) => (
-                              <button
-                                key={shock.id}
-                                onClick={() => {
-                                  if (shock.set) {
-                                    const nextVal = !shock.val;
-                                    shock.set(nextVal);
-                                    playTacticalAudio(nextVal ? "warning" : "click");
-                                    dispatchLog(
-                                      `RISK_INJECTOR: ${shock.label} is now ${nextVal ? "ARMED" : "NOMINAL"}.`
-                                    );
-                                  }
-                                }}
-                                className={cn(
-                                  "text-[7.5px] px-2 py-1.5 text-left transition-all border flex flex-col justify-between h-11 relative rounded-2xs cursor-pointer select-none",
-                                  shock.val
-                                    ? "bg-red-950/20 border-red-500/50 text-red-400 font-black shadow-[0_0_8px_rgba(239,68,68,0.1)]"
-                                    : "bg-black border-zinc-900 text-zinc-500 hover:border-zinc-800 hover:text-zinc-400"
-                                )}
-                              >
-                                <span>{shock.label.toUpperCase()}</span>
-                                <span className={cn("text-[6px] font-black tracking-widest", shock.val ? "text-red-500 animate-pulse" : "text-zinc-650")}>
-                                  {shock.val ? "● ARMED" : "○ OFFLINE"}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Mitigations Group */}
-                        <div className="space-y-1.5">
-                          <div className="text-[8px] font-mono font-black text-emerald-500/80 uppercase tracking-widest flex items-center gap-1 mb-1">
-                            <Shield className="w-3 h-3 text-emerald-500" />
-                            Strategic Defensive Mitigations
-                          </div>
-                          <div className="grid grid-cols-3 gap-1 px-0.5 font-mono">
-                            {[
-                              { id: "airFreight", label: "Priority Air Bridge", val: airFreightActive, set: setAirFreightActive },
-                              { id: "stockpile", label: "Strategic Stockpile", val: strategicStockpileActive, set: setStrategicStockpileActive },
-                              { id: "dualSource", label: "Dual Sourcing", val: dualSourcingActive, set: setDualSourcingActive },
-                            ].map((mit) => (
-                              <button
-                                key={mit.id}
-                                onClick={() => {
-                                  if (mit.set) {
-                                    const nextVal = !mit.val;
-                                    mit.set(nextVal);
-                                    playTacticalAudio(nextVal ? "success" : "click");
-                                    dispatchLog(
-                                      `RISK_INJECTOR: ${mit.label} is now ${nextVal ? "ACTIVATED" : "OFFLINE"}.`
-                                    );
-                                  }
-                                }}
-                                className={cn(
-                                  "text-[7px] px-1.5 py-1 text-center transition-all border flex flex-col items-center justify-center gap-0.5 rounded-2xs cursor-pointer select-none h-11",
-                                  mit.val
-                                    ? "bg-emerald-950/25 border-emerald-500/50 text-emerald-400 font-black"
-                                    : "bg-black border-zinc-900 text-zinc-500 hover:border-zinc-800 hover:text-zinc-450"
-                                )}
-                              >
-                                <span className="line-clamp-2 uppercase font-semibold text-center">{mit.label}</span>
-                                <span className={cn("text-[6px] font-semibold text-[5.5px]", mit.val ? "text-emerald-400" : "text-zinc-600")}>
-                                  {mit.val ? "ACTIVE" : "OFFLINE"}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                      <div className="h-1.5 bg-zinc-900 overflow-hidden rounded-full">
+                        <div
+                          className={cn(
+                            "h-full transition-all duration-300",
+                            calculatedRiskScore >= 75
+                              ? "bg-red-600"
+                              : calculatedRiskScore >= 45
+                                ? "bg-amber-500"
+                                : "bg-emerald-500",
+                          )}
+                          style={{ width: `${calculatedRiskScore}%` }}
+                          id="risk-meter-bar"
+                        />
+                      </div>
+                      <div className="text-[8px] text-zinc-400 leading-normal border-l border-zinc-700 pl-1.5 italic font-mono">
+                        STATUS // {threatLevelText}
                       </div>
                     </div>
 
-
+                    {/* Stress Monitor HUD */}
+                    <div className="p-3 border border-red-900/30 bg-red-950/5 rounded-sm space-y-2">
+                      <div className="font-mono text-[8.5px] text-red-400 font-black tracking-widest uppercase border-b border-red-950/30 pb-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Flame className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+                          ACTIVE_STRESS_CHOKEPOINTS
+                        </span>
+                        <span className="text-[7px] bg-red-950/40 border border-red-900/30 px-1 py-0.5 rounded-2xs text-red-500 animate-pulse">
+                          THREAT_DETECTION
+                        </span>
+                      </div>
+                      <div className="space-y-1 font-mono text-[8px] text-zinc-400">
+                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
+                          <span>TAIWAN AIR-SEA SPACE RESTRICTIONS:</span>
+                          <span className={cn("font-bold uppercase", taiwanStraitBlocked ? "text-red-500" : "text-emerald-500")}>
+                            {taiwanStraitBlocked ? "BLOCKED" : "CLEAR"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
+                          <span>SUEZ CANAL MARITIME TRANSIT GATE:</span>
+                          <span className={cn("font-bold uppercase", suezCanalBlocked ? "text-red-500" : "text-emerald-500")}>
+                            {suezCanalBlocked ? "BLOCKED" : "CLEAR"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
+                          <span>MALACCA STRAIT DEMURRAGE bottlenecks:</span>
+                          <span className={cn("font-bold uppercase", malaccaStraitBlocked ? "text-yellow-500" : "text-emerald-500")}>
+                            {malaccaStraitBlocked ? "BLOCKED" : "CLEAR"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
+                          <span>PANAMA draft constraints:</span>
+                          <span className={cn("font-bold uppercase", panamaCanalBlocked ? "text-yellow-500" : "text-emerald-500")}>
+                            {panamaCanalBlocked ? "BLOCKED" : "CLEAR"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Stream Vectors with vertical presentation */}
                     <SupplyChainPanel
@@ -1287,7 +1219,7 @@ export const IntelligenceSidebar = React.memo(
                       </div>
 
                       {auditStatus === "completed" ? (
-                        <div className="space-y-1.5 pr-1">
+                        <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
                           {Object.entries(dynamicAuditedItems).map(
                             ([sym, report], idx) => (
                               <div
@@ -1364,7 +1296,7 @@ export const IntelligenceSidebar = React.memo(
                           </span>
                         </div>
 
-                        <div className="space-y-2 pr-1">
+                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                           {SOURCED_MATERIALS.map((mat, idx) => {
                             const isHighRisk =
                               (mat.vulnerability || "")
@@ -1423,321 +1355,6 @@ export const IntelligenceSidebar = React.memo(
                         if (comp) onSelectNode(comp);
                       }}
                     />
-                  </div>
-                )}
-                {innerLeftTab === "STRATEGY" && selectedStock && (
-                  <div className="space-y-4">
-                    {/* FEEDS AT THE TOP OF COCKPIT - HANDLED AT TOP LEVEL */}
-                    <div className="mt-0">
-                      {strategySubTab === "detailed" ? (
-                        <>
-                          <h4 className="text-[10px] font-black uppercase text-emerald-400 tracking-widest mb-2.5 font-mono border-b border-emerald-900/50 pb-1.5 flex justify-between items-center select-none">
-                            <span>Detailed Analysis Feed</span>
-                            <span className="text-[7.5px] text-zinc-500 font-normal normal-case">
-                              Global intelligence stream
-                            </span>
-                          </h4>
-                          <div className="space-y-2.5 pr-1">
-                            {news && news.length > 0 ? (
-                              news.slice(0, 8).map((n: any, i: number) => {
-                                const tDate = formatSafeTime(n.published_at);
-                                const tTitle = (n.title || "").toUpperCase();
-                                const company = companies.find(
-                                  (c) => c.symbol === (n.symbol || n.ticker),
-                                );
-                                return (
-                                  <div
-                                    key={i}
-                                    onClick={() => {
-                                      if (company) {
-                                        onSelectNode(company, false, false, n);
-                                      }
-                                    }}
-                                    className={cn(
-                                      "text-[9px] text-zinc-350 font-sans border border-zinc-900 rounded-sm pb-2 p-2 hover:bg-zinc-900/40 hover:border-emerald-500/30 cursor-pointer transition-all relative block group",
-                                      selectedStock?.symbol ===
-                                        (n.symbol || n.ticker)
-                                        ? "bg-emerald-950/10 border-emerald-500/30 border-l-2 border-l-emerald-500"
-                                        : "bg-black/20",
-                                    )}
-                                  >
-                                    <div className="flex items-center justify-between text-[7.5px] font-mono tracking-widest uppercase mb-1">
-                                      <span className="text-emerald-500/80">
-                                        [{tDate}]
-                                      </span>
-                                      <div className="flex items-center gap-1.5">
-                                        {(() => {
-                                          const { sentiment: s, impact: im } = analyzeSentimentAndImpact(n);
-                                          return (
-                                            <>
-                                              <span className={cn(
-                                                "px-1 border font-black text-[6px]",
-                                                im === "CRITICAL" ? "bg-red-500/10 border-red-500 text-red-400" :
-                                                im === "MODERATE" ? "bg-amber-500/10 border-amber-500 text-amber-400" :
-                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
-                                              )}>
-                                                {im}
-                                              </span>
-                                              <span className={cn(
-                                                "px-1 border font-black text-[6px]",
-                                                s === "BULLISH" ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" :
-                                                s === "BEARISH" ? "bg-rose-500/10 border-rose-500 text-rose-400" :
-                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
-                                              )}>
-                                                {s}
-                                              </span>
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-                                    </div>
-                                    <div className="leading-snug font-bold text-zinc-100 text-[9.5px] mb-1 tracking-tight group-hover:text-emerald-300 transition-colors">
-                                      {tTitle}
-                                    </div>
-                                    {n.description && (
-                                      <p className="text-[8px] text-zinc-500 line-clamp-2 leading-relaxed font-sans mt-0.5">
-                                        {n.description}
-                                      </p>
-                                    )}
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              <div className="text-[9px] text-zinc-600 italic font-mono py-4 text-center border border-dashed border-zinc-900">
-                                NO DETAILED NEWS DATA DETECTED
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <h4 className="text-[10px] font-black uppercase text-emerald-400 tracking-widest mb-2.5 font-mono border-b border-emerald-900/50 pb-1.5 flex justify-between items-center select-none">
-                            <span>Filtered Analysis Feed</span>
-                            <span className="text-[7.5px] text-zinc-500 font-normal normal-case">
-                              Select story to analyze
-                            </span>
-                          </h4>
-
-                          {/* NEURAL INTELLIGENCE PULSE FEED - MOVED UNDER FILTERED INTEL HEADER */}
-                          <div className="mb-4 bg-zinc-950/40 p-2 border border-zinc-900/60 rounded-sm">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-1 text-[7.5px] font-black text-zinc-500 font-mono tracking-[0.2em] uppercase">
-                                <Zap className="w-2.5 h-2.5 text-amber-500" />
-                                NEURAL_INTELLIGENCE_PULSE
-                              </div>
-                              <span className="text-[5.5px] text-zinc-700 font-mono">BETA_V1.2</span>
-                            </div>
-                            <div className="space-y-1.5 h-20 overflow-hidden mask-fade-bottom">
-                              <AnimatePresence mode="popLayout">
-                                {pulseFeed.slice(0, 4).map((n, i) => (
-                                  <motion.div 
-                                    key={`${n.msg}-${i}`}
-                                    initial={{ opacity: 0, x: -10, filter: "blur(4px)" }}
-                                    animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-                                    exit={{ opacity: 0, x: 10, filter: "blur(4px)" }}
-                                    transition={{ duration: 0.4, ease: "easeOut" }}
-                                    className="flex gap-2 group cursor-default"
-                                  >
-                                    <span className={cn("text-[6.5px] font-black px-1 border border-current bg-current/5 shrink-0 h-3 flex items-center min-w-[38px] justify-center", n.color)}>{n.tag}</span>
-                                    <div className="flex flex-col min-w-0 font-mono">
-                                      <p className="text-[7.5px] text-zinc-400 line-clamp-2 leading-tight group-hover:text-white transition-colors">{n.msg}</p>
-                                    </div>
-                                  </motion.div>
-                                ))}
-                              </AnimatePresence>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2.5 pr-1">
-                            {filteredNews.length > 0 ? (
-                              filteredNews.map((n, i) => {
-                                const company = companies.find(
-                                  (c) => c.symbol === (n.symbol || n.ticker),
-                                );
-                                const isCurrentAsset =
-                                  selectedStock?.symbol === n.symbol;
-                                return (
-                                  <div
-                                    key={i}
-                                    onClick={() => {
-                                      if (company) {
-                                        onSelectNode(company, false, false, n);
-                                      }
-                                    }}
-                                    className={cn(
-                                      "text-[9px] text-zinc-350 font-sans border border-zinc-900 rounded-sm pb-2 p-2 hover:bg-zinc-900/40 hover:border-emerald-500/30 cursor-pointer transition-all relative block group",
-                                      isCurrentAsset
-                                        ? "bg-emerald-950/10 border-emerald-500/30 border-l-2 border-l-emerald-500"
-                                        : "bg-black/20",
-                                    )}
-                                  >
-                                    <div className="flex justify-between items-center mb-1">
-                                      <span className="text-emerald-500 font-bold font-mono tracking-wider flex items-center gap-1.5 line-clamp-1">
-                                        <span>[{n.symbol || n.ticker}]</span>
-                                        {n.source && (
-                                          <span className="text-zinc-650 font-normal text-[7px] uppercase truncate max-w-[60px]">
-                                            ({n.source})
-                                          </span>
-                                        )}
-                                      </span>
-                                      <div className="flex items-center gap-1">
-                                        {(() => {
-                                          const { sentiment: s, impact: im } = analyzeSentimentAndImpact(n);
-                                          return (
-                                            <>
-                                              <span className={cn(
-                                                "px-1 border font-black text-[6px]",
-                                                im === "CRITICAL" ? "bg-red-500/10 border-red-500 text-red-400" :
-                                                im === "MODERATE" ? "bg-amber-500/10 border-amber-500 text-amber-400" :
-                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
-                                              )}>
-                                                {im}
-                                              </span>
-                                              <span className={cn(
-                                                "px-1 border font-black text-[6px]",
-                                                s === "BULLISH" ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" :
-                                                s === "BEARISH" ? "bg-rose-500/10 border-rose-500 text-rose-400" :
-                                                "bg-zinc-800 border-zinc-700 text-zinc-500"
-                                              )}>
-                                                {s}
-                                              </span>
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-                                    </div>
-                                    <div className="leading-snug font-bold text-zinc-100 text-[9.5px] mb-1 tracking-tight group-hover:text-emerald-300 transition-colors">
-                                      {n.translatedTitle || n.title}
-                                    </div>
-                                    {n.description && (
-                                      <p className="text-[8px] text-zinc-500 line-clamp-2 leading-relaxed font-sans mt-1">
-                                        {n.description}
-                                      </p>
-                                    )}
-                                    <div className="text-[7px] text-emerald-500/70 font-mono tracking-widest mt-2 uppercase font-black flex items-center gap-1 group-hover:text-emerald-400 transition-all">
-                                      <Zap className="w-2.5 h-2.5 animate-pulse" />{" "}
-                                      TARGET_SYSTEM_BRIEFING &gt;
-                                    </div>
-                                  </div>
-                                );
-                              })
-                            ) : (
-                              <div className="text-[9px] text-zinc-600 italic font-mono py-4 text-center border border-dashed border-zinc-900">
-                                NO REAL-TIME COGNITIVE SIGNALS DETECTED
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Briefing and Trends - moved down */}
-                    <div className="space-y-4">
-                      {/* TACTICAL BRIEFING BLOCK */}
-                      {(briefing || isAiProcessing) && (
-                        <div className="p-3 border border-emerald-500/20 bg-emerald-500/5 rounded-sm relative overflow-hidden group">
-                          <div className="absolute top-0 right-0 p-1">
-                            <SpectralVoiceVisualizer isSpeaking={isSpeaking} />
-                          </div>
-                          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2 mb-2.5 select-none font-mono">
-                            <div className="text-[10px] text-emerald-400 font-black tracking-widest uppercase flex items-center gap-2">
-                              <Shield className="w-3.5 h-3.5" />
-                              TACTICAL_AGENCY_BRIEFING
-                            </div>
-                            <button 
-                              onClick={() => briefing && handleSpeak(typeof briefing === 'string' ? briefing : JSON.stringify(briefing))}
-                              disabled={isSpeechLoading}
-                              className={cn(
-                                "flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 border transition-all cursor-pointer",
-                                isSpeaking 
-                                  ? "bg-emerald-500 border-emerald-400 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
-                                  : "bg-black border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10"
-                              )}
-                            >
-                              {isSpeechLoading ? <RefreshCcw className="w-2.5 h-2.5 animate-spin" /> : isSpeaking ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
-                              {isSpeaking ? "MUTE" : "PLAY AUDIO"}
-                            </button>
-                          </div>
-                          
-                          {isAiProcessing ? (
-                            <div className="space-y-2 py-2">
-                              <div className="h-1.5 w-full bg-emerald-500/10 overflow-hidden">
-                                <motion.div 
-                                  animate={{ x: ["-100%", "100%"] }}
-                                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                                  className="h-full w-1/3 bg-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                                />
-                              </div>
-                              <div className="text-[8px] font-mono text-emerald-500/60 animate-pulse tracking-widest uppercase">
-                                Synthesizing intelligence vectors...
-                              </div>
-                            </div>
-                          ) : (
-                            <Typewriter 
-                              text={typeof briefing === 'string' ? briefing : JSON.stringify(briefing, null, 2)} 
-                              className="text-emerald-400/90"
-                            />
-                          )}
-                          
-                          <div className="mt-3 pt-2.5 border-t border-emerald-500/10 flex items-center justify-between">
-                            <div className="flex gap-2">
-                              <div className="text-[7px] text-zinc-600 font-mono uppercase bg-black px-1 border border-zinc-900">REL: 0.98</div>
-                              <div className="text-[7px] text-zinc-600 font-mono uppercase bg-black px-1 border border-zinc-900">CONF: HIGH</div>
-                            </div>
-                            <span className="text-[6.5px] text-emerald-500/40 font-mono italic">GENERATED_BY_GEMINI_V3</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* SVG 10-Day Trend Sparkline Matrix */}
-                      {sentiment?.forecast &&
-                        Array.isArray(sentiment.forecast) && (
-                          <div className="p-2.5 border border-zinc-900 bg-black/45 rounded-sm space-y-2 select-none">
-                            <div className="flex justify-between items-center border-b border-zinc-900/40 pb-1.5">
-                              <span className="text-[7.5px] text-zinc-500 font-mono font-black tracking-widest uppercase">
-                                10-Day Projected Delta Forecast
-                              </span>
-                              <span className="text-[7px] text-emerald-400 font-mono uppercase bg-emerald-950/20 px-1 border border-emerald-900/30">
-                                NEURAL PREDICTOR
-                              </span>
-                            </div>
-
-                            <div className="h-10 w-full flex items-center justify-between gap-2.5 pt-1.5">
-                              <div className="flex-1 h-full flex items-end gap-[2px]">
-                                {sentiment.forecast.map(
-                                  (val: number, i: number) => {
-                                    const heightPct = Math.max(
-                                      10,
-                                      Math.min(100, Math.abs(val) * 100 + 10),
-                                    );
-                                    const isPositive = val >= 0;
-                                    return (
-                                      <div
-                                        key={i}
-                                        className="flex-1 h-full flex flex-col justify-end group relative"
-                                      >
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block bg-zinc-950 border border-zinc-800 text-[6.5px] text-zinc-300 px-1 py-0.5 rounded-sm whitespace-nowrap z-50 font-mono">
-                                          Day {i + 1}: {val > 0 ? "+" : ""}
-                                          {(val * 100).toFixed(1)}%
-                                        </div>
-                                        <div
-                                          className={cn(
-                                            "w-full rounded-2xs transition-all duration-300 opacity-80 hover:opacity-100",
-                                            isPositive
-                                              ? "bg-emerald-500/50 hover:bg-emerald-400"
-                                              : "bg-red-500/50 hover:bg-red-400",
-                                          )}
-                                          style={{ height: `${heightPct}%` }}
-                                        />
-                                      </div>
-                                    );
-                                  },
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                    </div>
                   </div>
                 )}
               </div>
@@ -1852,9 +1469,7 @@ export const IntelligenceSidebar = React.memo(
                 )}
               </div>
             </div>
-          </div>
-        )}
-      </aside>
+        </aside>
     );
   },
 );

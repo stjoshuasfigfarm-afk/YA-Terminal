@@ -121,35 +121,9 @@ export const AccessWall: React.FC = () => {
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-3xl rounded-full" />
 
         <div className="w-full max-w-sm space-y-8 z-10 relative">
-          <div className="flex flex-col items-center mb-6 relative group">
+          <div className="flex flex-col items-center mb-12 relative group">
             <h2 className="text-2xl font-black tracking-[0.4em] text-white uppercase text-glow">Yield Analysis Terminal</h2>
-            <div className="text-[9px] text-emerald-400 font-mono tracking-[0.15em] mt-3 uppercase text-center font-bold">
-              SYSTEM CAPABILITIES:
-            </div>
-            
-            <div className="w-full grid grid-cols-1 gap-2 mt-4 text-[9px] text-zinc-400 font-mono tracking-wider max-w-xs mx-auto">
-              <div className="flex items-start gap-2 bg-black/40 border border-zinc-900 p-2 rounded-sm text-left">
-                <span className="text-emerald-500 mt-0.5">◆</span>
-                <div>
-                  <span className="text-zinc-200 font-bold uppercase block text-[8px] tracking-widest mb-0.5">GEOSPATIAL INTEL</span>
-                  Real-time 3D vector-route tracking & logistics pipeline analysis.
-                </div>
-              </div>
-              <div className="flex items-start gap-2 bg-black/40 border border-zinc-900 p-2 rounded-sm text-left">
-                <span className="text-emerald-500 mt-0.5">◆</span>
-                <div>
-                  <span className="text-zinc-200 font-bold uppercase block text-[8px] tracking-widest mb-0.5">YIELD CURVES & STRESSORS</span>
-                  Simulated global blockades, macroeconomic shock factors, and sovereign interest bonds.
-                </div>
-              </div>
-              <div className="flex items-start gap-2 bg-black/40 border border-zinc-900 p-2 rounded-sm text-left">
-                <span className="text-emerald-500 mt-0.5">◆</span>
-                <div>
-                  <span className="text-zinc-200 font-bold uppercase block text-[8px] tracking-widest mb-0.5">NEURAL AGENT BRIEFINGS</span>
-                  Interactive partner node summaries with voiceovers driven by Gemini & dual TTS.
-                </div>
-              </div>
-            </div>
+            <div className="text-[10px] text-emerald-500 font-black tracking-[0.2em] mt-2 uppercase text-glow opacity-80">The terminal you were looking for</div>
             <div className="h-[1px] w-12 bg-emerald-500/50 mt-6" />
             <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
           </div>
@@ -158,25 +132,25 @@ export const AccessWall: React.FC = () => {
             Accessing neural market topology and real-time geospatial data requires elevated authorization.
           </p>
           
-           <form className="space-y-4" onSubmit={verifyAccessCode}>
+          <form className="space-y-4" onSubmit={verifyAccessCode}>
             <input 
               type="password" 
               value={accessCode} 
               onChange={(e) => setAccessCode(e.target.value)} 
-              placeholder="Enter Access Key" 
-              className="w-full bg-zinc-950 border border-zinc-800 p-3 text-center text-emerald-500 tracking-widest focus:outline-none focus:border-emerald-500 text-xs text-center font-sans focus:ring-1 focus:ring-emerald-500/20"
+              placeholder="Enter Access Code" 
+              className="w-full bg-zinc-950 border border-zinc-800 p-3 text-center text-emerald-500 tracking-widest focus:outline-none focus:border-emerald-500 text-xs text-center font-sans"
             />
             <div className="grid grid-cols-1 gap-2.5">
               <button 
                 type="submit"
-                className="w-full py-3 bg-zinc-900/60 hover:bg-zinc-800 hover:border-emerald-500/30 text-emerald-400 text-xs uppercase tracking-widest transition-all border border-zinc-800/80 font-bold font-mono active:scale-[0.98]"
+                className="w-full py-3 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 text-xs uppercase tracking-widest transition-all border border-zinc-800 font-bold"
               >
-                [ Verify Key ]
+                Sign In
               </button>
               
               <div className="relative flex py-1 items-center">
                 <div className="flex-grow border-t border-zinc-900"></div>
-                <span className="flex-shrink mx-4 text-zinc-600 text-[8px] tracking-[0.2em] font-mono">OR</span>
+                <span className="flex-shrink mx-4 text-zinc-600 text-[8px] tracking-[0.2em]">OR</span>
                 <div className="flex-grow border-t border-zinc-900"></div>
               </div>
 
@@ -186,24 +160,24 @@ export const AccessWall: React.FC = () => {
                   localStorage.setItem('terminal_auth_token', 'free_trial_token');
                   setIsUnlocked(true);
                 }}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 hover:shadow-[0_0_35px_rgba(16,185,129,0.3)] text-white text-xs uppercase tracking-[0.3em] transition-all border border-emerald-400/50 rounded-sm font-black active:scale-[0.99]"
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs uppercase tracking-[0.3em] transition-all border border-emerald-400/50 rounded-sm font-black shadow-[0_0_30px_rgba(16,185,129,0.2)]"
               >
-                ACCESS TERMINAL OPERATIONAL_DESK
+                ENTER TERMINAL
               </button>
               
               <div className="text-center text-[8.5px] text-emerald-400/90 font-mono tracking-[0.25em] uppercase mt-1.5 animate-pulse">
-                — FREE ACCESS ACTIVE —
+                — FREE UNTIL OCTOBER 15 —
               </div>
               <div className="mt-4 p-4 border border-zinc-900 bg-black/50 rounded-sm">
-                <div className="text-[9px] text-zinc-500 text-center tracking-widest uppercase leading-relaxed font-mono">
-                  Donations support operational data server maintenance <span className="text-emerald-500">100% Free Tier</span>
+                <div className="text-[9px] text-zinc-500 text-center tracking-widest uppercase leading-relaxed">
+                  Donations help us continue to bring you this product <span className="text-emerald-500">Completely Free</span>
                 </div>
                 <div className="text-center mt-2">
                   <a 
                     href="https://cash.app/$omiahj" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase border-b border-emerald-500/30 pb-0.5 cursor-pointer hover:text-emerald-300 transition-colors inline-block font-mono"
+                    className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase border-b border-emerald-500/30 pb-0.5 cursor-pointer hover:text-emerald-300 transition-colors inline-block"
                   >
                     CashApp: $omiahj
                   </a>
@@ -212,11 +186,7 @@ export const AccessWall: React.FC = () => {
             </div>
           </form>
           
-          {error && (
-            <div className="p-3 border border-red-900/40 bg-red-950/10 rounded-sm text-red-500 text-[9px] uppercase font-mono tracking-widest text-center animate-pulse">
-              ⚠️ AUTH_ERR: DENIED - INVALID HEX KEYWAY
-            </div>
-          )}
+          {error && <div className="text-xs text-red-500 font-bold tracking-widest">Invalid Access Code</div>}
         </div>
       </div>
     </motion.div>
