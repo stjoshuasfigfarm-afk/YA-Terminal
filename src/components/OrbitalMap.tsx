@@ -31,6 +31,12 @@ interface OrbitalMapProps {
   toggleGlobalNetwork?: () => void;
   toggleLiveNewsZoom?: () => void;
   resetOrientationTrigger?: number;
+  partnerLines?: {
+    coords: [[number, number], [number, number]];
+    color: string;
+    from: any;
+    to: any;
+  }[];
 }
 
 export const OrbitalMap: React.FC<OrbitalMapProps> = ({
@@ -45,7 +51,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   isAutopilot = false,
   toggleGlobalNetwork,
   toggleLiveNewsZoom,
-  resetOrientationTrigger = 0
+  resetOrientationTrigger = 0,
+  partnerLines = []
 }) => {
   // Trigger orientation reset
   useEffect(() => {
@@ -326,14 +333,137 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
     };
   }, []);
 
+// Sync Lines and Connection layers in MapLibre
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isStyleLoaded) return;
+
+    const sourceId = "connection-lines-source";
+    const layerGlowId = "connection-lines-glow-layer";
+    const layerId = "connection-lines-layer";
+
+    const getGreatCircleRoute = (start: [number, number], end: [number, number], pointsCount: number = 32): [number, number][] => {
+      const [lng1, lat1] = start;
+      const [lng2, lat2] = end;
+
+      // Handle identical points or wrap coordinates nicely
+      const distance = Math.sqrt(Math.pow(lng2 - lng1, 2) + Math.pow(lat2 - lat1, 2));
+      if (distance < 0.1) {
+        return [start, end];
+      }
+
+      const rLat1 = (lat1 * Math.PI) / 180;
+      const rLng1 = (lng1 * Math.PI) / 180;
+      const rLat2 = (lat2 * Math.PI) / 180;
+      const rLng2 = (lng2 * Math.PI) / 180;
+
+      // Spherical distance between the two points
+      const d = 2 * Math.asin(Math.sqrt(
+        Math.pow(Math.sin((rLat1 - rLat2) / 2), 2) +
+        Math.cos(rLat1) * Math.cos(rLat2) * Math.pow(Math.sin((rLng1 - rLng2) / 2), 2)
+      ));
+
+      if (d === 0) return [start, end];
+
+      const route: [number, number][] = [];
+      for (let i = 0; i <= pointsCount; i++) {
+        const f = i / pointsCount;
+        const A = Math.sin((1 - f) * d) / Math.sin(d);
+        const B = Math.sin(f * d) / Math.sin(d);
+
+        const x = A * Math.cos(rLat1) * Math.cos(rLng1) + B * Math.cos(rLat2) * Math.cos(rLng2);
+        const y = A * Math.cos(rLat1) * Math.sin(rLng1) + B * Math.cos(rLat2) * Math.sin(rLng2);
+        const z = A * Math.sin(rLat1) + B * Math.sin(rLat2);
+
+        const lat = Math.atan2(z, Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2)));
+        const lng = Math.atan2(y, x);
+
+        route.push([(lng * 180) / Math.PI, (lat * 180) / Math.PI]);
+      }
+      return route;
+    };
+
+    const features = (partnerLines || []).map((line) => {
+      const fromLatLng = line.coords[0];
+      const toLatLng = line.coords[1];
+      
+      const arcCoords = getGreatCircleRoute(
+        [fromLatLng[1], fromLatLng[0]], // [lng, lat]
+        [toLatLng[1], toLatLng[0]] // [lng, lat]
+      );
+      
+      return {
+        type: "Feature",
+        properties: {
+          color: line.color || "#10b981",
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: arcCoords,
+        },
+      };
+    });
+
+    const geojsonData: any = {
+      type: "FeatureCollection",
+      features: features.map(f => ({
+        type: "Feature",
+        properties: f.properties,
+        geometry: f.geometry
+      })),
+    };
+
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: "geojson",
+        data: geojsonData,
+      });
+
+      // 1. Neon glow layer (wider, high blur-ready appearance)
+      map.addLayer({
+        id: layerGlowId,
+        type: "line",
+        source: sourceId,
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 6,
+          "line-opacity": 0.25,
+        },
+      });
+
+      // 2. Main foreground layer (sharp, brighter, dashed)
+      map.addLayer({
+        id: layerId,
+        type: "line",
+        source: sourceId,
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 2,
+          "line-opacity": 0.9,
+          "line-dasharray": [3, 2],
+        },
+      });
+    } else {
+      const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
+      if (source) {
+        source.setData(geojsonData);
+      }
+    }
+  }, [partnerLines, isStyleLoaded]);
+
   const resetOrientation = () => {
     if (mapRef.current) {
-      mapRef.current.flyTo({
-        pitch: 0,
+      mapRef.current.easeTo({
         bearing: 0,
-        zoom: 2,
-        center: [0, 0],
-        duration: 1500
+        duration: 800
       });
     }
   };
@@ -439,7 +569,7 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           icon={<Globe size={16} />} 
           onClick={resetOrientation} 
           active={zoom < 4}
-          label="ORBIT_VIEW" 
+          label="reset" 
         />
         <div className="h-px bg-emerald-500/20 my-1 mx-2" />
         

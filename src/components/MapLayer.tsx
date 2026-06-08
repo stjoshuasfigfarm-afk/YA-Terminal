@@ -1175,6 +1175,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             toggleGlobalNetwork={toggleGlobalNetwork}
             toggleLiveNewsZoom={toggleLiveNewsZoom}
             resetOrientationTrigger={resetOrientationTrigger}
+            partnerLines={partnerLines}
           />
         </Suspense>
       </div>

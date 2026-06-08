@@ -72,7 +72,7 @@ export default function App() {
   const [isAutopilot, setIsAutopilot] = useState(false);
   const [isAutopilotTransitioning, setIsAutopilotTransitioning] = useState(false);
   const [autopilotNewsIndex, setAutopilotNewsIndex] = useState(0);
-  const [isLiveNewsEnabled, setIsLiveNewsEnabled] = useState(true);
+  const [isLiveNewsEnabled, setIsLiveNewsEnabled] = useState(false);
   const [isLiveNewsZoomEnabled, setIsLiveNewsZoomEnabled] = useState(false);
   const [activeNewsPopup, setActiveNewsPopup] = useState<{ lat: number; lng: number; title: string; symbol: string } | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -102,7 +102,9 @@ export default function App() {
     borders: true,
   });
   // heatmapMetric state removed
-  const [networkAnchor, setNetworkAnchor] = useState<Company | null>(null);
+  const [networkAnchor, setNetworkAnchor] = useState<Company | null>(() => {
+    return COMPANIES.find((c) => c.symbol === "SPY") || COMPANIES[0] || null;
+  });
   const [isSearchSidebarMinimized, setIsSearchSidebarMinimized] =
     useState(false);
   const [isIntelSidebarMinimized, setIsIntelSidebarMinimized] = useState(false);
@@ -373,7 +375,7 @@ export default function App() {
 
   const [isVocalizerEnabled, setIsVocalizerEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem("terminal_vocalizer_enabled");
-    return saved !== "false";
+    return saved === "true";
   });
 
   const toggleVocalizer = useCallback((val: boolean) => {
