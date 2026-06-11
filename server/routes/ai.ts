@@ -449,21 +449,21 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
     const sentiment = storyContext.sentiment || "NEUTRAL";
     
     return {
-      summary: `STRATEGIC INTELLIGENCE UPDATE: Analyzing "${title}". Our tactical networks are assessing ${symbol}'s immediate exposure to these local conditions: ${desc} Supply hubs are working closely with all corresponding partners to offset delays and capitalize on yield milestones.`,
+      summary: `DECK DETAIL SUMMARY: Analyzing "${title}" with focus on Strategic Bottlenecks. Our tactical networks are assessing ${symbol}'s immediate exposure to these local conditions: ${desc} Logistics Ripples are expected to affect primary nodes. Supply hubs in regional clusters are working closely with all corresponding partners to offset delays and capitalize on yield milestones via Market Resilience protocols.`,
       growthVectors: [
-        `Proactive scheduling adjustments in response to "${title}" details`,
-        `Consolidation of regional pipeline reserves near affected nodes`,
-        "Onboarding secondary strategic freight operators dynamically"
+        `Proactive scheduling adjustments in response to "${title}" specific node details`,
+        `Consolidation of regional pipeline reserves near affected Operational Vectors`,
+        "Onboarding secondary strategic freight operators dynamically to bypass bottlenecks"
       ],
       riskFactors: [
-        `Direct operational latency derived from "${title}"`,
-        "Slight transport premium surcharges matching high-volume logistics congestion",
-        "Sub-tier capacity boundaries stalling final assembly cycles"
+        `Direct operational latency derived from "${title}" throughput sensitivity`,
+        "Slight transport premium surcharges matching high-volume logistics congestion in the corridor",
+        "Sub-tier capacity boundaries stalling final assembly cycles at downstream sites"
       ],
       tacticalRecommendations: [
-        `Submit immediate telemetry review request for operations near affected node`,
-        "Leverage long-term partner contracts to insulate raw material sourcing",
-        "Maintain a minimum 30-day safety buffer for critical assembly parts"
+        `OPERATIONAL DIRECTIVE: Submit immediate telemetry review request for operations near ${symbol} node alpha`,
+        "OPERATIONAL DIRECTIVE: Leverage long-term partner contracts to insulate raw material sourcing and build Resilience",
+        "OPERATIONAL DIRECTIVE: Maintain a minimum 45-day safety buffer for critical assembly parts in high-risk zones"
       ],
       outlook: (sentiment === "BULLISH" ? "ACCELERATING" : sentiment === "BEARISH" ? "VULNERABLE" : "STABLE") as any,
     };
@@ -471,21 +471,21 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
   
   if (norm === "AAPL") {
     return {
-      summary: "Apple is maintaining critical ecosystem execution with significant advancements in core custom silicon. Supply structures in Southeast Asia are buffering traditional mainland assembly reliance. High-value mobile pipelines maintain robust baseline capacity despite transport latency fluctuations.",
+      summary: "DECK DETAIL SUMMARY: Apple is maintaining critical ecosystem execution with significant advancements in core custom silicon. Supply structures in Southeast Asia are buffering traditional mainland assembly reliance. High-value mobile pipelines maintain robust baseline capacity despite transport latency fluctuations in the Taiwan Strait Operational Vector.",
       growthVectors: [
-        "In-house Neural Engine architectural enhancements",
-        "Diversification of final packaging to Chennai and Bac Ninh clusters",
-        "High margin services subscription growth providing non-volatile yield offsets"
+        "In-house Neural Engine architectural enhancements reducing silicon latency",
+        "Diversification of final packaging to Chennai and Bac Ninh clusters for Market Resilience",
+        "High margin services subscription growth providing non-volatile yield offsets during hardware shocks"
       ],
       riskFactors: [
-        "Specialized optical sensor packaging bottlenecks inside sub-tier labs",
-        "Geopolitical export boundaries compressing software monetization spreads",
-        "Air cargo slot congestion during seasonal product refresh cycles"
+        "Specialized optical sensor packaging Strategic Bottlenecks inside sub-tier precision labs",
+        "Geopolitical export boundaries compressing software monetization spreads in APAC regions",
+        "Air cargo slot congestion during seasonal product refresh cycles causing Logistics Ripples"
       ],
       tacticalRecommendations: [
-        "Accelerate secondary silicon fabrication path validation",
-        "Implement real-time buffer inventory for priority sensors",
-        "Audit air-bridge alternatives for Q4 logistical surges"
+        "OPERATIONAL DIRECTIVE: Accelerate secondary silicon fabrication path validation via TSMC Arizona node",
+        "OPERATIONAL DIRECTIVE: Implement real-time buffer inventory for priority sensors with 60-day runway",
+        "OPERATIONAL DIRECTIVE: Audit air-bridge alternatives for Q4 logistical surges to avoid freight spikes"
       ],
       outlook: "STABLE" as const,
     };
@@ -687,13 +687,14 @@ router.post("/enrich-news", async (req, res) => {
         
         CRITICAL MANDATE: Use a human-like, authoritative, yet approachable tone. Incorporate terms like "Strategic Bottleneck", "Logistics Ripple", "Market Resilience", "Operational Vector". 
 
-        Summarize each into a descriptive, factual headline (max 80 chars) that highlights the human and systemic impact. 
-        Be specific about the company and the concrete supply chain ripple effects (e.g. "Toyota's Tier-2 supplier fire disrupts North American brake assembly for 3 weeks").
+        Summarize each into a highly specific, factual headline (max 90 chars) that highlights the human, logistical, and systemic impact. 
+        Be extremely specific about the company, the involved factories/nodes, and the concrete supply chain ripple effects. 
+        Example: "Toyota's Tier-2 sensor supplier fire in Kyoto disrupts North American brake assembly for 22 days; expect 15% regional delivery lag."
         
         Analyze:
         1. Market Sentiment (BULLISH, BEARISH, or NEUTRAL)
         2. Strategic Impact Tier (CRITICAL, MODERATE, or ROUTINE)
-        3. Relationship Implications: How does this affect their partners, suppliers, or direct competitors?
+        3. Relationship Implications: How does this affect their partners, suppliers, or direct competitors? Use specific firm names if implied.
         
         Return a JSON array of objects:
         [{ "translatedTitle": string, "sentiment": "BULLISH" | "BEARISH" | "NEUTRAL", "impact": "CRITICAL" | "MODERATE" | "ROUTINE", "relationshipImplications": string }]
@@ -739,8 +740,9 @@ router.post("/briefing", async (req, res) => {
          You are a senior tactical intelligence director specializing in global supply chain resilience.
          Generate a comprehensive, high-stakes strategic intelligence report for ${symbol}. 
          
-         CRITICAL MANDATE: Use a human-like, authoritative, and sophisticated voice. Avoid stereotypical "AI" phrases. Speak like a season partner at a top-tier strategy firm.
+         CRITICAL MANDATE: Use a human-like, authoritative, and sophisticated voice. Avoid stereotypical "AI" phrases. Speak like a seasoned partner at a top-tier strategy firm.
          Focus on the interconnectedness of global logistics, raw material dependencies, and geopolitical stressors.
+         Use precise terminology: "Strategic Bottleneck", "Logistics Ripple", "Market Resilience", "Operational Vector", "Throughput Sensitivity".
 
          Analyze the target's current positioning using this telemetry data: ${JSON.stringify(data)}
          
@@ -752,10 +754,10 @@ router.post("/briefing", async (req, res) => {
          Your "summary", "riskFactors", "growthVectors", and "tacticalRecommendations" MUST explicitly analyze the direct micro and macro consequences of this specific event, its location, the involved names, amounts, and partner dependencies. Make your briefing highly cohesive, precise, and targeted directly around this selected news.` : ""}
          
          Structure your response as follows:
-         1. Summary: A high-density, authoritative executive summary (approx 60-80 words).
+         1. Summary: A high-density, authoritative "Deck Detail Summary" (approx 80-100 words). Be granular.
          2. Growth Vectors: Identify 3 specific catalysts that could de-risk their supply chain or accelerate yield.
          3. Risk Factors: Identify 3 non-obvious structural or systemic risks (e.g., specific tier-3 supplier clusters, maritime choke points, or regulatory shifts).
-         4. Tactical Recommendations: 3 direct, actionable maneuvers for an executive board.
+         4. Tactical Recommendations: 3 direct, hyper-specific "Operational Directives" for an executive board.
          5. Outlook: STRETCHED | STABLE | ACCELERATING | VULNERABLE | COMPROMISED
 
          Return JSON object:

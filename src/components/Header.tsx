@@ -203,6 +203,15 @@ export const Header: React.FC<HeaderProps> = ({
                })}
              </div>
           </div>
+          <div className="flex items-center gap-2 border-l border-zinc-900 pl-3 pr-2">
+            <div className={`w-1.5 h-1.5 rounded-full ${riskScore > 40 ? "bg-red-500 animate-pulse" : "bg-emerald-500"} shadow-[0_0_8px_rgba(16,185,129,0.5)]`} />
+            <span className={cn(
+              "text-[8px] font-mono font-black tracking-widest",
+              riskScore > 40 ? "text-red-500" : "text-emerald-500"
+            )}>
+              {riskScore > 40 ? "THREAT::ACTIVE" : "THREAT::STANDBY"}
+            </span>
+          </div>
           
           <div className="hidden xl:flex items-center gap-6 font-mono border-l border-zinc-900 px-6 h-8 bg-zinc-950/30 text-[9px]">
             <div className="hidden 2xl:flex flex-col pl-6">

@@ -55,7 +55,7 @@ export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
       </div>
       
       <div className="flex-1 relative overflow-hidden h-full">
-        <div className="flex items-center whitespace-nowrap animate-[marquee_60s_linear_infinite] hover:[animation-play-state:paused] h-full">
+        <div className="flex items-center whitespace-nowrap animate-[marquee_90s_linear_infinite] md:animate-[marquee_60s_linear_infinite] hover:[animation-play-state:paused] h-full">
           {[...tickerItems, ...tickerItems].map((item, idx) => {
             const data = prices[item.symbol];
             if (!data) return null;
@@ -68,12 +68,12 @@ export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
                   const company = COMPANIES.find(c => c.symbol === item.symbol);
                   if (company && onSelectStock) onSelectStock(company);
                 }}
-                className="flex items-center gap-2 px-6 border-r border-zinc-900/30 h-full group hover:bg-emerald-500/5 transition-all cursor-pointer active:scale-95"
+                className="flex items-center gap-1.5 md:gap-2 px-4 md:px-6 border-r border-zinc-900/30 h-full group hover:bg-emerald-500/5 transition-all cursor-pointer active:scale-95"
               >
-                <span className="text-[10px] font-black text-zinc-300 font-mono tracking-tight group-hover:text-emerald-400 transition-colors">{item.symbol}</span>
-                <span className="text-[9px] font-mono text-zinc-500 tabular-nums">${data.price.toFixed(2)}</span>
-                <div className={cn("flex items-center gap-0.5 font-mono text-[8px] font-bold", isPositive ? "text-emerald-500" : "text-rose-500")}>
-                  {isPositive ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                <span className="text-[8.5px] md:text-[10px] font-black text-zinc-300 font-mono tracking-wider group-hover:text-emerald-400 transition-colors">{item.symbol}</span>
+                <span className="text-[8px] md:text-[9px] font-mono text-zinc-500 tabular-nums tracking-wide">${data.price.toFixed(2)}</span>
+                <div className={cn("flex items-center gap-0.5 font-mono text-[7px] md:text-[8px] font-bold tracking-wide", isPositive ? "text-emerald-500" : "text-rose-500")}>
+                  {isPositive ? <TrendingUp className="w-2 h-2" /> : <TrendingDown className="w-2 h-2" />}
                   <span>{isPositive ? "+" : ""}{data.change.toFixed(2)}%</span>
                 </div>
               </button>

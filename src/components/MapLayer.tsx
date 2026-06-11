@@ -1304,14 +1304,19 @@ export const MapLayer: React.FC<MapLayerProps> = ({
 
             {preservedBriefing.type === "briefing" ? (
               <div className="space-y-4">
-                <Typewriter
-                  className="text-zinc-300 font-mono text-[9.5px]"
-                  text={
-                    preservedBriefing.data.summary ||
-                    preservedBriefing.data.text ||
-                    "Analyzing current operational strategy..."
-                  }
-                />
+                <div className="p-2 bg-zinc-900/50 border border-emerald-500/10 rounded-sm">
+                   <div className="text-[7.5px] font-black text-emerald-400/70 uppercase tracking-[0.2em] mb-1.5 border-b border-emerald-500/10 pb-0.5">
+                     DECK_DETAIL_SUMMARY
+                   </div>
+                   <Typewriter
+                     className="text-zinc-300 font-mono text-[9px]"
+                     text={
+                       preservedBriefing.data.summary ||
+                       preservedBriefing.data.text ||
+                       "Analyzing current operational strategy..."
+                     }
+                   />
+                </div>
                 
                 {/* ENHANCED: TACTICAL RECOMMENDATIONS */}
                 {preservedBriefing.data.tacticalRecommendations && (

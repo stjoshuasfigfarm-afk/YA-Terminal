@@ -4,6 +4,7 @@ import { Company, COMPANIES } from "../data/companies";
 import { searchAndScoreCompanies } from "../lib/searchEngine";
 import { motion, AnimatePresence } from "motion/react";
 import { useCompanies } from "../context/CompaniesContext";
+import { cn } from "../lib/utils";
 
 interface CommandPaletteProps {
   onSelect: (company: Company) => void;
@@ -83,8 +84,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelect, isOpen
                 <span className="text-[7px] text-zinc-500 font-mono">SYS.CMD.001</span>
             </div>
 
-            <div className="flex items-center gap-3 p-4 border-b border-zinc-900 bg-zinc-950">
-              <Terminal className="w-5 h-5 text-emerald-500" />
+            <div className="flex items-center gap-3 p-4 border-b border-zinc-900 bg-zinc-950 relative group">
+              <div className="absolute inset-y-0 left-0 w-[1px] bg-emerald-500/30 group-focus-within:bg-emerald-500 transition-colors" />
+              <Terminal className="w-5 h-5 text-emerald-500 group-focus-within:animate-pulse" />
               <input
                 autoFocus
                 value={query}
@@ -92,24 +94,43 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelect, isOpen
                   setQuery(e.target.value);
                   setSelectedIndex(0);
                 }}
-                placeholder="INPUT TARGET IDENTIFIER..."
-                className="flex-1 bg-transparent border-none outline-none text-emerald-505 font-mono text-sm placeholder:text-zinc-750 uppercase tracking-widest"
+                placeholder="INPUT_TARGET_IDENTIFIER..."
+                className="flex-1 bg-transparent border-none outline-none text-emerald-500 font-mono text-sm placeholder:text-zinc-800 uppercase tracking-[0.2em]"
               />
-              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-[9px] font-sans text-zinc-500">
-                <span className="text-[7px]">ESC</span>
+              {query && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2"
+                >
+                  <div className="h-4 w-[1px] bg-zinc-800" />
+                  <span className="text-[8px] font-mono text-emerald-500/50 animate-pulse">SCANNING_VECTORS...</span>
+                </motion.div>
+              )}
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 text-[9px] font-sans text-zinc-500 rounded-xs">
+                <span className="text-[7.2px] font-bold tracking-tighter opacity-70">ESC</span>
               </div>
             </div>
 
             {/* Dynamic Pro Filters Guidance Header */}
-            <div className="bg-black/80 px-4 py-1.5 border-b border-zinc-900 flex flex-wrap gap-2 text-[7.5px] font-mono select-none text-zinc-600">
-              <span className="text-zinc-500 font-bold uppercase">PRO INPUT CONTROLLERS:</span>
-              <button onClick={() => setQuery(prev => prev ? `${prev.trim()} c:USA` : "c:USA")} className="hover:text-emerald-400 transition-colors uppercase font-mono tracking-tighter">c:USA (Country)</button>
-              <span className="text-zinc-800">|</span>
-              <button onClick={() => setQuery(prev => prev ? `${prev.trim()} s:Semi` : "s:Semi")} className="hover:text-emerald-400 transition-colors uppercase font-mono tracking-tighter">s:Semi (Sector)</button>
-              <span className="text-zinc-800">|</span>
-              <button onClick={() => setQuery(prev => prev ? `${prev.trim()} p:NVDA` : "p:NVDA")} className="hover:text-emerald-400 transition-colors uppercase font-mono tracking-tighter">p:NVDA (Supply Chain)</button>
-              <span className="text-zinc-800">|</span>
-              <button onClick={() => setQuery(prev => prev ? `${prev.trim()} hq:CA` : "hq:CA")} className="hover:text-emerald-400 transition-colors uppercase font-mono tracking-tighter">hq:CA (HQ Location)</button>
+            <div className="bg-black/80 px-4 py-2 border-b border-zinc-900 flex flex-wrap gap-3 text-[7.5px] font-mono select-none text-zinc-600">
+              <span className="text-zinc-500 font-black uppercase tracking-widest border-r border-zinc-800 pr-3">COMMAND_PARAM_HELP:</span>
+              {[
+                { label: "c:USA", desc: "COUNTRY_SPEC" },
+                { label: "s:Semi", desc: "SECTOR_LINK" },
+                { label: "p:NVDA", desc: "SUPPLY_CHAIN" },
+                { label: "hq:CA", desc: "GEOLOCATION" }
+              ].map(param => (
+                <button 
+                  key={param.label}
+                  onClick={() => setQuery(prev => prev ? `${prev.trim()} ${param.label}` : param.label)} 
+                  className="group flex items-center gap-1 hover:text-emerald-400 transition-colors uppercase font-mono tracking-tighter"
+                >
+                  <span className="text-emerald-500/40 group-hover:text-emerald-500 transition-colors opacity-0 group-hover:opacity-100 -ml-2">/</span>
+                  <span className="text-zinc-400 group-hover:text-emerald-400">{param.label}</span>
+                  <span className="text-[6px] text-zinc-700">({param.desc})</span>
+                </button>
+              ))}
             </div>
 
             <div className="max-h-[300px] overflow-y-auto custom-scrollbar bg-black/50 relative">
@@ -140,24 +161,24 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelect, isOpen
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`
-                            w-8 h-8 flex items-center justify-center font-bold text-[10px] border shrink-0
-                            ${idx === selectedIndex ? "bg-emerald-500 text-black border-emerald-400" : "bg-black/50 text-emerald-500/50 border-emerald-500/20"}
+                            w-9 h-9 flex items-center justify-center font-bold text-[10px] border shrink-0 transition-all duration-300
+                            ${idx === selectedIndex ? "bg-emerald-500 text-black border-emerald-400 rotate-90 scale-110" : "bg-black/50 text-emerald-500/50 border-emerald-500/20"}
                           `}>
-                            {company.symbol[0]}
+                            {idx === selectedIndex ? <Terminal className="w-4 h-4" /> : company.symbol[0]}
                           </div>
                           <div className="min-w-0">
-                            <div className={`text-xs font-mono font-bold tracking-widest uppercase mb-0.5 truncate ${idx === selectedIndex ? "text-emerald-400" : "text-zinc-400"}`}>
+                            <div className={`text-[11px] font-mono font-black tracking-[0.1em] uppercase mb-0.5 truncate transition-colors ${idx === selectedIndex ? "text-white" : "text-zinc-400"}`}>
                               {company.name}
                             </div>
-                            <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-zinc-500 font-sans tracking-wide uppercase">
-                              <span className="font-mono font-bold text-zinc-400">[{company.symbol}]</span>
-                              <span>•</span>
-                              <span>SYS.{(company.sector || "UNKNOWN").replace(/\s+/g, '_')}</span>
+                            <div className="flex flex-wrap items-center gap-2 text-[8px] text-zinc-500 font-mono tracking-tight uppercase">
+                              <span className={cn("font-bold transition-colors", idx === selectedIndex ? "text-emerald-400/80" : "text-zinc-600")}>[{company.symbol}]</span>
+                              <span className="opacity-20">•</span>
+                              <span className="tracking-tighter">DATA_NODE::{ (company.sector || "GENERAL").toUpperCase().replace(/\s+/g, '_') }</span>
                               {query.trim() && matchedFields.length > 0 && (
                                 <>
-                                  <span>•</span>
-                                  <span className="text-emerald-400/90 font-mono text-[7.5px] lowercase bg-emerald-500/5 px-1 border border-emerald-500/15 tracking-tight font-semibold rounded-[1px]">
-                                    matched({matchedFields[0].field.toLowerCase()}: "{(matchedFields[0].value || "").substring(0, 16)}")
+                                  <span className="opacity-20">•</span>
+                                  <span className="text-[7px] text-emerald-500/60 bg-emerald-500/5 px-1.5 py-0.5 border border-emerald-500/10 tracking-widest font-black rounded-xs">
+                                    MATCH::{matchedFields[0].field}
                                   </span>
                                 </>
                               )}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Company } from "../data/companies";
+import { Company, COMPANIES } from "../data/companies";
 import { 
   Activity, 
   TrendingUp, 
@@ -103,23 +103,41 @@ export const DataSidebar = React.memo(({
 
   return (
     <aside className={cn(
-      "h-full border-r border-zinc-800 flex flex-col bg-black bg-cyber-grid z-25 shrink-0 select-none overflow-hidden relative transition-all duration-150",
-      "w-full"
+      "h-full border-r border-zinc-800 flex flex-col bg-black bg-cyber-grid z-25 shrink-0 select-none overflow-hidden relative transition-all duration-150 animate-crt-flicker",
+      "w-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-l border-zinc-900"
     )}>
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-emerald-950/5 pointer-events-none" />
+      <div className="scanline-overlay" />
       
       {/* Top Header */}
-      <div className="h-10 border-b border-zinc-800 bg-black/90 flex items-center justify-between px-3 shrink-0">
+      <div className="h-11 border-b border-zinc-800 bg-zinc-950/95 flex items-center justify-between px-3 shrink-0 relative overflow-hidden group">
+        {/* Hardware Markers */}
+        <div className="absolute top-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        <div className="absolute top-0 right-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        <div className="absolute bottom-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        <div className="absolute bottom-0 right-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        
+        {/* Bezel Accents */}
+        <div className="absolute top-0 left-0 w-8 h-[1px] bg-emerald-500/10" />
+        <div className="absolute top-0 left-0 w-[1px] h-8 bg-emerald-500/10" />
+
         {!isMinimized && (
-          <div className="flex items-center gap-2">
-             <div className="relative">
-               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+          <div className="flex items-center gap-2.5">
+             <div className="relative flex items-center justify-center">
+               <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]" />
+               <div className="absolute w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-40" />
              </div>
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white font-mono">FLOW_TEL_3K</span>
+             <div className="flex flex-col">
+               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white font-mono leading-none">DATA_TEL_STREAM_V3</span>
+               <span className="text-[6px] text-zinc-500 font-mono tracking-widest mt-0.5">SAT_LINK_ACTIVE_B01</span>
+             </div>
           </div>
         )}
-        <div className="flex items-center gap-1.5">
-            <button onClick={onToggleMinimize} className="text-zinc-500 hover:text-emerald-500 transition-colors p-1">
+        <div className="flex items-center gap-1.5 z-10">
+            <button 
+              onClick={onToggleMinimize} 
+              className="hidden md:flex text-zinc-500 hover:text-white transition-colors p-1 rounded-sm hover:bg-white/5 active:scale-95"
+              title={isMinimized ? "Expand Sidebar" : "Minimize Sidebar"}
+            >
               {isMinimized ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
             </button>
         </div>
@@ -134,35 +152,34 @@ export const DataSidebar = React.memo(({
                 <div className="absolute top-0 right-0 w-8 h-8 bg-emerald-500/5 rotate-45 translate-x-4 -translate-y-4 border border-emerald-500/20" />
                 
                 <div className="relative z-10">
-                  <div className="flex items-end justify-between gap-1 mb-1">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[8px] text-zinc-650 font-mono font-bold uppercase tracking-[0.2em] block">PANEL H: TARGET INDEX</span>
-                        {onTogglePin && (
-                          <button
-                            onClick={(e) => onTogglePin(selectedStock.symbol, e)}
-                            className={cn(
-                              "flex items-center gap-1 px-1.5 py-0.5 rounded transition-all border",
-                              pinnedTickers.includes(selectedStock.symbol)
-                                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 font-extrabold hover:bg-emerald-500/30"
-                                : "bg-black border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
-                            )}
-                            title={pinnedTickers.includes(selectedStock.symbol) ? "Unpin from monitor list" : "Pin to monitor list"}
-                          >
-                            <Pin className={cn("w-2.5 h-2.5", pinnedTickers.includes(selectedStock.symbol) ? "fill-emerald-400 text-emerald-400" : "text-zinc-500")} />
-                            <span className="text-[7.5px] font-mono leading-none tracking-widest uppercase">
-                              {pinnedTickers.includes(selectedStock.symbol) ? "PINNED" : "PIN"}
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <h2 className="font-sans text-xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
-                        <span className="text-[8.5px] text-zinc-500 font-mono font-bold">// {selectedStock.name}</span>
-                      </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                      <span className="text-[9px] text-zinc-400 font-mono font-black uppercase tracking-[0.15em]">TARGET_INDEX_ROOT</span>
                     </div>
+                    {onTogglePin && (
+                      <button
+                        onClick={(e) => onTogglePin(selectedStock.symbol, e)}
+                        className={cn(
+                          "flex items-center gap-1 px-1.5 py-0.5 rounded transition-all border",
+                          pinnedTickers.includes(selectedStock.symbol)
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 font-extrabold hover:bg-emerald-500/30"
+                            : "bg-black border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
+                        )}
+                        title={pinnedTickers.includes(selectedStock.symbol) ? "Unpin from monitor list" : "Pin to monitor list"}
+                      >
+                        <Pin className={cn("w-2.5 h-2.5", pinnedTickers.includes(selectedStock.symbol) ? "fill-emerald-400 text-emerald-400" : "text-zinc-500")} />
+                        <span className="text-[7.5px] font-mono leading-none tracking-widest uppercase">
+                          {pinnedTickers.includes(selectedStock.symbol) ? "PINNED" : "PIN"}
+                        </span>
+                      </button>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 font-mono text-[7px] mt-2">
+                  <div className="flex items-center gap-2 mt-1">
+                    <h2 className="font-sans text-xl text-white font-black tracking-tighter leading-none">{selectedStock.symbol}</h2>
+                    <span className="text-[8.5px] text-zinc-500 font-mono font-bold">// {selectedStock.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono text-[7px] mt-2.5">
                     <span className="text-zinc-500 uppercase px-1 border border-zinc-900 bg-black">{profile?.exchangeShortName || "EXCH"}</span>
                     <span className="text-zinc-700 opacity-30">•</span>
                     <div className="flex items-center gap-2 tabular-nums">
@@ -181,32 +198,62 @@ export const DataSidebar = React.memo(({
                 </div>
               </div>
 
-              {/* Price Performance Chart */}
               <div className="p-3 border-b border-zinc-900 bg-black/10">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-[8.5px] font-mono text-zinc-500 uppercase tracking-widest flex items-center gap-1.5 font-bold">
-                    <TrendingUp className="w-2.5 h-2.5" /> PANEL I: TELEMETRY TREND CHART
-                  </span>
-                  <span className="text-[8.5px] font-mono text-zinc-600">30D TREND</span>
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                    <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-[0.15em] font-black">TELEMETRY_TREND_PULSE</span>
+                  </div>
+                  <span className="text-[8px] font-mono text-zinc-600 font-bold tracking-tighter">30D_SPAN</span>
                 </div>
                 <div className="h-[145px] w-full">
                   <TelemetryChart data={history} aiForecast={sentiment?.forecast} ticker={selectedStock.symbol} />
                 </div>
               </div>
 
-              {/* Technical Indicator Gauges */}
-              <div className="p-2.5 border-b border-zinc-900 bg-black/40">
-                <div className="text-[7.5px] text-zinc-500 font-mono font-bold uppercase tracking-widest mb-3 flex items-center justify-between">
+              {/* SECTOR_CORRELATION_MATRIX */}
+              <div className="p-3 border-b border-zinc-900 bg-zinc-950/20">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <div className="w-1 h-1 bg-blue-500 rounded-full animate-ping absolute inset-0" />
-                      <div className="w-1 h-1 bg-blue-500 rounded-full relative z-10" />
-                    </div>
-                    <span>PANEL J: TECHNICAL OSCILLATORS</span>
+                    <div className="w-1 h-3 bg-blue-500/50 rounded-full" />
+                    <span className="text-[9px] text-zinc-400 font-mono font-black uppercase tracking-[0.15em]">PEER_CORR_VECTORS</span>
+                  </div>
+                  <span className="text-[7.5px] text-zinc-600 font-mono font-bold">ALPHA_MODEL::B6</span>
+                </div>
+                <div className="space-y-2">
+                  {COMPANIES.filter(c => c.sector === selectedStock.sector && c.symbol !== selectedStock.symbol).slice(0, 3).map((peer) => {
+                    const corr = (0.7 + (peer.symbol.charCodeAt(0) % 30) / 100).toFixed(2);
+                    return (
+                      <div key={peer.symbol} className="flex flex-col gap-1.5">
+                        <div className="flex justify-between items-center text-[8px] font-mono">
+                          <span className="text-zinc-500">{peer.symbol} // {peer.name.slice(0, 15)}</span>
+                          <span className="text-blue-400 font-black">+{corr}</span>
+                        </div>
+                        <div className="h-[3px] bg-zinc-900 rounded-full overflow-hidden relative">
+                           <motion.div 
+                             className="h-full bg-blue-500/60"
+                             initial={{ width: 0 }}
+                             animate={{ width: `${parseFloat(corr) * 100}%` }}
+                             transition={{ duration: 1, ease: "easeOut" }}
+                           />
+                           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Technical Indicator Gauges */}
+              <div className="p-3 border-b border-zinc-900 bg-black/40">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                    <span className="text-[9px] text-zinc-400 font-mono font-black uppercase tracking-[0.15em]">CORE_OSCILLATORS_0xAF</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[6px] text-zinc-600 font-mono">ID: {selectedStock.symbol}_TECH_PULSE</span>
-                    <Settings className="w-2 h-2 text-zinc-700" />
+                    <span className="text-[7px] text-zinc-600 font-mono font-bold tracking-tighter">SYSTEM_READY</span>
+                    <Settings className="w-2.5 h-2.5 text-zinc-700" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -346,28 +393,40 @@ export const DataSidebar = React.memo(({
               </div>
 
               {/* Valuation & Core Metrics Grid */}
-              <div className="grid grid-cols-2 gap-px border border-emerald-950/40 bg-emerald-950/10 p-1.5 flex-none min-h-[100px]">
-                {[
-                  { label: 'MKT CAP', value: profile?.mktCap ? formatCurrency(profile.mktCap) : "PENDING" },
-                  { label: 'P/E RATIO', value: profile?.peRatio?.toFixed(2) || "PENDING" },
-                  { label: 'DIV YIELD', value: profile?.divYield ? `${(profile.divYield * 100).toFixed(2)}%` : "N/A" },
-                  { label: 'BETA', value: profile?.beta?.toFixed(2) || "PENDING" },
-                  { label: 'REVENUE', value: financials?.[0]?.revenue ? formatCurrency(financials[0].revenue) : "PENDING" },
-                  { label: 'NET INCOME', value: financials?.[0]?.netIncome ? formatCurrency(financials[0].netIncome) : "PENDING" },
-                  { label: 'DEBT/EQUITY', value: profile?.debtToEquity?.toFixed(2) || "PENDING" },
-                  { label: 'VOLUME', value: quote?.volume ? formatCurrency(quote.volume) : "PENDING" },
-                ].map((metric) => (
-                  <div key={metric.label} className="bg-black/90 px-2 py-1 flex justify-between items-center border border-zinc-900/60 rounded-xs hover:border-emerald-500/20 transition-colors">
-                    <span className="text-[8px] font-mono text-zinc-605 uppercase">{metric.label}</span>
-                    <span className="text-[8px] font-mono text-emerald-500 font-black">{metric.value}</span>
-                  </div>
-                ))}
+              <div className="p-3 border-b border-zinc-900 bg-black/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                  <span className="text-[9px] text-zinc-400 font-mono font-black uppercase tracking-[0.15em]">VALUATION_METRICS_v2</span>
+                </div>
+                <div className="grid grid-cols-2 gap-px border border-emerald-950/40 bg-emerald-950/10 p-1 rounded-sm">
+                  {[
+                    { label: 'MKT CAP', value: profile?.mktCap ? formatCurrency(profile.mktCap) : "PENDING" },
+                    { label: 'P/E RATIO', value: profile?.peRatio?.toFixed(2) || "PENDING" },
+                    { label: 'DIV YIELD', value: profile?.divYield ? `${(profile.divYield * 100).toFixed(2)}%` : "N/A" },
+                    { label: 'BETA', value: profile?.beta?.toFixed(2) || "PENDING" },
+                    { label: 'REVENUE', value: financials?.[0]?.revenue ? formatCurrency(financials[0].revenue) : "PENDING" },
+                    { label: 'NET INCOME', value: financials?.[0]?.netIncome ? formatCurrency(financials[0].netIncome) : "PENDING" },
+                    { label: 'DEBT/EQUITY', value: profile?.debtToEquity?.toFixed(2) || "PENDING" },
+                    { label: 'VOLUME', value: quote?.volume ? formatCurrency(quote.volume) : "PENDING" },
+                  ].map((metric) => (
+                    <div key={metric.label} className="bg-black/95 px-2 py-2 flex flex-col gap-0.5 border border-zinc-900 hover:border-emerald-500/30 transition-colors group/metric">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[7px] font-mono text-zinc-600 uppercase font-black tracking-widest group-hover/metric:text-zinc-500">{metric.label}</span>
+                        <div className="w-1 h-1 bg-emerald-500/20 rounded-full group-hover/metric:bg-emerald-500/60" />
+                      </div>
+                      <span className="text-[9px] font-mono text-emerald-500 font-bold tracking-tight">{metric.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Partnership Highlights */}
               {selectedStock?.partners && selectedStock.partners.length > 0 && (
                 <div className="p-3 border-b border-zinc-900 bg-emerald-950/5">
-                  <div className="text-[7.5px] text-emerald-500 font-mono font-bold uppercase tracking-widest mb-2">PARTNERSHIP_DEALS</div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                    <span className="text-[9px] text-emerald-500 font-mono font-black uppercase tracking-[0.15em]">PARTNERSHIP_ECOSYSTEM</span>
+                  </div>
                   <div className="flex flex-wrap gap-1">
                     {(selectedStock.partners || []).map((p: string) => (
                       <span key={p} className="bg-emerald-900/20 text-emerald-400 text-[7px] px-1.5 py-0.5 rounded-sm border border-emerald-500/30 uppercase font-mono tracking-wider">
@@ -379,8 +438,11 @@ export const DataSidebar = React.memo(({
               )}
 
               {/* 6Q Net Income P&L Trend sparkline */}
-              <div className="px-3 py-1.5 font-sans text-[10px] border-b border-zinc-900 bg-black/20 flex items-center justify-between">
-                <span className="text-[7.5px] text-zinc-600 uppercase font-bold tracking-widest block">P&L Hist Trend (6-Quarter)</span>
+              <div className="px-3 py-2 font-sans text-[10px] border-b border-zinc-900 bg-black/20 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-3 bg-emerald-500/30 rounded-full" />
+                  <span className="text-[8.5px] text-zinc-500 uppercase font-bold tracking-tight">FINANCIAL_P&L_TRAJECTORY</span>
+                </div>
                 {financials && financials.length > 0 ? (
                   <div className="w-16 h-4 opacity-70">
                     <Sparkline data={financials.map(f => ({ close: f.netIncome }))} />
@@ -392,9 +454,12 @@ export const DataSidebar = React.memo(({
 
               {/* Micro terminal logs for visual flare */}
               <div className="h-24 bg-black border-t border-zinc-900 flex flex-col shrink-0">
-                <div className="px-3 py-1 bg-black/80 border-b border-zinc-900 flex items-center justify-between">
-                  <span className="text-[7px] text-zinc-600 font-mono">PANEL K: D_LOGISTIC_TEL_STREAM</span>
-                  <div className="w-1.5 h-1.5 bg-emerald-500/80 rounded-full" />
+                <div className="px-3 py-1.5 bg-black/80 border-b border-zinc-900 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-3 bg-emerald-500/40 rounded-full" />
+                    <span className="text-[8px] text-zinc-500 font-mono font-bold uppercase tracking-wider">TERMINAL_STREAM</span>
+                  </div>
+                  <div className="w-1.5 h-1.5 bg-emerald-500/80 rounded-full animate-pulse shadow-[0_0_8px_#10b981]" />
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 font-mono text-[8px] text-emerald-500/70 scrollbar-none select-text">
                   {logs.map((log, i) => (

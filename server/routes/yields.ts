@@ -8,12 +8,20 @@ const isKeyReady = (k: string) => k && k.length > 5 && !k.includes("YOUR_");
 router.get("/", async (req, res) => {
   const country = (req.query.country as string || "USA").toUpperCase();
   
-  const treasuryMap: Record<string, number> = {
-    '2Y': 4.82,
-    '5Y': 4.45,
-    '10Y': 4.42,
-    '30Y': 4.56
+  const baselineMaps: Record<string, Record<string, number>> = {
+    'USA': { '2Y': 4.82, '5Y': 4.45, '10Y': 4.42, '30Y': 4.56 },
+    'CHN': { '2Y': 2.10, '5Y': 2.25, '10Y': 2.30, '30Y': 2.50 },
+    'JPN': { '2Y': 0.35, '5Y': 0.60, '10Y': 1.05, '30Y': 2.15 },
+    'DEU': { '2Y': 2.85, '5Y': 2.45, '10Y': 2.40, '30Y': 2.55 },
+    'GBR': { '2Y': 4.25, '5Y': 3.95, '10Y': 4.05, '30Y': 4.45 },
+    'FRA': { '2Y': 3.05, '5Y': 2.85, '10Y': 3.00, '30Y': 3.55 },
+    'CHE': { '2Y': 1.15, '5Y': 0.95, '10Y': 0.85, '30Y': 0.90 },
+    'CAN': { '2Y': 4.10, '5Y': 3.65, '10Y': 3.55, '30Y': 3.60 },
+    'AUS': { '2Y': 3.95, '5Y': 4.15, '10Y': 4.45, '30Y': 4.85 },
+    'IND': { '2Y': 7.05, '5Y': 7.15, '10Y': 7.10, '30Y': 7.25 }
   };
+
+  const treasuryMap = baselineMaps[country] || baselineMaps['USA'];
 
   const results: any = {
     treasuries: {},
@@ -59,7 +67,9 @@ router.get("/", async (req, res) => {
     'CHE': 1.50,
     'CAN': 5.00,
     'KOR': 3.50,
-    'TWN': 2.00
+    'TWN': 2.00,
+    'AUS': 4.35,
+    'IND': 6.50
   };
 
   results.interestRate = ratesMap[country] || 4.25;

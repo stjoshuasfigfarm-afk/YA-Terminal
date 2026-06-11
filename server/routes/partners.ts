@@ -31,8 +31,11 @@ router.get("/usgs", async (req, res) => {
 // GDELT Global Monitor (100% Free with robust fallback)
 router.get("/gdelt", async (req, res) => {
   try {
-    const response = await axios.get("https://data.gdeltproject.org/api/v2/doc/ft?query=all&format=json&timespan=1h", {
-      timeout: 3000
+    const response = await axios.get("https://api.gdeltproject.org/api/v2/doc/doc?query=(logistics%20OR%20maritime%20OR%20supplychain)&mode=artlist&format=json&timespan=1h&maxrecords=50", {
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     });
     if (response.data && response.data.articles) {
       return res.json(response.data);

@@ -203,13 +203,26 @@
     background-size: 20px 20px;
   }
 
-  .scanline {
-    display: none;
+  .scanline-overlay {
+    @apply absolute inset-0 pointer-events-none overflow-hidden z-50 opacity-[0.03];
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(16, 185, 129, 0.5) 50%,
+      transparent 50%
+    );
+    background-size: 100% 4px;
+    animation: scanline-move 20s linear infinite;
   }
 
-  @keyframes scanline {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(1000%); }
+  @keyframes scanline-move {
+    from { background-position: 0 0; }
+    to { background-position: 0 100%; }
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
   }
 
   @keyframes crt-flicker {
@@ -220,6 +233,7 @@
   }
 
   .animate-crt-flicker {
+    animation: crt-flicker 0.1s infinite;
   }
 
   .bg-scan-line {

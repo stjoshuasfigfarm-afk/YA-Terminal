@@ -14,7 +14,8 @@ import {
   Layers,
   Globe,
   Network,
-  Target
+  Target,
+  Box
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -70,6 +71,177 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   const [pitch, setPitch] = useState(0);
   const [bearing, setBearing] = useState(0);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+  const [show3DBuildings, setShow3DBuildings] = useState(true);
+  const [localStoresFeatureCollection, setLocalStoresFeatureCollection] = useState<any>({
+    type: "FeatureCollection",
+    features: []
+  });
+
+  // Generate simulated local stores when zoom is high and a stock is selected
+  useEffect(() => {
+    if (!selectedStock || zoom < 14) {
+      setLocalStoresFeatureCollection({ type: "FeatureCollection", features: [] });
+      return;
+    }
+
+    // Deterministic random generation based on symbol
+    const symbol = selectedStock.symbol;
+    const lat = selectedStock.lat;
+    const lng = selectedStock.lng;
+    
+    const count = 30; // Increased density
+    const features = [];
+    
+    const types = [
+      { id: "MOM_POP_RETAIL", color: "#fbbf24", label: "Local Shop" },
+      { id: "TRANSIT_NODE", color: "#60a5fa", label: "Bus Stop/Transit Hub" },
+      { id: "LOGISTICS_HUB", color: "#22d3ee", label: "Operational Depot" },
+      { id: "INDUSTRIAL_OUTPOST", color: "#94a3b8", label: "Supply Node" }
+    ];
+    
+    for (let i = 0; i < count; i++) {
+        // Pseudo-random offset
+        const r1 = (Math.sin(symbol.charCodeAt(0) * (i + 1) * 1.5) * 0.008);
+        const r2 = (Math.cos(symbol.charCodeAt(1) * (i + 1) * 1.5) * 0.008);
+        
+        const typeObj = types[i % types.length];
+        
+        features.push({
+            type: "Feature",
+            properties: {
+                name: `${symbol} ${typeObj.id}_${i.toString().padStart(2, '0')}`,
+                type: typeObj.id,
+                capacity: Math.floor(Math.random() * 100) + "%",
+                throughput: (Math.random() * 50).toFixed(1) + " units/hr",
+                status: Math.random() > 0.1 ? "OPERATIONAL" : "CONGESTED",
+                label: typeObj.label
+            },
+            geometry: {
+                type: "Point",
+                coordinates: [lng + r2, lat + r1]
+            }
+        });
+    }
+
+    setLocalStoresFeatureCollection({ type: "FeatureCollection", features });
+  }, [selectedStock, zoom]);
+
+  // Sync Local Stores Layer
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isStyleLoaded) return;
+
+    const sourceId = "local-stores-source";
+    const layerId = "local-stores-layer";
+    const labelLayerId = "local-stores-labels";
+
+    const updateLayer = () => {
+      if (!map.getSource(sourceId)) {
+          map.addSource(sourceId, {
+              type: "geojson",
+              data: localStoresFeatureCollection
+          });
+
+          map.addLayer({
+              id: layerId,
+              type: "circle",
+              source: sourceId,
+              minzoom: 14,
+              paint: {
+                  "circle-radius": [
+                      "interpolate", ["linear"], ["zoom"],
+                      14, 3,
+                      18, 8
+                  ],
+                  "circle-color": [
+                      "match", ["get", "type"],
+                      "MOM_POP_RETAIL", "#fbbf24",
+                      "TRANSIT_NODE", "#60a5fa",
+                      "LOGISTICS_HUB", "#22d3ee",
+                      "INDUSTRIAL_OUTPOST", "#94a3b8",
+                      "#10b981"
+                  ],
+                  "circle-stroke-width": 1.5,
+                  "circle-stroke-color": "#000000",
+                  "circle-opacity": 0.9
+              }
+          });
+
+          map.addLayer({
+              id: labelLayerId,
+              type: "symbol",
+              source: sourceId,
+              minzoom: 15.8, // Show labels only when very close
+              layout: {
+                  "text-field": ["get", "label"],
+                  "text-size": 8,
+                  "text-offset": [0, 1.4],
+                  "text-anchor": "top",
+                  "text-font": ["Open Sans Regular"]
+              },
+              paint: {
+                  "text-color": "#a1a1aa",
+                  "text-halo-color": "#000000",
+                  "text-halo-width": 1
+              }
+          });
+
+          // Interaction: Hover cursor
+          map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; });
+
+          // Interaction: Click Tactical Popup
+          map.on("click", layerId, (e) => {
+              if (!e.features) return;
+              const feat = e.features[0];
+              const props = feat.properties;
+              const coords = (feat.geometry as any).coordinates;
+              const lat = coords[1];
+              const lng = coords[0];
+              
+              new maplibregl.Popup({ offset: 10, maxWidth: "none" })
+                  .setLngLat(coords)
+                  .setHTML(`
+                      <div style="font-family: monospace; background: #000000; border: 1px solid rgba(16,185,129,0.4); padding: 8px; border-radius: 2px; color: #10b981; min-width: 220px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                          <div style="font-size: 7px; color: #666; margin-bottom: 4px; display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding-bottom: 2px;">
+                              <span>TACTICAL_OVERLAY_v4.2</span>
+                              <span>${props.type}</span>
+                          </div>
+                          <div style="font-weight: 900; font-size: 10px; margin-bottom: 6px; letter-spacing: 0.05em;">${props.name}</div>
+                          
+                          <iframe 
+                              src="https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0&output=svembed" 
+                              width="100%" 
+                              height="120" 
+                              frameborder="0" 
+                              style="border:1px solid #10b98133; margin-bottom: 6px; border-radius: 2px;" 
+                              allowfullscreen>
+                          </iframe>
+
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 8px;">
+                              <div style="color: #666;">CAPACITY:</div>
+                              <div style="text-align: right; color: #ddd;">${props.capacity}</div>
+                              
+                              <div style="color: #666;">THROUGHPUT:</div>
+                              <div style="text-align: right; color: #ddd;">${props.throughput}</div>
+                              
+                              <div style="color: #666;">STATUS:</div>
+                              <div style="text-align: right; color: ${props.status === 'OPERATIONAL' ? '#10b981' : '#f59e0b'}; font-weight: bold;">${props.status}</div>
+                          </div>
+                          
+                          <div style="margin-top: 6px; font-size: 6px; color: #333; text-align: center; font-style: italic;">RELAY_CONNECTED_VIA_${selectedStock?.symbol}</div>
+                      </div>
+                  `)
+                  .addTo(map);
+          });
+      } else {
+          const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
+          if (source) source.setData(localStoresFeatureCollection);
+      }
+    };
+
+    updateLayer();
+  }, [localStoresFeatureCollection, isStyleLoaded]);
 
   // Initialize Map
   useEffect(() => {
@@ -80,7 +252,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center: [0, 0],
       zoom: 2,
-      maxZoom: 12,
+      minZoom: 0.5,
+      maxZoom: 20,
       pitch: 0,
       bearing: 0,
       minPitch: 0,
@@ -459,6 +632,71 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
     }
   }, [partnerLines, isStyleLoaded]);
 
+  // Toggle 3D Buildings
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isStyleLoaded) return;
+
+    if (show3DBuildings) {
+      // Find the label layer to insert buildings beneath
+      const layers = map.getStyle().layers;
+      let labelLayerId: string | undefined;
+      if (layers) {
+        for (let i = 0; i < layers.length; i++) {
+          if (layers[i].type === 'symbol' && layers[i].layout && (layers[i].layout as any)['text-field']) {
+            labelLayerId = layers[i].id;
+            break;
+          }
+        }
+      }
+
+      if (!map.getLayer('3d-buildings')) {
+        // Standard OSM building source-layer is 'building' or 'buildings'
+        // Carto/MapLibre often uses 'building'
+        try {
+          map.addLayer(
+            {
+              'id': '3d-buildings',
+              'source': 'carto',
+              'source-layer': 'building',
+              'type': 'fill-extrusion',
+              'minzoom': 15,
+              'paint': {
+                'fill-extrusion-color': '#555555',
+                'fill-extrusion-height': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  15,
+                  0,
+                  15.05,
+                  ['get', 'render_height']
+                ],
+                'fill-extrusion-base': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  15,
+                  0,
+                  15.05,
+                  ['get', 'render_min_height']
+                ],
+                'fill-extrusion-opacity': 0.6
+              }
+            },
+            labelLayerId
+          );
+        } catch (e) {
+          console.warn("Could not add 3D buildings layer - possible source/layer mismatch", e);
+        }
+      } else {
+        map.setLayoutProperty('3d-buildings', 'visibility', 'visible');
+      }
+    } else if (map.getLayer('3d-buildings')) {
+      map.setLayoutProperty('3d-buildings', 'visibility', 'none');
+    }
+  }, [show3DBuildings, isStyleLoaded]);
+
   const resetOrientation = () => {
     if (mapRef.current) {
       mapRef.current.easeTo({
@@ -535,7 +773,11 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03)_0%,transparent_80%)] pointer-events-none" />
         
         {/* Vignette for cinematic depth */}
-        <div className="absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)]" />
+        <div className="absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] pointer-events-none" />
+        
+        {/* CRT Scanline Overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 bg-[length:100%_2px,3px_100%]" />
+
       </div>
 
 
@@ -543,27 +785,80 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       {/* Navigation Controls */}
       <div className="absolute top-6 right-6 z-30 flex flex-col gap-2">
         <NavButton 
+          icon={<Box size={16} />} 
+          onClick={() => setShow3DBuildings(!show3DBuildings)} 
+          active={show3DBuildings}
+          label="TOGGLE_3D_STRUCTURES" 
+          className="hidden md:flex"
+        />
+        <NavButton 
           icon={<Network size={16} />} 
           onClick={toggleGlobalNetwork} 
           label="NETWORK_TOGGLE" 
+          className="hidden md:flex"
         />
         <NavButton 
           icon={<Target size={16} />} 
           onClick={toggleLiveNewsZoom} 
           label="LIVE_FETCH_AGENT" 
+          className="hidden md:flex"
         />
-        <NavButton icon={<ZoomIn size={16} />} onClick={zoomIn} label="ZOOM_IN" />
-        <NavButton icon={<ZoomOut size={16} />} onClick={zoomOut} label="ZOOM_OUT" />
-        <div className="h-px bg-emerald-500/20 my-1 mx-2" />
-        <NavButton 
-          icon={
-            <span style={{ transform: `rotate(${-bearing}deg)`, transition: 'transform 0.15s ease-out' }} className="inline-block">
-              <Compass size={16} />
-            </span>
-          } 
-          onClick={resetOrientation} 
-          label="POINT_NORTH_UP" 
-        />
+        <NavButton icon={<ZoomIn size={16} />} onClick={zoomIn} label="ZOOM_IN" className="hidden md:flex" />
+        <NavButton icon={<ZoomOut size={16} />} onClick={zoomOut} label="ZOOM_OUT" className="hidden md:flex" />
+        <div className="hidden md:block h-px bg-emerald-500/20 my-1 mx-2" />
+        {/* Compass Instrument */}
+        <button
+          onClick={resetOrientation}
+          className={cn(
+            "w-12 h-12 flex items-center justify-center transition-all duration-300 border backdrop-blur-md rounded-full group/compass shadow-lg relative",
+            "bg-black/60 border-emerald-500/30 text-emerald-500/70 hover:border-emerald-500 hover:text-emerald-400"
+          )}
+          title="Reset Orientation (North Up)"
+        >
+          {/* Compass Face */}
+          <div className="relative w-10 h-10 flex items-center justify-center">
+            {/* Outer Ring */}
+            <div className="absolute inset-0 border border-emerald-500/20 rounded-full" />
+            <div className="absolute inset-1 border-[0.5px] border-emerald-500/10 rounded-full" />
+            
+            {/* Degree Ticks */}
+            {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map(deg => (
+              <div 
+                key={deg} 
+                className={cn(
+                  "absolute w-[1px] bg-emerald-500/40",
+                  deg % 90 === 0 ? "h-1.5 w-[1.5px]" : "h-1"
+                )}
+                style={{ transform: `rotate(${deg}deg) translateY(-14px)` }} 
+              />
+            ))}
+            
+            {/* Cardinals */}
+            <span className="absolute top-1 text-[6px] font-mono font-black text-emerald-500/60 tracking-tighter">N</span>
+            <span className="absolute bottom-1 text-[6px] font-mono font-black text-emerald-500/30 tracking-tighter">S</span>
+            <span className="absolute left-1 text-[6px] font-mono font-black text-emerald-500/30 tracking-tighter">W</span>
+            <span className="absolute right-1 text-[6px] font-mono font-black text-emerald-500/30 tracking-tighter">E</span>
+
+            {/* Needle Pivot */}
+            <div className="absolute w-1 h-1 bg-emerald-500 rounded-full z-10 shadow-[0_0_5px_#10b981]" />
+
+            {/* Rotating Needle */}
+            <div 
+              className="relative w-1 h-7 transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) flex flex-col"
+              style={{ transform: `rotate(${-bearing}deg)` }}
+            >
+              {/* North Half (Red) */}
+              <div className="w-full h-1/2 bg-gradient-to-t from-red-500 to-red-600 rounded-t-full shadow-[0_0_10px_rgba(239,68,68,0.4)]" />
+              {/* South Half (Silver) */}
+              <div className="w-full h-1/2 bg-gradient-to-b from-zinc-400 to-zinc-500 rounded-b-full shadow-[0_0_5px_rgba(255,255,255,0.1)] opacity-80" />
+            </div>
+          </div>
+
+          <div className="absolute right-14 px-2 py-1 bg-black/80 text-[8px] text-emerald-500 border border-emerald-500/30 rounded opacity-0 group-hover/compass:opacity-100 transition-opacity pointer-events-none whitespace-nowrap font-mono tracking-widest uppercase">
+            COMPASS_ORIENTATION
+          </div>
+        </button>
+
         <div className="h-px bg-emerald-500/20 my-1 mx-2" />
         <NavButton 
           icon={<Globe size={16} />} 
@@ -571,10 +866,10 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           active={zoom < 4}
           label="reset" 
         />
-        <div className="h-px bg-emerald-500/20 my-1 mx-2" />
+        <div className="hidden md:block h-px bg-emerald-500/20 my-1 mx-2" />
         
         {/* Slider scroll bar for Overhead to Angle view */}
-        <div className="flex flex-col items-center gap-1.5 py-2 px-1 border border-emerald-500/25 bg-black/80 backdrop-blur-md rounded-lg shadow-lg w-14 select-none">
+        <div className="hidden md:flex flex-col items-center gap-1.5 py-2 px-1 border border-emerald-500/25 bg-black/80 backdrop-blur-md rounded-lg shadow-lg w-14 select-none">
           <span className="text-[7px] text-emerald-500 font-mono tracking-wider font-semibold text-center uppercase" style={{ fontSize: '7px' }}>
             ANGLE
           </span>
@@ -628,12 +923,14 @@ const NavButton = ({
   icon, 
   onClick, 
   label, 
-  active = false 
+  active = false,
+  className
 }: { 
   icon: React.ReactNode; 
   onClick: () => void; 
   label: string;
   active?: boolean;
+  className?: string;
 }) => (
   <button
     onClick={onClick}
@@ -641,7 +938,8 @@ const NavButton = ({
       "w-10 h-10 flex items-center justify-center transition-all duration-300 border backdrop-blur-md rounded-lg group/btn shadow-lg",
       active 
         ? "bg-emerald-500/20 border-emerald-500 text-emerald-400" 
-        : "bg-black/60 border-emerald-500/30 text-emerald-500/70 hover:border-emerald-500 hover:text-emerald-400"
+        : "bg-black/60 border-emerald-500/30 text-emerald-500/70 hover:border-emerald-500 hover:text-emerald-400",
+      className
     )}
   >
     {icon}

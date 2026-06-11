@@ -4,7 +4,6 @@ import { Company, COMPANIES } from "../data/companies";
 import { useCompanies } from "../context/CompaniesContext";
 import { formatSafeTime } from "../utils/date";
 import {
-  TrendingUp,
   Newspaper,
   Activity,
   Zap,
@@ -33,7 +32,6 @@ import {
 } from "lucide-react";
 import { formatCurrency, cn, getApiBaseUrl } from "../lib/utils";
 import { analyzeSentimentAndImpact } from "../lib/sentiment";
-import { YieldCurveMonitor } from "./YieldCurveMonitor";
 import { SupplyChainPanel } from "./SupplyChainPanel";
 import { MacroCorridor } from "./yield-terminal/MacroCorridor";
 
@@ -199,6 +197,7 @@ const NeuralStreamHeader = ({ riskScore }: { riskScore: number }) => {
   );
 };
 
+
 export const IntelligenceSidebar = React.memo(
   ({
     selectedStock,
@@ -279,36 +278,9 @@ export const IntelligenceSidebar = React.memo(
     const setNewsSearch =
       setSearchQuery !== undefined ? setSearchQuery : setLocalNewsSearch;
 
-    const [activeDockTab, setActiveDockTab] = useState<
-      "LOGISTICS" | "LOGS" | "PARTNERS"
-    >("LOGISTICS");
     const [auditStatus, setAuditStatus] = useState<
       "idle" | "running" | "completed"
     >("idle");
-    const [partnerData, setPartnerData] = useState<any>({
-      usgs: [],
-      gdelt: {},
-      whaleAlert: [],
-    });
-
-    useEffect(() => {
-      if (activeDockTab === "PARTNERS") {
-        const baseUrl = getApiBaseUrl();
-        Promise.all([
-          fetch(`${baseUrl}/api/partners/usgs`).then((r) => r.json()),
-          fetch(`${baseUrl}/api/partners/gdelt`).then((r) => r.json()),
-          fetch(`${baseUrl}/api/partners/whale-alert`).then((r) => r.json()),
-        ])
-          .then(([usgs, gdelt, whaleAlert]) => {
-            setPartnerData({
-              usgs: usgs?.features?.slice(0, 5) || [],
-              gdelt: gdelt || {},
-              whaleAlert: whaleAlert?.transactions?.slice(0, 5) || [],
-            });
-          })
-          .catch(console.error);
-      }
-    }, [activeDockTab]);
     const [auditedItems, setAuditedItems] = useState<
       Record<string, "VERIFIED" | "FAILED">
     >({});
@@ -486,7 +458,7 @@ export const IntelligenceSidebar = React.memo(
             ttsCooldownRef.current = Date.now() + 600000; // 10 minutes cooldown
             throw new Error("QUOTA_EXHAUSTED");
           }
-          throw new Error("Voice uplink failed");
+          throw new Error("Voice transmission failed");
         }
 
         const data = await response.json();
@@ -882,6 +854,8 @@ export const IntelligenceSidebar = React.memo(
       });
     }, [news, newsSearch, sentimentFilter, impactFilter]);
 
+    // --- Cognitive Synthesis Agent Logic REMOVED (Moved to Deck) ---
+
     if (!selectedStock) {
       return (
         <aside className="w-52 border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden">
@@ -915,36 +889,66 @@ export const IntelligenceSidebar = React.memo(
     return (
       <aside
         className={cn(
-          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden relative transition-all duration-150",
-          "w-full",
+          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden relative transition-all duration-150 animate-crt-flicker",
+          "w-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-r border-zinc-900",
         )}
       >
-        <div className="h-12 border-b border-zinc-800 bg-zinc-950/90 flex items-center justify-between px-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981] shrink-0" />
-              <span className="text-[11px] font-black uppercase text-white tracking-[0.2em] font-mono truncate">
+        <div className="scanline-overlay" />
+      <div className="h-11 border-b border-zinc-800 bg-zinc-950/95 flex items-center justify-between px-3 shrink-0 relative overflow-hidden group">
+        {/* Hardware Markers */}
+        <div className="absolute top-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        <div className="absolute top-0 right-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        <div className="absolute bottom-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        <div className="absolute bottom-0 right-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        
+        {/* Bezel Accents */}
+        <div className="absolute top-0 left-0 w-8 h-[1px] bg-emerald-500/10" />
+        <div className="absolute top-0 left-0 w-[1px] h-8 bg-emerald-500/10" />
+        <div className="absolute top-0 right-0 w-8 h-[1px] bg-emerald-500/10" />
+        <div className="absolute top-0 right-0 w-[1px] h-8 bg-emerald-500/10" />
+        
+        {!isMinimized && (
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex items-center justify-center">
+              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]" />
+              <div className="absolute w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-40" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white font-mono truncate leading-none">
                 INTEL_COCKPIT_V4
               </span>
             </div>
-          <button onClick={onToggleMinimize} className="text-zinc-500 hover:text-white transition-colors">
-            {isMinimized ? <ChevronsLeft className="w-4 h-4" /> : <ChevronsRight className="w-4 h-4" />}
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 z-10">
+          <button
+            onClick={onToggleMinimize}
+            className="hidden md:flex text-zinc-500 hover:text-white transition-colors p-1 rounded-sm hover:bg-white/5 active:scale-95"
+            title={isMinimized ? "Expand Intelligence" : "Minimize Intelligence"}
+          >
+            {isMinimized ? (
+              <ChevronsLeft className="w-4 h-4" />
+            ) : (
+              <ChevronsRight className="w-4 h-4" />
+            )}
           </button>
         </div>
+      </div>
 
 
              <div className="flex-1 flex flex-col min-h-0">
               {/* Inner Switch Row */}
-              <div className="flex bg-black shrink-0 border-b border-zinc-900 h-10 p-1 gap-1 select-none overflow-x-auto scrollbar-none transition-all duration-150">
+              <div className="flex bg-black shrink-0 border-b border-zinc-900 h-11 p-1.5 gap-px select-none overflow-x-auto scrollbar-none transition-all duration-150">
                 {[
                   {
                     id: "STRATEGY",
-                    label: "NEWS",
-                    icon: <MapPin className="w-3.5 h-3.5" />,
+                    label: "NEWS_FEED",
+                    icon: <MapPin className="w-3 h-3" />,
                   },
                   {
                     id: "LOGISTICS_COCKPIT",
-                    label: "LOGISTICS & MATRIX",
-                    icon: <Network className="w-3.5 h-3.5" />,
+                    label: "LOGISTICS_V3",
+                    icon: <Network className="w-3 h-3" />,
                   },
                 ].map((sub) => (
                   <button
@@ -954,78 +958,54 @@ export const IntelligenceSidebar = React.memo(
                       setInnerLeftTab(sub.id as any);
                     }}
                     className={cn(
-                      "flex-1 min-w-0 flex items-center justify-center gap-1.5 text-[8px] font-mono font-black transition-all border rounded-sm px-2 shrink-0 active:scale-95",
+                      "flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 text-[7.5px] font-mono transition-all border shrink-0 active:scale-95",
                       innerLeftTab === sub.id
-                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-black shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                        : "border-zinc-900 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900",
+                        ? "bg-zinc-900 border-zinc-700 text-emerald-400 font-black"
+                        : "bg-black border-zinc-900 text-zinc-600 hover:text-zinc-500 hover:bg-zinc-950",
                     )}
                   >
-                    {sub.icon}
-                    <span className="truncate">{sub.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      {sub.icon}
+                      <span className="truncate tracking-widest">{sub.label}</span>
+                    </div>
+                    {innerLeftTab === sub.id && <div className="h-[2px] w-4 bg-emerald-500/80 mt-0.5" />}
                   </button>
                 ))}
               </div>
 
-              {/* PERMANENT YIELD STRUCTURE MONITOR */}
-              <div className="border-b border-zinc-900 p-3 bg-zinc-950/20 shrink-0 min-h-0">
-                <div className="text-[9px] font-black text-emerald-450 font-mono tracking-widest uppercase mb-1.5 flex items-center justify-between select-none">
-                  <span className="flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                    YIELD STRUCTURE: {yields?.country || "US TREASURIES"}
-                  </span>
-                  <span className="text-[7.5px] text-zinc-500 font-normal normal-case">
-                    Trajectories & risk spreads
-                  </span>
-                </div>
-                <div className="h-[150px] overflow-hidden">
-                  <YieldCurveMonitor yields={yields} />
-                </div>
-              </div>
+              {/* PERMANENT YIELD STRUCTURE MONITOR REMOVED */}
 
               <div className="p-3.5 flex-1 overflow-y-auto custom-scrollbar min-h-0">
                 {/* STRATEGY TAB CONTENT */}
                 {innerLeftTab === "STRATEGY" && selectedStock && (
-                  <div className="space-y-4">
-                    {/* Sentiment Analysis Display */}
-                    <div className="border border-zinc-900 bg-zinc-950/10 p-3 rounded-md space-y-2.5 select-none">
-                      <div className="text-[9px] font-black tracking-widest text-zinc-400 font-mono uppercase flex items-center justify-between">
-                        <span>SENTIMENT_EXPOSURE_INDEX</span>
-                        <span className="text-[7.5px] text-zinc-500 font-normal">REAL-TIME WEIGHTED</span>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="p-1.5 border border-zinc-900/60 bg-black/40 rounded-sm">
-                          <span className="text-zinc-600 block font-mono text-[6.5px] uppercase">Bullish Factor</span>
-                          <span className="text-emerald-400 font-semibold font-mono text-[11px] mt-0.5 block">{sentiment?.bullish ?? "68%"}</span>
-                        </div>
-                        <div className="p-1.5 border border-zinc-900/60 bg-black/40 rounded-sm">
-                          <span className="text-zinc-600 block font-mono text-[6.5px] uppercase">Bearish Alpha</span>
-                          <span className="text-rose-400 font-semibold font-mono text-[11px] mt-0.5 block">{sentiment?.bearish ?? "12%"}</span>
-                        </div>
-                        <div className="p-1.5 border border-zinc-900/60 bg-black/40 rounded-sm">
-                          <span className="text-zinc-600 block font-mono text-[6.5px] uppercase">Neutral Delta</span>
-                          <span className="text-zinc-400 font-semibold font-mono text-[11px] mt-0.5 block">{sentiment?.neutral ?? "20%"}</span>
-                        </div>
-                      </div>
-
-                      {/* Directional bias banner */}
-                      <div className="text-[8px] font-mono p-1.5 bg-black border border-emerald-950/30 text-emerald-500/80 uppercase text-center tracking-wider">
-                        BIAS_TRAJECTORY_SIGNAL // NET_POSiTiVE [STABLE]
-                      </div>
-                    </div>
-
+                   <div className="space-y-4">
                     {/* Live News Engine / Signal Feed Section */}
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between font-mono">
-                        <div className="text-[9px] text-zinc-400 font-black tracking-widest uppercase flex items-center gap-1.5 font-mono">
-                          <Newspaper className="w-3.5 h-3.5 text-emerald-500" />
-                          LIVE_COGNITIVE_NEWS_FEED
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="relative">
+                            <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                            <motion.div 
+                              animate={{ opacity: [0.2, 1, 0.2] }}
+                              transition={{ duration: 1.5, repeat: Infinity }}
+                              className="absolute inset-0 bg-emerald-400 blur-[2px] rounded-full" 
+                            />
+                          </div>
+                          <span className="text-[9px] text-zinc-400 font-black tracking-[0.15em] uppercase font-mono">LIVE_COGNITIVE_FEED</span>
                         </div>
-                        {quotaExhausted && (
-                          <span className="text-[7px] text-amber-500 border border-amber-500/30 px-1 py-0.5 font-bold animate-pulse">
-                            LIMIT_EXCLUSION_ACTIVE
-                          </span>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {isAiProcessing && (
+                            <div className="flex items-center gap-1.5 border border-emerald-500/30 px-1.5 py-0.5 bg-emerald-500/5">
+                              <RefreshCcw className="w-2 h-2 text-emerald-500 animate-spin" />
+                              <span className="text-[6px] text-emerald-500 font-black font-mono animate-pulse uppercase">Syncing_Nodes</span>
+                            </div>
+                          )}
+                          {quotaExhausted && (
+                            <span className="text-[7px] text-amber-500 border border-amber-500/30 px-1 py-0.5 font-bold animate-pulse">
+                              LIMIT_EXCLUSION_ACTIVE
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Filter Bar Controls */}
@@ -1060,56 +1040,90 @@ export const IntelligenceSidebar = React.memo(
 
                       {/* News List */}
                       {filteredNews.length > 0 ? (
-                        <div className="space-y-2 pr-0.5">
-                          {filteredNews.slice(0, 8).map((item: any, idx: number) => {
-                            const { sentiment: compSentiment, impact: compImpact } =
+                        <div className="space-y-3 pr-0.5">
+                          {filteredNews.slice(0, 10).map((item: any, idx: number) => {
+                            const { sentiment: compSentiment, impact: compImpact, strength: compStrength } =
                               analyzeSentimentAndImpact(item);
                             return (
                               <div
                                 key={idx}
-                                className="p-2 border border-zinc-900 bg-black/40 hover:border-zinc-850 transition-all rounded-sm font-mono space-y-1.5"
+                                className="group border border-zinc-900 bg-zinc-950/20 hover:border-emerald-500/40 hover:bg-zinc-900/10 transition-all rounded-xs font-mono overflow-hidden flex flex-col relative"
                               >
-                                <div className="flex justify-between items-start gap-2 select-none text-[7.5px]">
-                                  <span className="text-zinc-600 font-bold tracking-tight">
-                                    {item.source || "REUTERS_UPLINK"} • {formatSafeTime(item.datetime)}
-                                  </span>
-                                  <div className="flex gap-1 shrink-0">
+                                {compImpact === "CRITICAL" && (
+                                  <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none overflow-hidden">
+                                    <div className="absolute top-0 right-0 bg-red-500/10 text-red-500 text-[5px] font-black rotate-45 translate-x-6 translate-y-3 py-0.5 px-6 uppercase tracking-widest border-y border-red-500/20">
+                                      SHOCK
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                <div className="flex justify-between items-center px-2 py-1 bg-zinc-900/40 border-b border-zinc-900/60 select-none group-hover:bg-zinc-900/60 transition-colors">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[6.5px] text-zinc-500 font-bold tracking-widest uppercase">
+                                      PKT_{idx.toString().padStart(3, '0')} // {item.source ? item.source.slice(0, 12).toUpperCase() : "SIGNAL_GATE"}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2 shrink-0 items-center">
+                                    <div className="w-16 h-1 bg-zinc-900 rounded-full overflow-hidden">
+                                       <div 
+                                         className={cn(
+                                           "h-full transition-all duration-1000",
+                                           compSentiment === "BULLISH" ? "bg-emerald-500" : compSentiment === "BEARISH" ? "bg-red-500" : "bg-zinc-600"
+                                         )} 
+                                         style={{ width: `${compStrength}%` }}
+                                       />
+                                    </div>
                                     <span
                                       className={cn(
-                                        "px-1 font-extrabold uppercase border rounded-2xs text-[6.5px]",
+                                        "font-black uppercase text-[6px] tracking-widest",
                                         compSentiment === "BULLISH"
-                                          ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-400"
+                                          ? "text-emerald-500"
                                           : compSentiment === "BEARISH"
-                                            ? "bg-rose-950/20 border-rose-500/30 text-rose-450"
-                                            : "bg-zinc-900 border-zinc-850 text-zinc-400"
+                                            ? "text-rose-500"
+                                            : "text-zinc-500"
                                       )}
                                     >
                                       {compSentiment}
                                     </span>
-                                    <span
-                                      className={cn(
-                                        "px-1 font-extrabold uppercase border rounded-2xs text-[6.5px]",
-                                        compImpact === "CRITICAL"
-                                          ? "bg-red-950/30 border-red-500/30 text-red-500"
-                                          : compImpact === "MODERATE"
-                                            ? "bg-amber-950/30 border-amber-500/30 text-amber-500"
-                                            : "bg-zinc-900 border-zinc-850 text-zinc-500"
-                                      )}
-                                    >
-                                      {compImpact}
-                                    </span>
                                   </div>
                                 </div>
-                                <h4 className="text-[9px] font-sans font-bold leading-snug text-zinc-100 hover:text-emerald-400 transition-colors">
-                                  {item.title}
-                                </h4>
-                                {item.summary && (
-                                  <p className="text-[8px] leading-relaxed text-zinc-500 italic font-mono break-words border-t border-zinc-900/40 pt-1">
-                                    {item.summary.length > 120
-                                      ? `${item.summary.slice(0, 120)}...`
-                                      : item.summary}
-                                  </p>
-                                )}
+                                <div className="p-2.5 space-y-2">
+                                  <h4 className="text-[9.5px] font-sans font-bold leading-snug text-white/90 group-hover:text-white transition-colors">
+                                    {item.intelligence?.translatedTitle || item.title}
+                                  </h4>
+                                  
+                                  {item.intelligence?.relationshipImplications && (
+                                    <div className="text-[7.5px] text-emerald-500/60 font-mono italic leading-tight pl-2 border-l border-emerald-500/20 py-0.5">
+                                      Neural Projection: {item.intelligence.relationshipImplications}
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-center justify-between pt-1">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-[6.5px] text-zinc-600 font-bold uppercase">{formatSafeTime(item.datetime)}</span>
+                                      <div className="flex items-center gap-1 text-[6.5px] text-zinc-700 font-mono">
+                                        <GlobeIcon className="w-2.5 h-2.5" />
+                                        <span>LOC::GLOBAL</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => handleSpeak(item.title + (item.summary ? ". " + item.summary : ""))}
+                                        className="text-emerald-500/50 hover:text-emerald-400 focus:outline-none transition-colors border border-emerald-500/30 rounded-2xs px-1.5 py-0.5 bg-emerald-500/5 hover:bg-emerald-500/20 flex items-center gap-1"
+                                        title="Play Synthesis"
+                                      >
+                                        <Play className="w-2 h-2" />
+                                        <span className="text-[5.5px] uppercase font-black tracking-widest leading-none">AUDIO</span>
+                                      </button>
+                                      <span className={cn(
+                                        "text-[6.5px] font-black uppercase tracking-tighter px-1 rounded-2xs border",
+                                        compImpact === "CRITICAL" ? "text-red-500 border-red-500/30 bg-red-500/5 animate-pulse" : "text-zinc-700 border-zinc-900"
+                                      )}>
+                                        IMPACT::{compImpact}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             );
                           })}
@@ -1126,52 +1140,14 @@ export const IntelligenceSidebar = React.memo(
                 {/* LOGISTICS COCKPIT TAB CONTENT */}
                 {innerLeftTab === "LOGISTICS_COCKPIT" && selectedStock && (
                   <div className="space-y-4">
-                    {/* Concentric-style Risk Meter */}
-                    <div className="p-3 border border-zinc-900 bg-zinc-950/15 rounded-md space-y-2">
-                      <div className="flex justify-between items-center font-mono text-[9px] select-none">
-                        <span className="text-zinc-500 uppercase">
-                          MATRIX STRESS INDEX
-                        </span>
-                        <span
-                          className={cn(
-                            "font-bold text-[10.5px]",
-                            calculatedRiskScore >= 75
-                              ? "text-red-500"
-                              : calculatedRiskScore >= 45
-                                ? "text-amber-500"
-                                : "text-emerald-500",
-                          )}
-                        >
-                          {calculatedRiskScore}% RISK
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-zinc-900 overflow-hidden rounded-full">
-                        <div
-                          className={cn(
-                            "h-full transition-all duration-300",
-                            calculatedRiskScore >= 75
-                              ? "bg-red-600"
-                              : calculatedRiskScore >= 45
-                                ? "bg-amber-500"
-                                : "bg-emerald-500",
-                          )}
-                          style={{ width: `${calculatedRiskScore}%` }}
-                          id="risk-meter-bar"
-                        />
-                      </div>
-                      <div className="text-[8px] text-zinc-400 leading-normal border-l border-zinc-700 pl-1.5 italic font-mono">
-                        STATUS // {threatLevelText}
-                      </div>
-                    </div>
-
                     {/* Stress Monitor HUD */}
-                    <div className="p-3 border border-red-900/30 bg-red-950/5 rounded-sm space-y-2">
-                      <div className="font-mono text-[8.5px] text-red-400 font-black tracking-widest uppercase border-b border-red-950/30 pb-1 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <Flame className="w-3.5 h-3.5 text-red-500 animate-pulse" />
-                          ACTIVE_STRESS_CHOKEPOINTS
-                        </span>
-                        <span className="text-[7px] bg-red-950/40 border border-red-900/30 px-1 py-0.5 rounded-2xs text-red-500 animate-pulse">
+                    <div className="p-3 border border-red-900/30 bg-red-950/5 rounded-sm space-y-3">
+                      <div className="flex items-center justify-between border-b border-red-950/30 pb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-3 bg-red-500/50 rounded-full" />
+                          <span className="text-[9px] text-red-400 font-mono font-black uppercase tracking-[0.15em]">STRESS_CHOKEPOINT_VECTORS</span>
+                        </div>
+                        <span className="text-[7px] bg-red-950/40 border border-red-900/30 px-1 py-0.5 rounded-2xs text-red-500 animate-pulse font-bold">
                           THREAT_DETECTION
                         </span>
                       </div>
@@ -1287,12 +1263,12 @@ export const IntelligenceSidebar = React.memo(
                     {SOURCED_MATERIALS && SOURCED_MATERIALS.length > 0 && (
                       <div className="p-3 bg-black border border-zinc-900 rounded-sm space-y-3">
                         <div className="flex items-center justify-between border-b border-zinc-900 pb-2 select-none font-mono">
-                          <div className="text-[9px] text-emerald-400 font-black tracking-widest uppercase flex items-center gap-1.5">
-                            <Box className="w-3.5 h-3.5 text-emerald-500" />
-                            SOURCED_MATERIAL_INVENTORY
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                            <span className="text-[9px] text-zinc-400 font-black tracking-[0.15em] uppercase">MATERIAL_INVENTORY_ROOT</span>
                           </div>
                           <span className="text-[7.5px] bg-emerald-950/30 text-emerald-400 px-1.5 py-0.5 border border-emerald-900/30 font-bold uppercase">
-                            TIER_3_VULN
+                            VULN_SCAN_ACTIVE
                           </span>
                         </div>
 
@@ -1360,113 +1336,28 @@ export const IntelligenceSidebar = React.memo(
               </div>
             </div>
 
-            {/* Bottom Dock */}
-            <div className="h-[120px] border-t border-emerald-950 bg-black/90 flex flex-col">
-              <div className="flex border-b border-emerald-950 text-[9px] font-mono">
-                {["LOGISTICS", "LOGS", "PARTNERS"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveDockTab(tab as any)}
-                    className={cn(
-                      "flex-1 p-1.5",
-                      activeDockTab === tab
-                        ? "text-emerald-400"
-                        : "text-emerald-700",
-                    )}
-                  >
-                    {tab}
-                  </button>
-                ))}
+            {/* Neural Pulse Feed Segment */}
+            <div className="h-10 border-t border-zinc-900 bg-black flex items-center px-3 overflow-hidden select-none whitespace-nowrap gap-6">
+              <div className="flex items-center gap-1.5 shrink-0 border-r border-zinc-900 pr-3">
+                <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
+                <span className="text-[8px] font-mono font-black text-emerald-500 uppercase tracking-widest">LIVE_FLOW</span>
               </div>
-              <div className="flex-1 p-2 font-mono overflow-y-auto">
-                {activeDockTab === "PARTNERS" && (
-                  <div className="space-y-3 text-[8.5px]">
-                    <div>
-                      <span className="text-zinc-500 font-bold uppercase">
-                        USGS Hazards:
-                      </span>
-                      {(partnerData.usgs || []).map((h: any, i: number) => (
-                        <div key={i} className="text-emerald-400">
-                          {h.properties?.title || "Seismic Event"}
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <span className="text-zinc-500 font-bold uppercase">
-                        Whale Alert:
-                      </span>
-                      {(partnerData.whaleAlert || []).map(
-                        (t: any, i: number) => (
-                          <div key={i} className="text-blue-400">
-                            {t.amount} {t.symbol}
-                          </div>
-                        ),
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-zinc-500 font-bold uppercase">
-                        GDELT Global Monitor:
-                      </span>
-                      {(partnerData.gdelt?.articles || [])
-                        .slice(0, 3)
-                        .map((a: any, i: number) => (
-                          <div key={i} className="text-zinc-400">
-                            {a.title}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-                {activeDockTab === "LOGISTICS" && (
-                  <div className="space-y-1.5 text-[8.5px]">
-                    <div className="flex items-center gap-1.5 bg-zinc-900/50 p-1 border border-zinc-900">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                      <span className="text-zinc-400">NODE STATUS: ACTIVE</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <div className="p-1 border border-zinc-900/50 bg-black">
-                        <span className="text-zinc-600 block mb-0.5">
-                          LATENCY (MS)
-                        </span>
-                        <span className="text-emerald-400 font-black">
-                          12.4
-                        </span>
-                      </div>
-                      <div className="p-1 border border-zinc-900/50 bg-black">
-                        <span className="text-zinc-600 block mb-0.5">
-                          UPLINK CAP
-                        </span>
-                        <span className="text-emerald-400 font-black">
-                          99.8%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {activeDockTab === "LOGS" && (
-                  <div className="space-y-0.5 text-[8px] leading-tight flex flex-col-reverse justify-end h-full">
-                    {logs && logs.length > 0 ? (
-                      logs
-                        .slice(-6)
-                        .reverse()
-                        .map((log, i) => (
-                          <div key={i} className="flex gap-1.5">
-                            <span className="text-emerald-800 shrink-0">
-                              [{new Date().toISOString().slice(11, 19)}]
-                            </span>
-                            <span className="text-emerald-400 break-all">
-                              {log}
-                            </span>
-                          </div>
-                        ))
-                        .reverse()
-                    ) : (
-                      <div className="text-zinc-600 italic">
-                        No system logs available
-                      </div>
-                    )}
-                  </div>
-                )}
+              <div className="flex-1 flex gap-8 items-center animate-[marquee_60s_linear_infinite]">
+                 {pulseFeed.map((pulse, i) => (
+                   <div key={i} className="flex items-center gap-2 text-[7.5px] font-mono">
+                     <span className={cn("font-black px-1 border border-current rounded-xs", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
+                     <span className="text-zinc-400 font-medium">{pulse.msg}</span>
+                     <span className="text-zinc-600 font-bold">{pulse.time}</span>
+                   </div>
+                 ))}
+                 {/* Duplicated for smooth loop */}
+                 {pulseFeed.map((pulse, i) => (
+                   <div key={`${i}-dup`} className="flex items-center gap-2 text-[7.5px] font-mono">
+                     <span className={cn("font-black px-1 border border-current rounded-xs", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
+                     <span className="text-zinc-400 font-medium">{pulse.msg}</span>
+                     <span className="text-zinc-600 font-bold">{pulse.time}</span>
+                   </div>
+                 ))}
               </div>
             </div>
         </aside>

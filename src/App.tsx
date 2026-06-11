@@ -20,7 +20,10 @@ import {
   Network,
   RefreshCcw,
   Compass,
+  Mic,
+  Zap,
 } from "lucide-react";
+import { analyzeSentimentAndImpact } from "./lib/sentiment";
 import { cn } from "./lib/utils";
 import { AccessWall } from "./components/AccessWall";
 import { Header } from "./components/Header";
@@ -39,6 +42,7 @@ import { getApiBaseUrl } from "./lib/utils";
 import { generateCompanySpecificNews } from "./utils/mockNews";
 
 import { MapLayer } from "./components/MapLayer";
+import { YieldCurveMonitor } from "./components/YieldCurveMonitor";
 
 // Production Config Resolution
 interface TerminalConfig {
@@ -135,14 +139,12 @@ export default function App() {
     }
   };
 
-  // Initialize sidebars - open by default if width >= 1024
+  // Initialize sidebars - open by default
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 1024) {
-        setIsDataSidebarMinimized(true);
-        setIsIntelSidebarMinimized(true);
-      } else {
+      // Removed auto-minimize logic for mobile to respect user request for default expansion
+      if (width >= 1024) {
         setIsDataSidebarMinimized(false);
         setIsIntelSidebarMinimized(false);
       }
@@ -282,6 +284,7 @@ export default function App() {
   }, [systemRiskScore]);
 
   const [mobileView, setMobileView] = useState<"INTEL" | "DATA">("INTEL");
+  const [mobileMapCollapsed, setMobileMapCollapsed] = useState(false);
 
   const toggleMapLayer = (layer: string) =>
     setMapLayers((prev) => ({
@@ -331,6 +334,38 @@ export default function App() {
   const searchedResults = useMemo(() => {
     return searchAndScoreCompanies(allCompanies || companies, searchQuery);
   }, [allCompanies, companies, searchQuery]);
+
+  // --- Cognitive Synthesis Agent Logic (Transplanted from Sidebar) ---
+  const cognitiveSynthesis = useMemo(() => {
+    if (marketData.news.length === 0) return null;
+    
+    const sentimentCounts = { BULLISH: 0, BEARISH: 0, NEUTRAL: 0 };
+    let criticalImpactCount = 0;
+    
+    marketData.news.slice(0, 10).forEach(item => {
+      const { sentiment: s, impact: i } = analyzeSentimentAndImpact(item);
+      sentimentCounts[s]++;
+      if (i === "CRITICAL") criticalImpactCount++;
+    });
+
+    const total = marketData.news.length;
+    const primarySentiment = Object.entries(sentimentCounts).sort((a, b) => b[1] - (a[1] as any))[0][0];
+    
+    let synthesis = "";
+    if (primarySentiment === "BULLISH") {
+      synthesis = `Consensus: BULLISH bias [${total} signals]. Strengthening accumulation.`;
+    } else if (primarySentiment === "BEARISH") {
+      synthesis = `Consensus: BEARISH pressure. Partner liquidation risk elevated.`;
+    } else {
+      synthesis = `Consensus: EQUILIBRIUM. Volatility within baseline.`;
+    }
+
+    return {
+      text: synthesis,
+      primarySentiment,
+      riskLevel: criticalImpactCount > 1 ? "HIGH" : criticalImpactCount > 0 ? "ELEVATED" : "OPTIMAL"
+    };
+  }, [marketData.news]);
 
   const finalFilteredMatches = useMemo(() => {
     let matches = searchedResults.filter((match) => {
@@ -752,7 +787,8 @@ export default function App() {
         setAllMarketData((prev) => ({ ...prev, ...results }));
 
         // 2. Global Yields Baseline
-        const yRes = await telemetryFetch("/api/yields?country=USA");
+        const country = selectedStock?.country || "USA";
+        const yRes = await telemetryFetch(`/api/yields?country=${country}`);
         if (yRes.ok) setMarketData({ yields: await yRes.json() });
 
         // 3. Force Silo Rehydration for Active Context
@@ -1073,6 +1109,22 @@ export default function App() {
 
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-[#050505] text-zinc-300 font-sans border-2 border-zinc-900 selection:bg-emerald-500/30 selection:text-emerald-100 relative shadow-[inset_0_0_150px_rgba(0,0,0,0.9)]">
+      {/* HUD Corner Accents */}
+      <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-500/30 m-2 pointer-events-none z-50 rounded-tl-sm" />
+      <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-500/30 m-2 pointer-events-none z-50 rounded-tr-sm" />
+      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-500/10 m-2 pointer-events-none z-50 rounded-bl-sm" />
+      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-500/10 m-2 pointer-events-none z-50 rounded-br-sm" />
+
+      {/* System Status Ticker (Top Left) */}
+      <div className="absolute top-1 left-12 z-[100] pointer-events-none hidden lg:flex items-center gap-4">
+        <div className="flex items-center gap-1.5">
+          <div className="w-1 h-1 bg-emerald-500 animate-pulse" />
+          <span className="text-[6px] font-mono text-zinc-500 font-black uppercase tracking-[0.2em]">BOOT::SECURE_INIT</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[6px] font-mono text-zinc-700 font-black uppercase tracking-[0.2em]">LATENCY::24MS</span>
+        </div>
+      </div>
       {/* CRT Scanline Overlay */}
       <div className="pointer-events-none absolute inset-0 z-50 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%)] bg-[length:100%_3px] opacity-40 invisible" />
       <div className="pointer-events-none absolute inset-0 z-50 bg-scan-line opacity-10 invisible" />
@@ -1228,9 +1280,11 @@ export default function App() {
             ))}
           </div>
         </div>
+      </div>
 
         {/* PANEL G: DATA_FLOW (ACROSS THE TOP) */}
-        <div className="border-t border-zinc-900 bg-black py-1.5 px-4 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 select-none shrink-0 relative z-30">
+        <div className="border-t border-zinc-900 bg-black py-1 px-4 flex flex-row items-center gap-4 select-none shrink-0 relative z-[500] overflow-visible">
+          {/* Label */}
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
             <span className="text-[8px] text-zinc-400 font-mono font-black uppercase tracking-[0.15em] whitespace-nowrap">
@@ -1238,29 +1292,9 @@ export default function App() {
             </span>
           </div>
 
-          <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 relative w-full select-none">
-            {/* Vocalizer Button - Left of Search Bar */}
-            <button
-              onClick={() => toggleVocalizer(!isVocalizerEnabled)}
-              title="Toggle Vocalizer AI Engine"
-              className={cn(
-                "px-2 py-0.5 text-[6.5px] font-mono font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer rounded-xs h-5 shrink-0 border",
-                isVocalizerEnabled
-                  ? "bg-cyan-500/10 border-cyan-500 text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.2)]"
-                  : "border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-500",
-              )}
-            >
-              <div
-                className={cn(
-                  "w-1 h-1 rounded-full",
-                  isVocalizerEnabled ? "bg-cyan-400 animate-pulse" : "bg-zinc-700",
-                )}
-              />
-              <span>VOCALIZER_AI</span>
-            </button>
-
-            {/* Stretched Search Bar */}
-            <div className="relative flex-1 min-w-[200px] flex items-center">
+          <div className="flex items-center gap-4 flex-1 min-w-0 overflow-visible">
+            {/* Search Bar Container */}
+            <div className="relative flex-[0_0_240px] flex items-center overflow-visible">
               <input
                 ref={searchInputRef}
                 type="text"
@@ -1272,11 +1306,7 @@ export default function App() {
                   if (e.key === "Enter" && searchQuery) {
                     e.preventDefault();
                     if (finalFilteredMatches.length > 0) {
-                      handleSelectNode(
-                        finalFilteredMatches[0].company,
-                        false,
-                        true,
-                      );
+                      handleSelectNode(finalFilteredMatches[0].company, false, true);
                       setSearchQuery("");
                       setTimeout(() => setIsSearchFocused(false), 50);
                     } else if (handleAgentSearch) {
@@ -1288,207 +1318,169 @@ export default function App() {
                 className="w-full bg-zinc-950 text-emerald-400 border border-zinc-900 pl-6 pr-3 py-0.5 text-[8.5px] font-mono outline-none rounded-xs focus:border-emerald-500/40 transition-all placeholder-zinc-800 uppercase tracking-widest focus:bg-black"
               />
               <Search className="w-2.5 h-2.5 text-zinc-700 absolute left-2" />
-            </div>
-
-            {/* Other controls aligned on the right of the stretched search bar */}
-            <div className="flex gap-1 items-center shrink-0">
-              <button
-                onClick={() => {
-                  if (networkAnchor) {
-                    setNetworkAnchor(null);
-                  } else if (selectedStock) {
-                    setNetworkAnchor(selectedStock);
-                    setViewportLock(true);
-                    setMapFocusStock(selectedStock);
-                  } else if (companies && companies.length > 0) {
-                    setSelectedStock(companies[0]);
-                    setNetworkAnchor(companies[0]);
-                    setViewportLock(true);
-                    setMapFocusStock(companies[0]);
-                  }
-                }}
-                className={cn(
-                  "px-2 py-0.5 text-[7px] border h-5 flex items-center justify-center transition-all",
-                  !!networkAnchor
-                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-500"
-                    : "border-zinc-900 text-zinc-650",
-                )}
-                title="Show Connected Network"
-              >
-                <Network className="w-3 h-3" />
-              </button>
-
-
-               <button
-                onClick={() => setIsLiveNewsZoomEnabled(!isLiveNewsZoomEnabled)}
-                title="Toggle Live News Camera Focus Link"
-                className={cn(
-                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1 cursor-pointer rounded-xs h-5 border",
-                  isLiveNewsZoomEnabled
-                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
-                    : "border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-500",
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-1 h-1 rounded-full",
-                    isLiveNewsZoomEnabled ? "bg-emerald-400 animate-pulse" : "bg-zinc-700",
-                  )}
-                />
-                <MapPin className="w-2.5 h-2.5" />
-                <span>LIVE_FETCH_AGENT</span>
-              </button>
-
-              <button
-                onClick={() => setIsLiveNewsEnabled(!isLiveNewsEnabled)}
-                title="Toggle Live News Window Popups"
-                className={cn(
-                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1 cursor-pointer rounded-xs h-5 border",
-                  isLiveNewsEnabled
-                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
-                    : "border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-500",
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-1 h-1 rounded-full",
-                    isLiveNewsEnabled ? "bg-emerald-400 animate-pulse" : "bg-zinc-700",
-                  )}
-                />
-                <Newspaper className="w-2.5 h-2.5" />
-                <span>NEWS_FEED_AGENT</span>
-              </button>
-
-              <button
-                onClick={() => setAutoRotateEnabled(!autoRotateEnabled)}
-                title="Toggle Slow Orbit Globe Rotation"
-                className={cn(
-                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1 cursor-pointer rounded-xs h-5 border",
-                  autoRotateEnabled
-                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
-                    : "border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-500",
-                )}
-              >
-                <div
-                  className={cn(
-                    "w-1 h-1 rounded-full",
-                    autoRotateEnabled ? "bg-emerald-400 animate-pulse" : "bg-zinc-700",
-                  )}
-                />
-                <span>ORBIT_ROTATION</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  if (!isWebGLSupported()) {
-                    console.warn(
-                      "3D Globe centering is disabled because WebGL is not supported in this environment.",
-                    );
-                    return;
-                  }
-                  setAutoRotateEnabled(false);
-                  setResetOrientationTrigger((prev) => prev + 1);
-                  if (viewportLock) {
-                    setViewportLock(false);
-                    setTimeout(() => setViewportLock(true), 50);
-                  } else {
-                    setViewportLock(true);
-                  }
-                }}
-                title="Center View to Target Node"
-                className={cn(
-                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center justify-center gap-1 cursor-pointer rounded-xs h-5 bg-blue-950/20 border-blue-500/30 text-blue-400 hover:text-blue-300 hover:border-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.15)] border",
-                )}
-              >
-                <Compass className="w-2.5 h-2.5 text-blue-400 animate-pulse shrink-0" />
-                <span>CENTER_VIEW</span>
-              </button>
-            </div>
-
-            <AnimatePresence>
-              {(isSearchFocused || searchQuery.trim().length > 0) && (
-                <motion.div
-                  initial={{ opacity: 0, y: -2 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -2 }}
-                  transition={{ duration: 0.1 }}
-                  className="absolute top-full left-0 right-0 z-[200] mt-1 max-h-60 overflow-y-auto custom-scrollbar border border-emerald-500/30 bg-black/95 backdrop-blur-md rounded-xs shadow-[0_4px_20px_rgba(0,0,0,0.8)] p-px"
-                >
-                  <div className="absolute inset-x-0 h-[1px] bg-emerald-500/10 top-0 z-10 pointer-events-none" />
-                  {finalFilteredMatches.length > 0 ? (
-                    finalFilteredMatches.map(
-                      ({ company, score, matchedFields }, idx) => {
-                        const isSelected =
-                          selectedStock?.symbol === company.symbol;
+              
+              <AnimatePresence>
+                {(isSearchFocused || searchQuery.trim().length > 0) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.1 }}
+                    className="absolute top-full left-0 right-0 z-[1000] mt-1 max-h-60 overflow-y-auto custom-scrollbar border border-emerald-500/40 bg-black/95 backdrop-blur-md rounded-xs shadow-[0_10px_30px_rgba(0,0,0,0.9)] p-px"
+                  >
+                    {finalFilteredMatches.length > 0 ? (
+                      finalFilteredMatches.map(({ company }, idx) => {
+                        const isSelected = selectedStock?.symbol === company.symbol;
                         const isPinned = pinnedTickers.includes(company.symbol);
                         return (
                           <div
                             key={`${company.symbol}-${idx}`}
-                            onClick={() =>
-                              handleSelectNode(company, false, true)
-                            }
+                            onClick={() => {
+                              handleSelectNode(company, false, true);
+                              setSearchQuery(company.symbol);
+                            }}
                             className={cn(
                               "group flex items-center justify-between p-1.5 text-[10px] cursor-pointer transition-all hover:bg-emerald-500/10",
-                              isSelected
-                                ? "bg-emerald-500/5 border-l-2 border-emerald-500"
-                                : "",
+                              isSelected ? "bg-emerald-500/5 border-l-2 border-emerald-500" : ""
                             )}
                           >
                             <div className="flex items-center gap-1.5 min-w-0">
                               <span className="font-mono font-bold tracking-wider text-zinc-300 group-hover:text-emerald-400 transition-colors uppercase">
                                 {company.symbol}
                               </span>
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-zinc-650 truncate text-[9px] max-w-[120px] font-sans group-hover:text-zinc-400">
-                                  {company.name}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[7.5px] font-mono text-zinc-650 group-hover:text-zinc-400 uppercase">
-                                {company.sector}
+                              <span className="text-zinc-650 truncate text-[9px] max-w-[120px] font-sans group-hover:text-zinc-400">
+                                {company.name}
                               </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  togglePin(company.symbol, e);
-                                }}
-                                className={cn(
-                                  "p-0.5 hover:bg-zinc-900 rounded-sm transition-transform active:scale-90",
-                                  isPinned
-                                    ? "text-emerald-500"
-                                    : "text-zinc-700 hover:text-emerald-400/50",
-                                )}
-                              >
-                                <MapPin className="w-2.5 h-2.5" />
-                              </button>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[7.5px] font-mono text-zinc-650 group-hover:text-zinc-400 uppercase">
+                                  {company.sector}
+                                </span>
+                                <MapPin 
+                                  className={cn("w-2.5 h-2.5", isPinned ? "text-emerald-500" : "text-zinc-700")} 
+                                />
                             </div>
                           </div>
                         );
-                      },
-                    )
-                  ) : (
-                    <div className="text-center p-3 text-[8px] font-mono text-zinc-700 uppercase">
-                      [ 0 RADAR MATCHES ]
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                      })
+                    ) : (
+                      <div className="text-center p-3 text-[8px] font-mono text-zinc-700 uppercase">
+                        [ 0 RADAR MATCHES ]
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1">
+            {/* Scrollable Interaction Strip */}
+            <div className="flex items-center gap-4 flex-1 overflow-x-auto scrollbar-none">
+              {/* Buttons Group */}
+              <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setAutoRotateEnabled(!autoRotateEnabled)}
+                className={cn(
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 border",
+                  autoRotateEnabled ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                )}
+              >
+                <RefreshCcw className="w-2.5 h-2.5" />
+                <span className="hidden xl:inline">ORBIT_ROTATION</span>
+              </button>
+
+              <button
+                onClick={() => toggleVocalizer(!isVocalizerEnabled)}
+                className={cn(
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 border",
+                  isVocalizerEnabled ? "bg-cyan-500/10 border-cyan-500 text-cyan-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                )}
+              >
+                <Mic className="w-2.5 h-2.5" />
+                <span className="hidden xl:inline">VOCALIZER_AI</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (networkAnchor) setNetworkAnchor(null);
+                  else if (selectedStock) { setNetworkAnchor(selectedStock); setViewportLock(true); setMapFocusStock(selectedStock); }
+                }}
+                className={cn(
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase h-5 flex items-center transition-all rounded-xs gap-1 cursor-pointer border",
+                  networkAnchor ? "bg-emerald-500/10 border-emerald-500 text-emerald-450" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                )}
+              >
+                <Network className="w-2.5 h-2.5" />
+                <span className="hidden xl:inline">NETWORK</span>
+              </button>
+
+              <button
+                onClick={() => setIsLiveNewsZoomEnabled(!isLiveNewsZoomEnabled)}
+                className={cn(
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 border",
+                  isLiveNewsZoomEnabled ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                )}
+              >
+                <MapPin className="w-2.5 h-2.5" />
+                <span className="hidden xl:inline">LIVE_FETCH</span>
+              </button>
+
+              <button
+                onClick={() => setIsLiveNewsEnabled(!isLiveNewsEnabled)}
+                className={cn(
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 border",
+                  isLiveNewsEnabled ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                )}
+              >
+                <Newspaper className="w-2.5 h-2.5" />
+                <span className="hidden xl:inline">NEWS_FEED</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setResetOrientationTrigger((prev) => prev + 1);
+                  setViewportLock(true);
+                }}
+                className="px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 bg-blue-950/20 border border-blue-500/30 text-blue-400 hover:text-blue-300"
+              >
+                <Compass className="w-2.5 h-2.5 animate-pulse" />
+                <span className="hidden xl:inline">CENTER_VIEW</span>
+              </button>
+            </div>
+
+            {/* Cognitive Synthesis Indicator (Moved from Sidebar) */}
+            {cognitiveSynthesis && (
+              <div className="hidden min-[1400px]:flex items-center gap-2 px-3 border-l border-zinc-900 shrink-0">
+                <div className="relative">
+                  <Zap className={cn(
+                    "w-3 h-3",
+                    cognitiveSynthesis.riskLevel === "HIGH" ? "text-red-500" : "text-emerald-500"
+                  )} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[7px] font-black text-zinc-400 uppercase tracking-widest font-mono leading-none">
+                    COG_SYNTHESIS
+                  </span>
+                  <span className="text-[6.5px] font-mono text-zinc-650 truncate max-w-[150px]">
+                    {cognitiveSynthesis.text}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Yield Monitor */}
+            <div className="shrink-0 flex items-center border-l border-zinc-900 pl-3">
+              <YieldCurveMonitor yields={marketData.yields} compact={true} />
+            </div>
+
+            {/* Category Filters */}
+            <div className="flex items-center gap-1 shrink-0 border-l border-zinc-900 pl-3">
               {(["STOCKS", "ETFS", "AGENT"] as const).map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSearchCategory(cat)}
                   className={cn(
-                    "px-2 py-0.5 text-[7px] font-mono font-black border transition-all rounded-xs uppercase tracking-widest",
-                    searchCategory === cat
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
-                      : "bg-transparent border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-400",
+                    "px-2 py-0.5 text-[7px] font-mono font-black border transition-all rounded-xs uppercase tracking-widest h-5",
+                    searchCategory === cat ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500" : "bg-transparent border-zinc-900 text-zinc-650 hover:border-zinc-800"
                   )}
                 >
                   {cat}
@@ -1496,97 +1488,27 @@ export default function App() {
               ))}
             </div>
 
-            <button
-              onClick={() =>
-                setSortOrder((prev) =>
-                  prev === "SYMBOL" ? "SECTOR" : "SYMBOL",
-                )
-              }
-              className="p-1 px-2 border border-zinc-900 rounded-xs hover:bg-zinc-900 hover:border-zinc-800 transition-colors"
-              title="Toggle Sort"
-            >
-              <span className="text-[7.5px] font-mono text-zinc-600">SORT</span>
-            </button>
-
-            <div className="hidden lg:flex items-center gap-1.5 bg-zinc-950 px-1.5 py-0.5 border border-zinc-900 rounded-xs">
-              {[
-                { label: "c:USA" },
-                { label: "c:TWN" },
-                { label: "s:Semi" },
-                { label: "p:NVDA" },
-                { label: "p:AAPL" },
-              ].map((chip) => {
-                const isActive = (searchQuery || "")
-                  .toLowerCase()
-                  .includes((chip.label || "").toLowerCase());
-                return (
+            {/* Sort/Chips */}
+            <div className="flex items-center gap-2 shrink-0 border-l border-zinc-900 pl-3">
+              <button
+                onClick={() => setSortOrder((prev) => prev === "SYMBOL" ? "SECTOR" : "SYMBOL")}
+                className="h-5 px-2 border border-zinc-900 rounded-xs hover:bg-zinc-900 text-[7px] font-mono text-zinc-600 uppercase"
+              >
+                SORT
+              </button>
+              
+              <div className="hidden lg:flex items-center gap-1">
+                {["c:USA", "s:Semi", "p:NVDA"].map((chip) => (
                   <button
-                    key={chip.label}
-                    onClick={() => {
-                      const trimmed = searchQuery.trim();
-                      if (!trimmed) {
-                        setSearchQuery(chip.label);
-                      } else if (
-                        (trimmed || "")
-                          .toLowerCase()
-                          .includes((chip.label || "").toLowerCase())
-                      ) {
-                        const words = trimmed.split(/\s+/);
-                        setSearchQuery(
-                          words
-                            .filter(
-                              (w) =>
-                                (w || "").toLowerCase() !==
-                                (chip.label || "").toLowerCase(),
-                            )
-                            .join(" "),
-                        );
-                      } else {
-                        setSearchQuery(`${trimmed} ${chip.label}`);
-                      }
-                    }}
-                    className={cn(
-                      "text-[6.5px] font-mono font-black px-1.5 py-0.5 border cursor-pointer transition-all flex items-center select-none uppercase tracking-tighter",
-                      isActive
-                        ? "bg-emerald-500/15 border-emerald-500 text-emerald-400"
-                        : "bg-transparent border-zinc-900 text-zinc-600 hover:text-zinc-400",
-                    )}
+                    key={chip}
+                    onClick={() => setSearchQuery(chip)}
+                    className="text-[6.5px] font-mono font-black px-1.5 py-0.5 border border-zinc-900 text-zinc-600 hover:text-zinc-400 uppercase h-5"
                   >
-                    {chip.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {searchCategory === "STOCKS" && (
-              <div className="flex items-center gap-1 border-l border-zinc-900 pl-2">
-                <button
-                  onClick={() => setFilterSector(null)}
-                  className={cn(
-                    "text-[6px] font-mono uppercase px-1 py-0.5 border transition-all rounded-xs",
-                    !filterSector
-                      ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
-                      : "border-zinc-900 text-zinc-655 hover:text-zinc-500",
-                  )}
-                >
-                  ALL
-                </button>
-                {sectors.slice(0, 3).map((sec) => (
-                  <button
-                    key={sec}
-                    onClick={() => setFilterSector(sec)}
-                    className={cn(
-                      "text-[6px] font-mono uppercase px-1 py-0.5 border transition-all rounded-xs",
-                      filterSector === sec
-                        ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"
-                        : "border-zinc-900 text-zinc-655 hover:text-zinc-500",
-                    )}
-                  >
-                    {sec.split(" ").pop() || sec}
+                    {chip}
                   </button>
                 ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -1594,108 +1516,143 @@ export default function App() {
       <main className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden relative custom-scrollbar scroll-smooth">
         <div
           id="mobile-sec-map"
-          className="flex-1 flex flex-col min-w-0 shrink-0 h-[520px] md:h-full relative order-1 md:order-2"
+          className={cn(
+            "w-full flex flex-col min-w-0 shrink-0 relative order-1 md:order-2 transition-all duration-300 border-b border-zinc-900 md:border-b-0",
+            mobileMapCollapsed ? "h-12" : "h-[40vh]",
+            "md:h-full md:flex-1 md:flex"
+          )}
         >
-          <div
-            className={cn(
-              "flex-1 min-h-0 flex flex-col relative overflow-hidden border border-zinc-900 m-1 rounded-xs bg-black transition-all duration-150",
-              "flex md:h-full",
-            )}
-          >
-            <Suspense
-              fallback={
-                <div className="w-full h-full bg-zinc-950 flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full" />
-                  <div className="mt-4 text-emerald-500/50 font-mono text-[10px] tracking-widest uppercase">
-                    INITIALIZING...
-                  </div>
-                </div>
-              }
+          {mobileMapCollapsed ? (
+            <button
+              id="mobile-map-restore"
+              onClick={() => setMobileMapCollapsed(false)}
+              className="md:hidden flex items-center justify-between px-4 w-full h-full bg-zinc-950 text-emerald-500 font-mono text-[9px] tracking-[0.2em] font-black group"
             >
-              <MapLayer
-                selectedStock={selectedStock}
-                focusStock={mapFocusStock}
-                onSelectNode={handleSelectNode}
-                isVocalizerEnabled={isVocalizerEnabled}
-                onToggleVocalizer={toggleVocalizer}
-                intelligenceFeed={
-                  focusNews.length > 0 ? focusNews : marketData.news || []
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-2 h-2 bg-emerald-500/20 rounded-full animate-ping absolute inset-0" />
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                </div>
+                <div className="flex flex-col items-start leading-none gap-1">
+                  <span className="text-zinc-600 text-[6px] tracking-tight uppercase">Primary Visualization Hub</span>
+                  <span className="text-emerald-500/80 group-hover:text-emerald-400 transition-colors">GLOBE_VIEWPORT // MINIMIZED</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[8px] tracking-[0.2em] rounded-xs group-hover:bg-emerald-500/20 transition-all">
+                RESTORE_VIEW
+              </div>
+            </button>
+          ) : (
+            <div
+              className={cn(
+                "flex-1 min-h-0 flex flex-col relative overflow-hidden border border-zinc-900 m-1 rounded-xs bg-black transition-all duration-150",
+                "flex md:h-full",
+              )}
+            >
+              {/* Collapse Map Button (Visible only on Mobile) */}
+              <button
+                onClick={() => setMobileMapCollapsed(true)}
+                className="md:hidden absolute top-4 left-4 z-[100] px-3 py-1.5 bg-black/95 border border-emerald-500/30 text-emerald-400 font-mono text-[8px] tracking-[0.2em] rounded-md shadow-[0_0_20px_rgba(0,0,0,0.8)] flex items-center gap-2 cursor-pointer active:scale-95 transition-all hover:border-emerald-400 backdrop-blur-md"
+              >
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span>MINIMIZE_HUB</span>
+              </button>
+
+              <Suspense
+                fallback={
+                  <div className="w-full h-full bg-zinc-950 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full" />
+                    <div className="mt-4 text-emerald-500/50 font-mono text-[10px] tracking-widest uppercase">
+                      INITIALIZING...
+                    </div>
+                  </div>
                 }
-                isIntelligenceStream={isAutopilot}
-                isTransitioning={isAutopilotTransitioning}
-                activeNewsIdx={autopilotNewsIndex}
-                activeNewsPopup={activeNewsPopup}
-                isLiveNewsZoomEnabled={isLiveNewsZoomEnabled}
-                toggleLiveNewsZoom={() => setIsLiveNewsZoomEnabled(!isLiveNewsZoomEnabled)}
-                isAutopilot={isAutopilot}
-                toggleIntelligenceStream={() => {
-                  const next = !isAutopilot;
-                  setIsAutopilot(next);
-                  if (next) {
-                    setViewportLock(true);
+              >
+                <MapLayer
+                  selectedStock={selectedStock}
+                  focusStock={mapFocusStock}
+                  onSelectNode={handleSelectNode}
+                  isVocalizerEnabled={isVocalizerEnabled}
+                  onToggleVocalizer={toggleVocalizer}
+                  intelligenceFeed={
+                    focusNews.length > 0 ? focusNews : marketData.news || []
                   }
-                }}
-                showGlobalNetwork={!!networkAnchor}
-                networkAnchor={networkAnchor}
-                toggleGlobalNetwork={() => {
-                  if (networkAnchor) {
-                    setNetworkAnchor(null);
-                  } else if (selectedStock) {
-                    setNetworkAnchor(selectedStock);
-                    setViewportLock(true);
-                    setMapFocusStock(selectedStock);
-                  } else if (companies && companies.length > 0) {
-                    setSelectedStock(companies[0]);
-                    setNetworkAnchor(companies[0]);
-                    setViewportLock(true);
-                    setMapFocusStock(companies[0]);
-                  }
-                }}
-                activeTab={activeTab}
-                marketData={allMarketData}
-                allNewsData={marketData.news || []}
-                sentiment={sentiment}
-                onInjectLiveNews={injectLiveNews}
-                mapLayers={mapLayers}
-                activeCorridorId={activeCorridorId}
-                onSelectCorridor={(id) => {
-                  setActiveCorridorId(id);
-                  if (id) {
-                    addLog(
-                      `CORRIDOR_ALERT: tracking visual threat link vector for ${id}`,
-                    );
-                    setActiveTab("CORRIDOR");
-                  }
-                }}
-                agentFocus={agentFocus}
-                agentEntities={agentEntities}
-                resetOrientationTrigger={resetOrientationTrigger}
-                briefing={briefing}
-                setAgentFocus={setAgentFocus}
-                isAgentSearching={isAgentSearching}
-                viewportLock={viewportLock}
-                setViewportLock={setViewportLock}
-                autoRotateEnabled={autoRotateEnabled}
-                setAutoRotateEnabled={setAutoRotateEnabled}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onAgentSearch={handleAgentSearch}
-                riskScore={systemRiskScore}
-                relationships={marketData.relationships}
-              />
-            </Suspense>
-          </div>
+                  isIntelligenceStream={isAutopilot}
+                  isTransitioning={isAutopilotTransitioning}
+                  activeNewsIdx={autopilotNewsIndex}
+                  activeNewsPopup={activeNewsPopup}
+                  isLiveNewsZoomEnabled={isLiveNewsZoomEnabled}
+                  toggleLiveNewsZoom={() => setIsLiveNewsZoomEnabled(!isLiveNewsZoomEnabled)}
+                  isAutopilot={isAutopilot}
+                  toggleIntelligenceStream={() => {
+                    const next = !isAutopilot;
+                    setIsAutopilot(next);
+                    if (next) {
+                      setViewportLock(true);
+                    }
+                  }}
+                  showGlobalNetwork={!!networkAnchor}
+                  networkAnchor={networkAnchor}
+                  toggleGlobalNetwork={() => {
+                    if (networkAnchor) {
+                      setNetworkAnchor(null);
+                    } else if (selectedStock) {
+                      setNetworkAnchor(selectedStock);
+                      setViewportLock(true);
+                      setMapFocusStock(selectedStock);
+                    } else if (companies && companies.length > 0) {
+                      setSelectedStock(companies[0]);
+                      setNetworkAnchor(companies[0]);
+                      setViewportLock(true);
+                      setMapFocusStock(companies[0]);
+                    }
+                  }}
+                  activeTab={activeTab}
+                  marketData={allMarketData}
+                  allNewsData={marketData.news || []}
+                  sentiment={sentiment}
+                  onInjectLiveNews={injectLiveNews}
+                  mapLayers={mapLayers}
+                  activeCorridorId={activeCorridorId}
+                  onSelectCorridor={(id) => {
+                    setActiveCorridorId(id);
+                    if (id) {
+                      addLog(
+                        `CORRIDOR_ALERT: tracking visual threat link vector for ${id}`,
+                      );
+                      setActiveTab("CORRIDOR");
+                    }
+                  }}
+                  agentFocus={agentFocus}
+                  agentEntities={agentEntities}
+                  resetOrientationTrigger={resetOrientationTrigger}
+                  briefing={briefing}
+                  setAgentFocus={setAgentFocus}
+                  isAgentSearching={isAgentSearching}
+                  viewportLock={viewportLock}
+                  setViewportLock={setViewportLock}
+                  autoRotateEnabled={autoRotateEnabled}
+                  setAutoRotateEnabled={setAutoRotateEnabled}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onAgentSearch={handleAgentSearch}
+                  riskScore={systemRiskScore}
+                  relationships={marketData.relationships}
+                />
+              </Suspense>
+            </div>
+          )}
         </div>
 
         {/* Left Sidebar (Data, Price, Chart, Technicals, Search Hub) */}
         <aside
           id="mobile-sec-data"
           className={cn(
-            "border-b md:border-b-0 md:border-r border-zinc-800 transition-all duration-150 shrink-0 order-2 md:order-1",
+            "border-b md:border-b-0 md:border-r border-zinc-800 transition-all duration-150 shrink-0 order-2 md:order-1 flex",
+            mobileView === "DATA" ? "flex" : "hidden md:flex",
             isDataSidebarMinimized
               ? "h-12 md:w-8"
-              : "w-full h-auto md:h-full md:w-[220px] lg:w-[260px] xl:w-[320px]",
-            "flex",
+              : "w-full h-auto md:h-full md:w-[220px] lg:w-[260px] xl:w-[320px]"
           )}
         >
           <DataSidebar
@@ -1718,11 +1675,11 @@ export default function App() {
         <aside
           id="mobile-sec-intel"
           className={cn(
-            "border-t md:border-t-0 md:border-l border-zinc-800 transition-all duration-150 shrink-0 order-3",
+            "border-t md:border-t-0 md:border-l border-zinc-800 transition-all duration-150 shrink-0 order-3 flex",
+            mobileView === "INTEL" ? "flex" : "hidden md:flex",
             isIntelSidebarMinimized
               ? "h-12 md:w-8"
-              : "w-full h-auto md:h-full md:w-[240px] lg:w-[330px] xl:w-[380px]",
-            "flex",
+              : "w-full h-auto md:h-full md:w-[240px] lg:w-[330px] xl:w-[380px]"
           )}
         >
           <IntelligenceSidebar
@@ -1865,7 +1822,7 @@ export default function App() {
                     : "opacity-40 translate-y-0.5",
                 )}
               >
-                {view}
+                {view === "DATA" ? "DATA_STREAM" : "INTEL_HUB"}
               </span>
             </button>
           );

@@ -7,10 +7,8 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 let db;
 try {
-  // Try to initialize. If it fails due to connectivity, we might catch it,
-  // but Firestore automatically retries itself.
   db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
   }, firebaseConfig.firestoreDatabaseId);
 } catch (e) {
   console.error("Error initializing Firestore, using fallback with correct database ID:", e);

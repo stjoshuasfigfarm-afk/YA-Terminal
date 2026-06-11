@@ -75,7 +75,7 @@ export const AccessWall: React.FC = () => {
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="fixed inset-0 z-[10000] grid grid-cols-1 md:grid-cols-2 h-screen w-screen bg-black font-sans"
         >
-      {/* Left Panel: Globe Showcase (Simulated Recording Style) */}
+      {/* Left Panel: Globe Showcase (Live Recording Style) */}
       <div className="hidden md:block w-full h-full relative border-r border-zinc-900 bg-zinc-900/10 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 z-0 opacity-100 origin-center">
           {webglSupported ? (
@@ -105,7 +105,7 @@ export const AccessWall: React.FC = () => {
                 GLOBAL_YIELD_MAP
             </div>
             <div className="text-[12px] text-zinc-400 font-sans tracking-[0.2em] font-light mt-1">
-                Global Data and news your way
+                Real-Time Macro Vectors & Supply Chain Signals
             </div>
             <div className="flex gap-1 mt-4">
                 {[...Array(5)].map((_, i) => (
@@ -120,10 +120,19 @@ export const AccessWall: React.FC = () => {
         {/* Decorative Grid Right */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-3xl rounded-full" />
 
-        <div className="w-full max-w-sm space-y-8 z-10 relative">
-          <div className="flex flex-col items-center mb-12 relative group">
+        <div className="w-full max-w-sm p-6 sm:p-8 bg-zinc-950/75 backdrop-blur-md border border-zinc-900 rounded-sm space-y-6 z-10 relative shadow-2xl overflow-hidden">
+          {/* Scanning Line Effect */}
+          <motion.div 
+            animate={{ top: ['-10%', '110%'] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            className="absolute left-0 right-0 h-[1.5px] bg-emerald-500/30 z-20 pointer-events-none shadow-[0_0_20px_#10b981]" 
+          />
+          
+          <div className="flex flex-col items-center relative group">
             <h2 className="text-2xl font-black tracking-[0.4em] text-white uppercase text-glow">Yield Analysis Terminal</h2>
-            <div className="text-[10px] text-emerald-500 font-black tracking-[0.2em] mt-2 uppercase text-glow opacity-80">The terminal you were looking for</div>
+            <div className="text-[9px] text-emerald-500/80 font-black tracking-widest mt-3.5 uppercase text-glow text-center leading-relaxed">
+              No Noise News Agent. Company Vectors for finding Upstream/Downstream Bottlenecks
+            </div>
             <div className="h-[1px] w-12 bg-emerald-500/50 mt-6" />
             <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
           </div>
@@ -186,7 +195,15 @@ export const AccessWall: React.FC = () => {
             </div>
           </form>
           
-          {error && <div className="text-xs text-red-500 font-bold tracking-widest">Invalid Access Code</div>}
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[9px] text-red-500 font-black tracking-widest text-center uppercase font-mono bg-red-950/20 border border-red-500/20 py-2 rounded-sm mt-3 animate-pulse"
+            >
+              ⚠ ACCESS_DENIED :: INVALID TERMINAL KEY
+            </motion.div>
+          )}
         </div>
       </div>
     </motion.div>

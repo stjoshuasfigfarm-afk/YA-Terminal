@@ -357,7 +357,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
              <h3 className="text-[8px] font-bold text-emerald-500 uppercase tracking-[0.2em] mb-3">Terminal Layout Scale</h3>
              
              <div className="grid grid-cols-5 gap-1">
-               {[0.8, 0.9, 1.0, 1.1, 1.2].map((scale) => (
+               {[0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2].map((scale) => (
                  <button
                    key={scale}
                    onClick={() => setTerminalScale(scale)}

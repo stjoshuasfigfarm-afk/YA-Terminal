@@ -9,9 +9,10 @@ interface YieldCurveMonitorProps {
     country?: string;
     updatedAt?: string;
   } | null;
+  compact?: boolean;
 }
 
-export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) => {
+export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, compact = false }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
 
@@ -26,7 +27,7 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) 
 
   const [analysisStatus, setAnalysisStatus] = useState<"NORMAL" | "RECALIBRATING" | "STRESSING">("NORMAL");
 
-  const runSimulation = (mode: "RECALIBRATING" | "STRESSING") => {
+  const runAnalysis = (mode: "RECALIBRATING" | "STRESSING") => {
     setAnalysisStatus(mode);
     setTimeout(() => setAnalysisStatus("NORMAL"), 3000);
   };
@@ -132,7 +133,88 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) 
       const categories = curveData.map(d => d.term);
       const values = curveData.map(d => d.yieldVal);
 
-      const option = {
+      const option = compact ? {
+        backgroundColor: 'transparent',
+        animation: false,
+        tooltip: {
+          trigger: 'axis',
+          confine: true,
+          axisPointer: {
+            type: 'line',
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.08)',
+              width: 1,
+              type: 'dashed'
+            }
+          },
+          formatter: (params: any) => {
+            const item = params[0];
+            return `<div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 7px; padding: 3px; background: #000; border: 1px solid ${themeColor}80; min-width: 90px; border-radius: 2px;">
+              <div style="display: flex; justify-between; align-items: center;">
+                <span style="color: #666; font-size: 6px; text-transform: uppercase;">Maturity:</span>
+                <span style="color: #fff; margin-left: auto; font-weight: bold;">${item.name}</span>
+              </div>
+              <div style="display: flex; justify-between; align-items: center; margin-top: 2px;">
+                <span style="color: #666; font-size: 6px; text-transform: uppercase;">Yield:</span>
+                <span style="color: ${themeColor}; font-weight: bold; margin-left: auto;">${parseFloat(item.data).toFixed(2)}%</span>
+              </div>
+            </div>`;
+          },
+          backgroundColor: '#000000',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          borderWidth: 1,
+          textStyle: {
+            color: '#ffffff',
+            fontSize: 7
+          }
+        },
+        grid: {
+          top: 3,
+          bottom: 3,
+          left: 2,
+          right: 2,
+          containLabel: false
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          scale: true,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false },
+          axisLabel: { show: false }
+        },
+        series: [
+          {
+            name: 'Yield',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            itemStyle: {
+              color: themeColor
+            },
+            data: values,
+            lineStyle: {
+              color: themeColor,
+              width: 1.5,
+              shadowBlur: 4,
+              shadowColor: glowIntensity
+            },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: gradientStart },
+                { offset: 1, color: 'rgba(0, 0, 0, 0)' }
+              ])
+            }
+          }
+        ]
+      } : {
         backgroundColor: 'transparent',
         animation: false,
         animationDuration: 600,
@@ -268,7 +350,80 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) 
         chartInstance.current = null;
       }
     };
-  }, [curveData, spreadDetails]);
+  }, [curveData, spreadDetails, compact]);
+
+  if (compact) {
+    return (
+      <div 
+        id="yield-curve-monitor-compact" 
+        className="flex items-center gap-2 border border-zinc-900 bg-zinc-950/60 p-1 px-2 rounded-sm h-7 select-none shrink-0"
+      >
+        <div className="flex items-center gap-1 shrink-0">
+          <TrendingUp className="w-3 h-3 text-emerald-400" />
+          <span className="text-[7.5px] text-zinc-500 font-mono font-bold tracking-wider hidden xl:inline uppercase">
+            {activeYields.country || "YIELD"}
+          </span>
+          {spreadDetails.isInverted ? (
+            <span className="text-[6.5px] font-black text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1 py-px rounded-3xs" title="Yield Curve Inverted">
+              INVERTED
+            </span>
+          ) : (
+            <span className="text-[6.5px] font-black text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1 py-px rounded-3xs" title="Yield Curve Normal">
+              NORMAL
+            </span>
+          )}
+        </div>
+
+        {/* Vector Metrics (10Y-2Y and CORE CB Rate) */}
+        <div className="flex items-center gap-1.5 text-[7px] font-mono shrink-0">
+          <div className="flex items-center gap-1 px-1 py-0.5 bg-black/40 border border-zinc-900 rounded-2xs">
+            <span className="text-zinc-600 block text-[6px]">10Y-2Y</span>
+            <span className={`font-black ${spreadDetails.spread < 0 ? "text-amber-500" : "text-emerald-500"}`}>
+              {spreadDetails.spread > 0 ? "+" : ""}{spreadDetails.spread.toFixed(2)}%
+            </span>
+          </div>
+          <div className="flex items-center gap-1 px-1 py-0.5 bg-black/40 border border-zinc-900 rounded-2xs">
+            <span className="text-zinc-650 block text-[6px]">CB_RATE</span>
+            <span className="text-zinc-300 font-black">
+              {(activeYields.interestRate ?? 5.50).toFixed(2)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Small Sparkline Chart */}
+        <div className="relative w-12 sm:w-16 md:w-20 lg:w-24 h-5 bg-zinc-950/40 rounded-2xs overflow-hidden border border-zinc-900/40 shrink-0">
+          <div ref={chartRef} className="w-full h-full relative z-10" />
+          {analysisStatus !== "NORMAL" && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
+              <span className="text-[5px] text-emerald-500 font-mono font-black animate-pulse">
+                {analysisStatus === "RECALIBRATING" ? "TUNING..." : "STRESS..."}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="hidden md:flex gap-0.5 shrink-0">
+          <button
+            onClick={() => runAnalysis("RECALIBRATING")}
+            disabled={analysisStatus !== "NORMAL"}
+            title="Recalibrate yield curve matrix"
+            className="px-1 py-0.5 text-[6px] font-mono font-bold text-zinc-500 border border-zinc-900 hover:border-emerald-500/40 hover:text-emerald-400 bg-zinc-950/25 transition-all rounded-2xs cursor-pointer disabled:pointer-events-none disabled:opacity-20"
+          >
+            RECAL
+          </button>
+          <button
+            onClick={() => runAnalysis("STRESSING")}
+            disabled={analysisStatus !== "NORMAL"}
+            title="Stress test extreme scenario"
+            className="px-1 py-0.5 text-[6px] font-mono font-bold text-zinc-500 border border-zinc-900 hover:border-orange-500/40 hover:text-orange-400 bg-zinc-950/25 transition-all rounded-2xs cursor-pointer disabled:pointer-events-none disabled:opacity-20"
+          >
+            STRESS
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="yield-curve-monitor" className="p-2 border-b border-zinc-900 bg-zinc-950/40 font-sans text-[9px] select-none">
@@ -310,16 +465,16 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields }) 
 
       <div className="mt-1.5 flex justify-between gap-1.5">
         <button 
-          onClick={() => runSimulation("RECALIBRATING")}
+          onClick={() => runAnalysis("RECALIBRATING")}
           disabled={analysisStatus !== "NORMAL"}
           className="flex-1 py-1 text-[7px] font-sans text-zinc-500 bg-zinc-950/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
         >
           Recalibrate
         </button>
         <button 
-          onClick={() => runSimulation("STRESSING")}
+          onClick={() => runAnalysis("STRESSING")}
           disabled={analysisStatus !== "NORMAL"}
-          className="flex-1 py-1 text-[7px] font-sans text-zinc-500 bg-zinc-950/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
+          className="flex-1 py-1 text-[7px] font-sans text-zinc-500 bg-zinc-955/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
         >
           Stress Test
         </button>
