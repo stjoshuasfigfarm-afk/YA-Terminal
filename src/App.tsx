@@ -698,13 +698,13 @@ export default function App() {
         }
 
         const data = await response.json();
-        if (data && data.coordinates && Array.isArray(data.coordinates)) {
+        if (data && typeof data.lat === "number" && typeof data.lng === "number") {
           const result = {
             locationName: data.locationName || "Target location",
-            lat: Number(data.coordinates[0]),
-            lng: Number(data.coordinates[1]),
+            lat: data.lat,
+            lng: data.lng,
             zoomLevel: typeof data.zoomLevel === "number" ? data.zoomLevel : 6,
-            briefing: data.briefing || "Location mapped.",
+            briefing: data.briefing || data.aiStrategyAnalysis || data.explanation || "Location mapped.",
             facts: data.facts || [],
             ticker: data.ticker,
           };
@@ -1522,7 +1522,7 @@ export default function App() {
           id="mobile-sec-map"
           className={cn(
             "w-full flex-col min-w-0 shrink-0 relative order-1 md:order-2 transition-all duration-300 border-b border-zinc-900 md:border-b-0",
-            mobileMapCollapsed ? "h-12" : "h-[55vh]",
+            mobileMapCollapsed ? "h-12" : "h-[45vh]",
             "flex md:h-full md:flex-1"
           )}
         >

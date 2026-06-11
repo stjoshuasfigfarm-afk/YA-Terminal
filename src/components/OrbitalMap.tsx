@@ -72,176 +72,215 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   const [bearing, setBearing] = useState(0);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
   const [show3DBuildings, setShow3DBuildings] = useState(true);
-  const [localStoresFeatureCollection, setLocalStoresFeatureCollection] = useState<any>({
-    type: "FeatureCollection",
-    features: []
-  });
-
-  // Generate simulated local stores when zoom is high and a stock is selected
-  useEffect(() => {
-    if (!selectedStock || zoom < 14) {
-      setLocalStoresFeatureCollection({ type: "FeatureCollection", features: [] });
-      return;
-    }
-
-    // Deterministic random generation based on symbol
-    const symbol = selectedStock.symbol;
-    const lat = selectedStock.lat;
-    const lng = selectedStock.lng;
-    
-    const count = 30; // Increased density
-    const features = [];
-    
-    const types = [
-      { id: "MOM_POP_RETAIL", color: "#fbbf24", label: "Local Shop" },
-      { id: "TRANSIT_NODE", color: "#60a5fa", label: "Bus Stop/Transit Hub" },
-      { id: "LOGISTICS_HUB", color: "#22d3ee", label: "Operational Depot" },
-      { id: "INDUSTRIAL_OUTPOST", color: "#94a3b8", label: "Supply Node" }
-    ];
-    
-    for (let i = 0; i < count; i++) {
-        // Pseudo-random offset
-        const r1 = (Math.sin(symbol.charCodeAt(0) * (i + 1) * 1.5) * 0.008);
-        const r2 = (Math.cos(symbol.charCodeAt(1) * (i + 1) * 1.5) * 0.008);
-        
-        const typeObj = types[i % types.length];
-        
-        features.push({
-            type: "Feature",
-            properties: {
-                name: `${symbol} ${typeObj.id}_${i.toString().padStart(2, '0')}`,
-                type: typeObj.id,
-                capacity: Math.floor(Math.random() * 100) + "%",
-                throughput: (Math.random() * 50).toFixed(1) + " units/hr",
-                status: Math.random() > 0.1 ? "OPERATIONAL" : "CONGESTED",
-                label: typeObj.label
-            },
-            geometry: {
-                type: "Point",
-                coordinates: [lng + r2, lat + r1]
-            }
-        });
-    }
-
-    setLocalStoresFeatureCollection({ type: "FeatureCollection", features });
-  }, [selectedStock, zoom]);
-
-  // Sync Local Stores Layer
+  // Sync Detailed POI Layers (Retail & Civic)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isStyleLoaded) return;
 
-    const sourceId = "local-stores-source";
-    const layerId = "local-stores-layer";
-    const labelLayerId = "local-stores-labels";
+    const retailLayerId = "poi-retail-layer";
+    const civicLayerId = "poi-civic-layer";
 
-    const updateLayer = () => {
-      if (!map.getSource(sourceId)) {
-          map.addSource(sourceId, {
-              type: "geojson",
-              data: localStoresFeatureCollection
-          });
+    const updatePoiLayers = () => {
+      // Retail Assets
+      if (!map.getLayer(retailLayerId)) {
+        map.addLayer({
+          id: retailLayerId,
+          type: "circle",
+          source: "carto", // using the existing carto source from dark-matter style
+          "source-layer": "poi",
+          minzoom: 14,
+          filter: [
+            "match",
+            ["get", "class"],
+            ["shop", "grocery", "restaurant", "fast_food", "cafe", "bank", "pharmacy", "commercial"],
+            true,
+            false
+          ],
+          paint: {
+            "circle-radius": [
+              "interpolate", ["linear"], ["zoom"],
+              14, 3,
+              18, 6
+            ],
+            "circle-color": "#fbbf24", // distinct icon color for retail
+            "circle-stroke-width": 1,
+            "circle-stroke-color": "#000",
+            "circle-opacity": 0.85
+          }
+        });
 
-          map.addLayer({
-              id: layerId,
-              type: "circle",
-              source: sourceId,
-              minzoom: 14,
-              paint: {
-                  "circle-radius": [
-                      "interpolate", ["linear"], ["zoom"],
-                      14, 3,
-                      18, 8
-                  ],
-                  "circle-color": [
-                      "match", ["get", "type"],
-                      "MOM_POP_RETAIL", "#fbbf24",
-                      "TRANSIT_NODE", "#60a5fa",
-                      "LOGISTICS_HUB", "#22d3ee",
-                      "INDUSTRIAL_OUTPOST", "#94a3b8",
-                      "#10b981"
-                  ],
-                  "circle-stroke-width": 1.5,
-                  "circle-stroke-color": "#000000",
-                  "circle-opacity": 0.9
-              }
-          });
-
-          map.addLayer({
-              id: labelLayerId,
-              type: "symbol",
-              source: sourceId,
-              minzoom: 15.8, // Show labels only when very close
-              layout: {
-                  "text-field": ["get", "label"],
-                  "text-size": 8,
-                  "text-offset": [0, 1.4],
-                  "text-anchor": "top",
-                  "text-font": ["Open Sans Regular"]
-              },
-              paint: {
-                  "text-color": "#a1a1aa",
-                  "text-halo-color": "#000000",
-                  "text-halo-width": 1
-              }
-          });
-
-          // Interaction: Hover cursor
-          map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
-          map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; });
-
-          // Interaction: Click Tactical Popup
-          map.on("click", layerId, (e) => {
-              if (!e.features) return;
-              const feat = e.features[0];
-              const props = feat.properties;
-              const coords = (feat.geometry as any).coordinates;
-              const lat = coords[1];
-              const lng = coords[0];
-              
-              new maplibregl.Popup({ offset: 10, maxWidth: "none" })
-                  .setLngLat(coords)
-                  .setHTML(`
-                      <div style="font-family: monospace; background: #000000; border: 1px solid rgba(16,185,129,0.4); padding: 8px; border-radius: 2px; color: #10b981; min-width: 220px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-                          <div style="font-size: 7px; color: #666; margin-bottom: 4px; display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding-bottom: 2px;">
-                              <span>TACTICAL_OVERLAY_v4.2</span>
-                              <span>${props.type}</span>
-                          </div>
-                          <div style="font-weight: 900; font-size: 10px; margin-bottom: 6px; letter-spacing: 0.05em;">${props.name}</div>
-                          
-                          <iframe 
-                              src="https://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0&output=svembed" 
-                              width="100%" 
-                              height="120" 
-                              frameborder="0" 
-                              style="border:1px solid #10b98133; margin-bottom: 6px; border-radius: 2px;" 
-                              allowfullscreen>
-                          </iframe>
-
-                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 8px;">
-                              <div style="color: #666;">CAPACITY:</div>
-                              <div style="text-align: right; color: #ddd;">${props.capacity}</div>
-                              
-                              <div style="color: #666;">THROUGHPUT:</div>
-                              <div style="text-align: right; color: #ddd;">${props.throughput}</div>
-                              
-                              <div style="color: #666;">STATUS:</div>
-                              <div style="text-align: right; color: ${props.status === 'OPERATIONAL' ? '#10b981' : '#f59e0b'}; font-weight: bold;">${props.status}</div>
-                          </div>
-                          
-                          <div style="margin-top: 6px; font-size: 6px; color: #333; text-align: center; font-style: italic;">RELAY_CONNECTED_VIA_${selectedStock?.symbol}</div>
-                      </div>
-                  `)
-                  .addTo(map);
-          });
-      } else {
-          const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
-          if (source) source.setData(localStoresFeatureCollection);
+        // Add labels
+        map.addLayer({
+          id: `${retailLayerId}-label`,
+          type: "symbol",
+          source: "carto",
+          "source-layer": "poi",
+          minzoom: 15.5,
+          filter: [
+            "match",
+            ["get", "class"],
+            ["shop", "grocery", "restaurant", "fast_food", "cafe", "bank", "pharmacy", "commercial"],
+            true,
+            false
+          ],
+          layout: {
+            "text-field": ["get", "name"],
+            "text-size": 9,
+            "text-offset": [0, 1.2],
+            "text-anchor": "top"
+          },
+          paint: {
+            "text-color": "#fbbf24",
+            "text-halo-color": "#000",
+            "text-halo-width": 1
+          }
+        });
       }
+
+      // Civic Points
+      if (!map.getLayer(civicLayerId)) {
+        map.addLayer({
+          id: civicLayerId,
+          type: "circle",
+          source: "carto",
+          "source-layer": "poi",
+          minzoom: 14,
+          filter: [
+            "match",
+            ["get", "class"],
+            ["library", "town_hall", "public_space", "school", "hospital", "museum", "attraction", "park"],
+            true,
+            false
+          ],
+          paint: {
+            "circle-radius": [
+              "interpolate", ["linear"], ["zoom"],
+              14, 4,
+              18, 7
+            ],
+            "circle-color": "#60a5fa", // distinct icon color for civic
+            "circle-stroke-width": 1,
+            "circle-stroke-color": "#000",
+            "circle-opacity": 0.9
+          }
+        });
+
+        // Add labels
+        map.addLayer({
+          id: `${civicLayerId}-label`,
+          type: "symbol",
+          source: "carto",
+          "source-layer": "poi",
+          minzoom: 15.5,
+          filter: [
+            "match",
+            ["get", "class"],
+            ["library", "town_hall", "public_space", "school", "hospital", "museum", "attraction", "park"],
+            true,
+            false
+          ],
+          layout: {
+            "text-field": ["get", "name"],
+            "text-size": 9,
+            "text-offset": [0, 1.2],
+            "text-anchor": "top"
+          },
+          paint: {
+            "text-color": "#60a5fa",
+            "text-halo-color": "#000",
+            "text-halo-width": 1
+          }
+        });
+      }
+
+      // Interaction: Hover cursor for distinct layers
+      const interactiveLayers = [retailLayerId, civicLayerId];
+      interactiveLayers.forEach(layer => {
+        map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
+        map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+      });
+
+      // Interaction: Click handling using queryRenderedFeatures
+      map.on("click", async (e) => {
+        const features = map.queryRenderedFeatures(e.point, { layers: interactiveLayers });
+        if (!features.length) return;
+        
+        const feat = features[0];
+        const props = feat.properties;
+        const coords = e.lngLat;
+        
+        const typeLabel = feat.layer.id === retailLayerId ? "RETAIL_ASSET" : "CIVIC_POINT";
+        const brandLabel = props.brand ? `<div><span style="color:#666">BRAND:</span> <span style="color:#ddd">${props.brand}</span></div>` : "";
+        const amenityLabel = props.amenity ? `<div><span style="color:#666">AMENITY:</span> <span style="color:#ddd">${props.amenity}</span></div>` : "";
+        const classLabel = props.class ? `<div><span style="color:#666">CLASS:</span> <span style="color:#ddd">${props.class}</span></div>` : "";
+        
+        const popupId = `ai-analysis-${Math.random().toString(36).substring(7)}`;
+
+        const popup = new maplibregl.Popup({ offset: 10, maxWidth: "250px" })
+          .setLngLat(coords)
+          .setHTML(`
+            <div style="font-family: monospace; background: #000000; border: 1px solid rgba(16,185,129,0.4); padding: 10px; border-radius: 2px; color: #10b981; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+              <div style="font-size: 7px; color: #666; margin-bottom: 6px; display: flex; justify-content: space-between; border-bottom: 1px solid #222; padding-bottom: 4px;">
+                <span>POI_METADATA_EXTRACTOR</span>
+                <span style="color: ${feat.layer.id === retailLayerId ? '#fbbf24' : '#60a5fa'}">${typeLabel}</span>
+              </div>
+              <div style="font-weight: 900; font-size: 11px; margin-bottom: 8px; letter-spacing: 0.05em; color: #fff;">${props.name || "UNNAMED_ASSET"}</div>
+              
+              <div style="display: flex; flex-direction: column; gap: 4px; font-size: 9px; margin-bottom: 8px;">
+                  ${classLabel}
+                  ${amenityLabel}
+                  ${brandLabel}
+                  <div><span style="color:#666">SYS_ID:</span> <span style="color:#888">${feat.id || 'N/A'}</span></div>
+              </div>
+              
+              <div id="${popupId}" style="border-top: 1px solid #222; padding-top: 6px; font-size: 9px; display: flex; flex-direction: column; gap: 4px;">
+                  <div style="color: #60a5fa; animation: pulse 1.5s infinite;">CONNECTING TO INTEL NET...</div>
+              </div>
+            </div>
+          `)
+          .addTo(map);
+
+          try {
+            const resp = await fetch("/api/ai/poi-analysis", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: props.name || "UNNAMED_ASSET",
+                    type: props.class || props.amenity || typeLabel,
+                    brand: props.brand || "",
+                    lat: coords.lat,
+                    lng: coords.lng
+                })
+            });
+            const data = await resp.json();
+            
+            const container = popup.getElement()?.querySelector(`#${popupId}`);
+            if (container) {
+                container.innerHTML = `
+                    <div style="color: #666; font-size: 7px; margin-bottom: 2px;">AI STRATEGIC ASSESSMENT</div>
+                    <div style="color: #ddd; margin-bottom: 6px; line-height: 1.3;">${data.analysis || "Unable to determine"}</div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                       <span style="color: #666;">PARENT_CO:</span>
+                       <span style="color: #34d399; font-weight: bold; text-align:right;">${data.parentCompany || "INDEPENDENT"}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                       <span style="color: #666;">TURNOVER_RATE:</span>
+                       <span style="color: #f87171; font-weight: bold; text-align:right;">${data.employeeTurnover || "UNKNOWN"}</span>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            const container = popup.getElement()?.querySelector(`#${popupId}`);
+            if (container) {
+                container.innerHTML = `<div style="color: #ef4444;">AI_LINK_FAILED</div>`;
+            }
+        }
+      });
     };
 
-    updateLayer();
-  }, [localStoresFeatureCollection, isStyleLoaded]);
+    updatePoiLayers();
+  }, [isStyleLoaded]);
 
   // Initialize Map
   useEffect(() => {
@@ -744,8 +783,10 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           color: #34d399 !important;
         }
       `}</style>
-      {/* Space Background without Stars */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+      {/* Space Background with Stars */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#020202]">
+        {/* Simple CSS Starfield */}
+        <div className="absolute inset-0 opacity-40 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNDAwIj48ZyBmaWxsPSIjRkZGIiBvcGFjaXR5PSIwLjgiPjxjaXJjbGUgY3g9IjIwIiBjeT0iMTAwIiByPSIwLjUiLz48Y2lyY2xlIGN4PSIyMDAiIGN5PSI1MCIgcj0iMSIvPjxjaXJjbGUgY3g9IjM1MCIgY3k9IjI1MCIgcj0iMC41Ii8+PGNpcmNsZSBjeD0iMTAwIiBjeT0iMzAwIiByPSIxIi8+PGNpcmNsZSBjeD0iMjUwIiBjeT0iMzUwIiByPSIwLjUiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjIzMCIgcj0iMSIvPjxjaXJjbGUgY3g9IjMxMCIgY3k9IjEyMCIgcj0iMC41Ii8+PGNpcmNsZSBjeD0iMTUwIiBjeT0iMjAwIiByPSIwLjUiLz48L2c+PC9zdmc+')] mix-blend-screen mix-blend-screen [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)]"></div>
         {/* Deep Space Gradient */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.03)_0%,transparent_70%)]" />
       </div>

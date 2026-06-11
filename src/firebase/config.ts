@@ -9,7 +9,6 @@ let db;
 try {
   db = initializeFirestore(app, {
     experimentalForceLongPolling: true,
-    useFetchStreams: false
   }, firebaseConfig.firestoreDatabaseId);
 } catch (e) {
   console.error("Error initializing Firestore, using fallback with correct database ID:", e);

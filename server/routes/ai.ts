@@ -980,6 +980,45 @@ router.post("/navigate", async (req, res) => {
   }
 });
 
+// POST /api/ai/poi-analysis
+router.post("/poi-analysis", async (req, res) => {
+  const { name, type, brand, lat, lng } = req.body;
+  if (!name) return res.status(400).json({ error: "Missing identity" });
+
+  try {
+    const prompt = `
+      You are an intelligence agent analyzing a Point of Interest (POI).
+      POI Details:
+      Name: ${name}
+      Type: ${type}
+      Brand: ${brand || 'Unknown'}
+      Location: Lat ${lat}, Lng ${lng}
+      
+      Provide a brief tactical analysis of this specific location, an estimated employee turnover rate (as a percentage, e.g., "45%"), and the likely parent company. If the parent company is unknown, make a highly educated guess based on the brand or name. Assume the worst-case scenario.
+      Keep the analysis crisp and brief (max 2 sentences).
+
+      Your output MUST be a clean, valid and structured JSON object.
+      {
+        "analysis": "Brief tactical analysis string",
+        "employeeTurnover": "XX%",
+        "parentCompany": "Company Name"
+      }
+    `;
+
+    const responseText = await callAI(prompt, req.headers, true);
+    const cleaned = cleanJSONResponse(responseText);
+    res.json(JSON.parse(cleaned));
+  } catch (error) {
+    console.error("POI analysis error:", error);
+    res.status(500).json({ 
+      error: "Analysis failed",
+      analysis: "Unable to establish strategic assessment due to local interference.",
+      employeeTurnover: "N/A",
+      parentCompany: "UNKNOWN"
+    });
+  }
+});
+
 // POST /api/ai/tts
 router.post("/tts", async (req, res) => {
   try {

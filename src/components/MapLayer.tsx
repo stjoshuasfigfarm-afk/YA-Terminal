@@ -1204,7 +1204,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="absolute top-4 left-4 z-[1000] w-[22rem] bg-black/90 backdrop-blur-xl border border-emerald-500/40 p-3.5 pointer-events-auto select-none font-mono shadow-[0_0_30px_rgba(0,0,0,0.8)] hover:border-emerald-500/60 transition-all duration-300 animate-none"
+            className="absolute top-4 left-4 right-4 md:right-auto z-[1000] md:w-[22rem] bg-black/90 backdrop-blur-xl border border-emerald-500/40 p-3.5 pointer-events-auto select-none font-mono shadow-[0_0_30px_rgba(0,0,0,0.8)] hover:border-emerald-500/60 transition-all duration-300 animate-none"
           >
             <div className="flex items-center justify-between mb-2 border-b border-emerald-900/50 pb-1.5 flex-wrap gap-2">
               <div className="flex items-center gap-2">
@@ -1247,7 +1247,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                       setIsSpeaking(false);
                     } else {
                       const textToSpeak = preservedBriefing.type === "briefing"
-                        ? (preservedBriefing.data.summary || preservedBriefing.data.text || "Analyzing...")
+                        ? (typeof preservedBriefing.data === "string" ? preservedBriefing.data : (preservedBriefing.data?.summary || preservedBriefing.data?.text || "Analyzing..."))
                         : (preservedBriefing.text || "Analyzing...");
                       speakWithEnhancedVoice(textToSpeak);
                     }
@@ -1311,15 +1311,16 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                    <Typewriter
                      className="text-zinc-300 font-mono text-[9px]"
                      text={
-                       preservedBriefing.data.summary ||
-                       preservedBriefing.data.text ||
-                       "Analyzing current operational strategy..."
+                       typeof preservedBriefing.data === "string" ? preservedBriefing.data :
+                       (preservedBriefing.data?.summary ||
+                       preservedBriefing.data?.text ||
+                       "Analyzing current operational strategy...")
                      }
                    />
                 </div>
                 
                 {/* ENHANCED: TACTICAL RECOMMENDATIONS */}
-                {preservedBriefing.data.tacticalRecommendations && (
+                {preservedBriefing.data && typeof preservedBriefing.data !== "string" && preservedBriefing.data.tacticalRecommendations && (
                   <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-sm space-y-2">
                      <div className="flex items-center gap-2 text-[8px] font-black text-emerald-400 uppercase tracking-widest font-mono">
                        <Shield className="w-3 h-3" />
@@ -1341,17 +1342,17 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                      <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Vector</div>
                      <div className={cn(
                        "text-[9px] font-black font-mono truncate",
-                       preservedBriefing.data.outlook === "ACCELERATING" ? "text-emerald-400" :
-                       preservedBriefing.data.outlook === "VULNERABLE" || preservedBriefing.data.outlook === "COMPROMISED" ? "text-red-500" :
-                       preservedBriefing.data.outlook === "STRETCHED" ? "text-amber-500" : "text-white"
+                       preservedBriefing.data?.outlook === "ACCELERATING" ? "text-emerald-400" :
+                       preservedBriefing.data?.outlook === "VULNERABLE" || preservedBriefing.data?.outlook === "COMPROMISED" ? "text-red-500" :
+                       preservedBriefing.data?.outlook === "STRETCHED" ? "text-amber-500" : "text-white"
                      )}>
-                       {preservedBriefing.data.outlook || "STABLE"}
+                       {preservedBriefing.data?.outlook || "STABLE"}
                      </div>
                   </div>
                   <div className="flex flex-col bg-black p-2 rounded-sm border border-zinc-900 col-span-2">
                      <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Primary Threat</div>
                      <div className="text-[8.5px] font-bold text-red-400 font-mono truncate">
-                       {preservedBriefing.data.riskFactors?.[0] || "None Detected"}
+                       {preservedBriefing.data?.riskFactors?.[0] || "None Detected"}
                      </div>
                   </div>
                 </div>
