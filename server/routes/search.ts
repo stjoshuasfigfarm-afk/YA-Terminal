@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { COMPANIES } from "../../src/data/companies.js";
 
 const router = Router();
 const FMP_KEY = process.env.FMP_API_KEY || "";
@@ -21,14 +22,9 @@ router.get("/", async (req, res) => {
       }
     }
     
-    const mockTickers = [
-      { symbol: 'AAPL', name: 'Apple Inc.' },
-      { symbol: 'MSFT', name: 'Microsoft Corp.' },
-      { symbol: 'GOOGL', name: 'Alphabet Inc.' },
-      { symbol: 'TSLA', name: 'Tesla Inc.' },
-      { symbol: 'NVDA', name: 'Nvidia Corp.' }
-    ].filter(t => t.symbol.includes(query));
-    res.json(mockTickers);
+    const mockTickers = COMPANIES.filter(t => t.symbol.includes(query) || t.name.toUpperCase().includes(query))
+      .map(t => ({ symbol: t.symbol, name: t.name }));
+    res.json(mockTickers.slice(0, 10));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

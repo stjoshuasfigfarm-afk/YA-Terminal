@@ -1,7 +1,9 @@
 import { Router } from "express";
+import Parser from 'rss-parser';
 
 const router = Router();
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
+const parser = new Parser();
 
 const isKeyReady = (k: string) => k && k.length > 5 && !k.includes("YOUR_");
 
@@ -17,8 +19,28 @@ router.get("/:symbol?", async (req, res) => {
     
     let mappedNews: any[] = [];
     
+    // 0. Fetch Yahoo News via RSS
+    try {
+      const feed = await parser.parseURL(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${symbol}&region=US&lang=en-US`);
+      if (feed && feed.items) {
+        mappedNews = feed.items.slice(0, 10).map(item => ({
+          title: item.title || "",
+          description: item.contentSnippet || item.content || "",
+          published_at: item.isoDate || item.pubDate || new Date().toISOString(),
+          url: item.link || "",
+          image: "", // Yahoo RSS doesn't reliably provide images via rss-parser without custom fields
+          source: "Yahoo Finance",
+          category: "Breaking",
+          related: symbol
+        }));
+      }
+    } catch (err: any) {
+      console.warn("Yahoo RSS fetch failed, skipping:", err.message);
+    }
+    
     // 1. Fetch from Finnhub (if key present and ready)
-    if (isKeyReady(FINNHUB_KEY)) {
+    if (isKeyReady(FINNHUB_KEY) && mappedNews.length === 0) {
+
       try {
         const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
         

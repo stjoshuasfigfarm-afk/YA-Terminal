@@ -902,9 +902,9 @@ function getFallbackAgentTour(query: string) {
 }
 
 // 3.5 POST /api/ai/agent-tour
-router.post("/agent-tour", async (req, res) => {
-  const { query } = req.body;
-  if (!query) return res.status(400).json({ error: "Missing query" });
+router.post("/navigate", async (req, res) => {
+  const { prompt: query } = req.body;
+  if (!query) return res.status(400).json({ error: "Missing prompt" });
 
   try {
     const openRouterKey = req.headers['x-openrouter-api-key'] as string || process.env.OPENROUTER_API_KEY || "";
@@ -915,14 +915,41 @@ router.post("/agent-tour", async (req, res) => {
       return res.json(getFallbackAgentTour(query));
     }
 
+    let extraContext = "";
+    if (query.toLowerCase().includes("ipo")) {
+       try {
+         const today = new Date();
+         const fromDate = today.toISOString().split('T')[0];
+         const nextMonth = new Date(today);
+         nextMonth.setMonth(today.getMonth() + 2);
+         const toDate = nextMonth.toISOString().split('T')[0];
+         const finnhubKey = process.env.FINNHUB_API_KEY || "";
+         if (isKeyReady(finnhubKey)) {
+             const response = await fetch(`https://finnhub.io/api/v1/calendar/ipo?from=${fromDate}&to=${toDate}&token=${finnhubKey}`);
+             if (response.ok) {
+                 const ipoData = await response.json();
+                 if (ipoData && ipoData.ipoCalendar) {
+                     extraContext = `Here are upcoming IPOs to mention (use this real data): ${JSON.stringify(ipoData.ipoCalendar.slice(0, 10))}`;
+                 }
+             }
+         }
+       } catch (err) {
+         console.warn("IPO fetch failed for AI context", err);
+       }
+    }
+
     const results = await withRetry(async () => {
       const prompt = `
-         You are a professional business and logistics analyst.
+         You are a professional business, finance, and logistics analyst.
          The user is asking: "${query}"
+         ${extraContext}
 
          CRITICAL MANDATE: You MUST write everything strictly in clear, natural English. Avoid all technical jargon, pseudo-code, or foreign language terms. Write in a helpful human voice.
 
-         Task: Choose a geographical location related to the user's question and explain its significance.
+         Task: 
+         If the user asks about IPOs, provide the IPO information, future IPOs, and expected dates.
+         If the user asks a general question, answer it thoroughly.
+         Always choose a geographical location related to the user's question to ground the context. For example, if asked about IPOs, choose New York Wall Street.
 
          Your output MUST be a clean, valid and structured JSON object.
          {
@@ -930,14 +957,16 @@ router.post("/agent-tour", async (req, res) => {
            "lat": number,
            "lng": number,
            "ticker": "string or null",
-           "explanation": "A clear, informative 3-sentence explanation in plain English.",
+           "briefing": "A comprehensive briefing or answer to the user's question. Format with readable paragraphs.",
            "facts": ["Fact 1", "Fact 2", "Fact 3"]
          }
        `;
 
       const responseText = await callAI(prompt, req.headers, true);
       const cleaned = cleanJSONResponse(responseText);
-      return JSON.parse(cleaned);
+      const parsed = JSON.parse(cleaned);
+      parsed.aiStrategyAnalysis = parsed.briefing; // Map briefing to aiStrategyAnalysis for frontend compatibility
+      return parsed;
     });
 
     res.json(results);

@@ -31,7 +31,7 @@ router.get("/", async (req, res) => {
   };
 
   try {
-    if (isKeyReady(FMP_KEY)) {
+    if ((country === 'USA' || country === 'US') && isKeyReady(FMP_KEY)) {
       const response = await fetch(`https://financialmodelingprep.com/api/v4/treasury?from=2024-01-01&apikey=${FMP_KEY}`);
       if (response.ok) {
         const data = await response.json();

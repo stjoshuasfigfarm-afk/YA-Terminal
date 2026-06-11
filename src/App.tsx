@@ -1306,9 +1306,11 @@ export default function App() {
                   if (e.key === "Enter" && searchQuery) {
                     e.preventDefault();
                     if (finalFilteredMatches.length > 0) {
-                      handleSelectNode(finalFilteredMatches[0].company, false, true);
-                      setSearchQuery("");
-                      setTimeout(() => setIsSearchFocused(false), 50);
+                      const matched = finalFilteredMatches[0].company;
+                      handleSelectNode(matched, false, true);
+                      setSearchQuery(matched.symbol);
+                      setIsSearchFocused(false);
+                      searchInputRef.current?.blur();
                     } else if (handleAgentSearch) {
                       handleAgentSearch(searchQuery);
                     }
@@ -1320,7 +1322,7 @@ export default function App() {
               <Search className="w-2.5 h-2.5 text-zinc-700 absolute left-2" />
               
               <AnimatePresence>
-                {(isSearchFocused || searchQuery.trim().length > 0) && (
+                {isSearchFocused && (
                   <motion.div
                     initial={{ opacity: 0, y: -2 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1338,6 +1340,8 @@ export default function App() {
                             onClick={() => {
                               handleSelectNode(company, false, true);
                               setSearchQuery(company.symbol);
+                              setIsSearchFocused(false);
+                              searchInputRef.current?.blur();
                             }}
                             className={cn(
                               "group flex items-center justify-between p-1.5 text-[10px] cursor-pointer transition-all hover:bg-emerald-500/10",
@@ -1517,9 +1521,9 @@ export default function App() {
         <div
           id="mobile-sec-map"
           className={cn(
-            "w-full flex flex-col min-w-0 shrink-0 relative order-1 md:order-2 transition-all duration-300 border-b border-zinc-900 md:border-b-0",
-            mobileMapCollapsed ? "h-12" : "h-[40vh]",
-            "md:h-full md:flex-1 md:flex"
+            "w-full flex-col min-w-0 shrink-0 relative order-1 md:order-2 transition-all duration-300 border-b border-zinc-900 md:border-b-0",
+            mobileMapCollapsed ? "h-12" : "h-[55vh]",
+            "flex md:h-full md:flex-1"
           )}
         >
           {mobileMapCollapsed ? (

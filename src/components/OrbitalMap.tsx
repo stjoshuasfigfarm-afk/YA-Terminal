@@ -250,9 +250,9 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-      center: [0, 0],
-      zoom: 2,
-      minZoom: 0.5,
+      center: [0, 20],
+      zoom: 1.5,
+      minZoom: 1,
       maxZoom: 20,
       pitch: 0,
       bearing: 0,
