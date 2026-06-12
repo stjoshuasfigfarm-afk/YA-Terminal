@@ -816,6 +816,9 @@ export const IntelligenceSidebar = React.memo(
     const [impactFilter, setImpactFilter] = useState<
       "ALL" | "CRITICAL" | "MODERATE" | "ROUTINE"
     >("ALL");
+    const [selectedSourceFilter, setSelectedSourceFilter] = useState<
+      "ALL" | "YAHOO" | "FINNHUB"
+    >("ALL");
 
     const runSupplyChainAudit = (symbol: string) => {
       setAuditStatus("running");
@@ -836,7 +839,7 @@ export const IntelligenceSidebar = React.memo(
     const filteredNews = useMemo(() => {
       return news.filter((item) => {
         const titleSafe = String(item.title || "");
-        const summarySafe = String(item.summary || "");
+        const summarySafe = String(item.summary || item.description || "");
         const matchesSearch =
           titleSafe.toLowerCase().includes((newsSearch || "").toLowerCase()) ||
           summarySafe.toLowerCase().includes((newsSearch || "").toLowerCase());
@@ -850,9 +853,14 @@ export const IntelligenceSidebar = React.memo(
           return false;
         if (impactFilter !== "ALL" && compImpact !== impactFilter) return false;
 
+        // Source Filter
+        const s = (item.source || "").toLowerCase();
+        if (selectedSourceFilter === "YAHOO" && !s.includes("yahoo")) return false;
+        if (selectedSourceFilter === "FINNHUB" && (s.includes("yahoo") || s === "")) return false;
+
         return true;
       });
-    }, [news, newsSearch, sentimentFilter, impactFilter]);
+    }, [news, newsSearch, sentimentFilter, impactFilter, selectedSourceFilter]);
 
     // --- Cognitive Synthesis Agent Logic REMOVED (Moved to Deck) ---
 
@@ -1137,12 +1145,60 @@ export const IntelligenceSidebar = React.memo(
                               "text-[6.5px] font-mono px-1.5 py-0.5 border cursor-pointer uppercase transition-all rounded-2xs",
                               sentimentFilter === f
                                 ? "bg-emerald-950/25 border-emerald-500/50 text-emerald-400 font-bold"
-                                : "border-zinc-900 text-zinc-600 hover:text-zinc-400"
+                                : "border-zinc-900 text-zinc-650 hover:text-zinc-400"
                             )}
                           >
                             {f}
                           </button>
                         ))}
+                      </div>
+
+                      {/* Source filter quick buttons */}
+                      <div className="flex flex-col gap-1.5 border-t border-zinc-900/60 pt-2 mt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[6.5px] font-bold text-zinc-600 font-mono tracking-wider uppercase">SOURCE:</span>
+                          {selectedSourceFilter === "YAHOO" && (
+                            <span className="text-[5.5px] text-purple-400 font-bold tracking-widest uppercase animate-pulse">
+                              YAHOO FINANCE RSS ACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            { id: "ALL", label: "ALL SIGNAL" },
+                            { id: "YAHOO", label: "YAHOO NEWS" },
+                            { id: "FINNHUB", label: "FINNHUB/OTHER" }
+                          ].map((tab) => {
+                            const count = news.filter((item) => {
+                              const s = (item.source || "").toLowerCase();
+                              if (tab.id === "ALL") return true;
+                              if (tab.id === "YAHOO") return s.includes("yahoo");
+                              if (tab.id === "FINNHUB") return s.includes("finnhub") || (!s.includes("yahoo") && s !== "");
+                              return true;
+                            }).length;
+
+                            return (
+                              <button
+                                key={tab.id}
+                                onClick={() => setSelectedSourceFilter(tab.id as any)}
+                                className={cn(
+                                  "text-[6px] font-mono px-1.5 py-0.5 border cursor-pointer uppercase transition-all rounded-2xs flex items-center gap-1",
+                                  selectedSourceFilter === tab.id
+                                    ? "bg-purple-950/35 border-purple-500/50 text-purple-400 font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+                                    : "border-zinc-900 text-zinc-650 hover:text-zinc-400"
+                                )}
+                              >
+                                {tab.label}
+                                <span className={cn(
+                                  "text-[5px] font-mono font-black border rounded-xs px-0.5",
+                                  selectedSourceFilter === tab.id ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-black text-zinc-600 border-zinc-900"
+                                )}>
+                                  {count}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {/* News List */}
@@ -1154,7 +1210,20 @@ export const IntelligenceSidebar = React.memo(
                             return (
                               <div
                                 key={idx}
-                                className="group border border-zinc-900 bg-zinc-950/20 hover:border-emerald-500/40 hover:bg-zinc-900/10 transition-all rounded-xs font-mono overflow-hidden flex flex-col relative"
+                                onClick={() => {
+                                  const compSym = item.symbol || item.ticker || "";
+                                  const foundCompany = COMPANIES.find(c => c.symbol === compSym);
+                                  if (foundCompany) {
+                                    onSelectNode(foundCompany, false, false, item);
+                                    setInnerLeftTab("STRATEGY");
+                                  }
+                                }}
+                                className={cn(
+                                  "group border bg-zinc-950/20 hover:bg-zinc-900/10 cursor-pointer active:scale-[0.99] hover:scale-[1.01] transition-all rounded-xs font-mono overflow-hidden flex flex-col relative",
+                                  (item.source || "").toLowerCase().includes("yahoo")
+                                    ? "border-purple-950 hover:border-purple-500/60"
+                                    : "border-zinc-900 hover:border-emerald-500/60"
+                                )}
                               >
                                 {compImpact === "CRITICAL" && (
                                   <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none overflow-hidden">
@@ -1166,8 +1235,17 @@ export const IntelligenceSidebar = React.memo(
                                 
                                 <div className="flex justify-between items-center px-2 py-1 bg-zinc-900/40 border-b border-zinc-900/60 select-none group-hover:bg-zinc-900/60 transition-colors">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[6.5px] text-zinc-500 font-bold tracking-widest uppercase">
-                                      PKT_{idx.toString().padStart(3, '0')} // {item.source ? item.source.slice(0, 12).toUpperCase() : "SIGNAL_GATE"}
+                                    <span className="text-[6.5px] text-zinc-500 font-bold tracking-widest uppercase flex items-center gap-1.5">
+                                      <span className="w-1 h-1 bg-zinc-600 rounded-full" />
+                                      PKT_{idx.toString().padStart(3, '0')}
+                                    </span>
+                                    <span className={cn(
+                                      "text-[5.5px] px-1 py-0.2 rounded-xs border uppercase font-black tracking-wider leading-none py-0.5 shrink-0 select-none",
+                                      (item.source || "").toLowerCase().includes("yahoo")
+                                        ? "bg-purple-950/30 border-purple-500/35 text-purple-400"
+                                        : "bg-emerald-950/20 border-emerald-500/25 text-emerald-400"
+                                    )}>
+                                      {item.source ? item.source.toUpperCase() : "GLOBAL SIGNAL"}
                                     </span>
                                   </div>
                                   <div className="flex gap-2 shrink-0 items-center">
@@ -1215,8 +1293,11 @@ export const IntelligenceSidebar = React.memo(
                                     </div>
                                     <div className="flex items-center gap-2">
                                       <button
-                                        onClick={() => handleSpeak(item.title + (item.summary ? ". " + item.summary : ""))}
-                                        className="text-emerald-500/50 hover:text-emerald-400 focus:outline-none transition-colors border border-emerald-500/30 rounded-2xs px-1.5 py-0.5 bg-emerald-500/5 hover:bg-emerald-500/20 flex items-center gap-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSpeak(item.title + (item.summary || item.description ? ". " + (item.summary || item.description) : ""));
+                                        }}
+                                        className="text-emerald-500/55 hover:text-emerald-400 focus:outline-none transition-colors border border-emerald-500/30 rounded-2xs px-1.5 py-0.5 bg-emerald-500/5 hover:bg-emerald-500/20 flex items-center gap-1"
                                         title="Play Synthesis"
                                       >
                                         <Play className="w-2 h-2" />

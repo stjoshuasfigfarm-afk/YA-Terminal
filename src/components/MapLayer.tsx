@@ -67,7 +67,12 @@ const isSafeLatLng = (lat: any, lng: any): boolean => {
 interface MapLayerProps {
   selectedStock: Company | null;
   focusStock?: Company | null;
-  onSelectNode: (c: Company, skipFetch?: boolean) => void;
+  onSelectNode: (
+    c: Company,
+    skipFetch?: boolean,
+    isSearch?: boolean,
+    activeStoryContext?: any,
+  ) => void;
   intelligenceFeed?: any[];
   isIntelligenceStream?: boolean;
   toggleIntelligenceStream?: () => void;
@@ -307,7 +312,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
   }, []);
 
-  const [newsActiveTab, setNewsActiveTab] = useState("FLASH_URGENT");
+  const [newsActiveTab, setNewsActiveTab] = useState("YAHOO_FINANCE");
   const [eiaData, setEiaData] = useState<any>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
 
@@ -1388,6 +1393,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           >
             {(() => {
               const tabs = [
+                "YAHOO_FINANCE",
                 "FLASH_URGENT",
                 "SECTOR_ROTATION",
                 "MACRO_ALERTS",
@@ -1398,6 +1404,9 @@ export const MapLayer: React.FC<MapLayerProps> = ({
               // Mock random filtering based on tab selection so it doesn't look empty when changing tabs
               const currentTabFiltered = filteredCompanyCache.filter(
                 (item, idx) => {
+                  if (newsActiveTab === "YAHOO_FINANCE") {
+                    return (item.source || "").toLowerCase().includes("yahoo");
+                  }
                   if (newsActiveTab === "SECTOR_ROTATION") return idx % 2 === 0;
                   if (newsActiveTab === "MACRO_ALERTS") return idx % 3 === 0;
                   return true;
@@ -1497,7 +1506,16 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.05 }}
                           key={idx}
-                          className="flex items-start gap-2 bg-zinc-950/40 p-2 rounded-sm border border-zinc-900 hover:border-emerald-900/50 transition-colors group cursor-pointer"
+                          onClick={() => {
+                            const symbol = item.symbol || item.ticker || activeCompany?.symbol;
+                            if (symbol) {
+                              const found = COMPANIES.find(c => c.symbol === symbol);
+                              if (found) {
+                                onSelectNode(found, false, false, item);
+                              }
+                            }
+                          }}
+                          className="flex items-start gap-2 bg-zinc-950/40 p-2 rounded-sm border border-zinc-900 hover:border-emerald-950 transition-colors group cursor-pointer"
                         >
                           <span className="text-emerald-500 font-bold group-hover:text-emerald-400 mt-0.5">
                             »

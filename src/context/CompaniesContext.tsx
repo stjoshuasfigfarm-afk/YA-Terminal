@@ -37,7 +37,7 @@ const deduplicateCompanies = (list: Company[]): Company[] => {
   const result = Array.from(map.values());
   
   // Prioritize and hoist critical, highly targeted benchmark tickers so they are never gated out by Density Limits
-  const prioritizedSymbols = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSM", "ASML", "TSLA", "AMZN", "META", "GOOGL"];
+  const prioritizedSymbols = ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSM", "ASML", "TSLA", "AMZN", "META", "GOOGL", "SPCX"];
   const prioritized: Company[] = [];
   const other: Company[] = [];
   

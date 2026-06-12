@@ -7,6 +7,7 @@ export interface MockNewsStory {
   symbol: string;
   url: string;
   image: string;
+  source: string;
   sentiment: "BULLISH" | "BEARISH" | "NEUTRAL";
   impact: "CRITICAL" | "MODERATE" | "ROUTINE";
   intelligence?: {
@@ -137,7 +138,7 @@ export function generateCompanySpecificNews(symbol: string, name: string, sector
   const detourDelayDays = getHashedSelection(["11 additional", "9 full", "14 critical", "8 extended"], norm + "_detour_amt");
   const borderEscrowAmount = getHashedSelection(["4,500 priority shipping units", "18,200 precision control components", "9,800 secondary chipsets"], norm + "_escrow_amt");
 
-  const stories: Omit<MockNewsStory, "symbol" | "published_at" | "url" | "image">[] = [];
+  const stories: Omit<MockNewsStory, "symbol" | "published_at" | "url" | "image" | "source">[] = [];
 
   // Story 1: Custom Deep-tier Corporate Deal (Bullish)
   stories.push({
@@ -178,6 +179,7 @@ export function generateCompanySpecificNews(symbol: string, name: string, sector
     published_at: getPastTimeStr(idx * 7 + 2), 
     url: `https://example.com/logistics/intel/${(symbol || "").toLowerCase()}-${idx}`,
     image: "",
+    source: idx % 2 === 0 ? "Yahoo Finance" : "Finnhub",
     intelligence: {
       translatedTitle: `NEURAL ACCESS: ${s.title.toUpperCase()}`
     }

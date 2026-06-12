@@ -1,5 +1,16 @@
 [
   {
+    "symbol": "SPCX",
+    "name": "SpaceX Tracking ETF (SPCX)",
+    "sector": "Aerospace & Tech",
+    "lat": 33.9180,
+    "lng": -118.3242,
+    "country": "USA",
+    "workforce": "Pending IPO / ETF Proxy",
+    "headquarters": "Hawthorne, CA",
+    "domain": "spacex.com"
+  },
+  {
     "symbol": "000270.KS",
     "name": "KIA Corporation",
     "sector": "Automotive",

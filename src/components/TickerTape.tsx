@@ -19,30 +19,36 @@ export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
   }, []);
 
   useEffect(() => {
-    // Initial random prices
-    const initial: Record<string, { price: number; change: number }> = {};
-    tickerItems.forEach(item => {
-      initial[item.symbol] = {
-        price: 100 + Math.random() * 900,
-        change: (Math.random() * 4 - 2)
-      };
-    });
-    setPrices(initial);
-
-    const interval = setInterval(() => {
-      setPrices(prev => {
-        const next = { ...prev };
-        const keyToUpdate = tickerItems[Math.floor(Math.random() * tickerItems.length)].symbol;
-        if (next[keyToUpdate]) {
-            const delta = (Math.random() * 0.4 - 0.2);
-            next[keyToUpdate] = {
-                price: Math.max(1, next[keyToUpdate].price + delta),
-                change: Number((next[keyToUpdate].change + (delta / 10)).toFixed(2))
-            };
+    const fetchRealPrices = async () => {
+      try {
+        const symbolsStr = tickerItems.map(item => item.symbol).join(",");
+        const response = await fetch(`/api/quote?symbols=${symbolsStr}`);
+        if (response.ok) {
+          const dataList = await response.json();
+          const updatedPrices: Record<string, { price: number; change: number }> = {};
+          
+          if (Array.isArray(dataList)) {
+            dataList.forEach((item: any) => {
+              if (item && item.symbol) {
+                updatedPrices[item.symbol] = {
+                  price: item.price || 100,
+                  change: item.changesPercentage || item.changes || item.change || 0
+                };
+              }
+            });
+            setPrices(updatedPrices);
+          }
         }
-        return next;
-      });
-    }, 2000);
+      } catch (err) {
+        console.error("Failed to fetch real-time ticker quotes from server:", err);
+      }
+    };
+
+    // Initial real fetch
+    fetchRealPrices();
+
+    // Regular interval fetch to keep it fresh
+    const interval = setInterval(fetchRealPrices, 15000);
 
     return () => clearInterval(interval);
   }, [tickerItems]);

@@ -78,6 +78,8 @@ export default function App() {
   const [autopilotNewsIndex, setAutopilotNewsIndex] = useState(0);
   const [isLiveNewsEnabled, setIsLiveNewsEnabled] = useState(false);
   const [isLiveNewsZoomEnabled, setIsLiveNewsZoomEnabled] = useState(false);
+  const [isManualScanActive, setIsManualScanActive] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
   const [activeNewsPopup, setActiveNewsPopup] = useState<{ lat: number; lng: number; title: string; symbol: string } | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1029,7 +1031,95 @@ export default function App() {
         setViewportLock(false);
       }, 8000);
     }
-  }, [addLog, setMarketData, setAgentFocus, setViewportLock, isLiveNewsZoomEnabled, companies]);
+  }, [addLog, setMarketData, setAgentFocus, setViewportLock, isLiveNewsZoomEnabled, isLiveNewsEnabled, companies]);
+
+  // Web Audio Synthesizer for News Feed intercepts & sweeps
+  const playTacticalAudio = useCallback((type: "scan" | "success" | "click") => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      
+      if (type === "click") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        gain.gain.setValueAtTime(0.015, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.05);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.05);
+      } else if (type === "scan") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(250, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(950, ctx.currentTime + 1.2);
+        gain.gain.setValueAtTime(0.02, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.2);
+        osc.start();
+        osc.stop(ctx.currentTime + 1.2);
+      } else if (type === "success") {
+        const now = ctx.currentTime;
+        const playChimeNode = (freq: number, delay: number, dur: number) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + delay);
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(0.025, now + delay + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + dur);
+          osc.start(now + delay);
+          osc.stop(now + delay + dur);
+        };
+        playChimeNode(523.25, 0, 0.25); // C5
+        playChimeNode(783.99, 0.08, 0.35); // G5
+      }
+    } catch (e) {
+      console.warn("Audio synthesis block error:", e);
+    }
+  }, []);
+
+  // Trigger on-demand satellite scan & decrypt event injection
+  const triggerManualScan = useCallback(() => {
+    if (isManualScanActive) return;
+    
+    setIsManualScanActive(true);
+    setScanProgress(0);
+    playTacticalAudio("scan");
+    addLog("INTEL_LINK: Initializing passive satellite signal intercept...");
+    
+    let currentProgress = 0;
+    const intervalRef = setInterval(() => {
+      currentProgress += 10;
+      if (currentProgress < 100) {
+        setScanProgress(currentProgress);
+        if (currentProgress === 30) {
+          addLog("INTEL_LINK: Signal vector located across coordinate cluster...");
+        } else if (currentProgress === 60) {
+          addLog("INTEL_LINK: Decoding security packets. Quantum bypass active...");
+        } else if (currentProgress === 80) {
+          addLog("INTEL_LINK: Extracting encrypted operational feeds...");
+        }
+      } else {
+        clearInterval(intervalRef);
+        setScanProgress(100);
+        
+        setTimeout(() => {
+          injectLiveNews();
+          playTacticalAudio("success");
+          addLog("SIGNAL_STREAM: Decrypt success! Live intelligence node mapped.");
+          setIsManualScanActive(false);
+          setScanProgress(0);
+        }, 150);
+      }
+    }, 120);
+  }, [isManualScanActive, injectLiveNews, addLog, playTacticalAudio]);
 
   // Periodic News Injection Heartbeat
   useEffect(() => {
@@ -1429,15 +1519,59 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => setIsLiveNewsEnabled(!isLiveNewsEnabled)}
+                onClick={() => {
+                  if (isManualScanActive) return;
+                  if (!isLiveNewsEnabled) {
+                    playTacticalAudio("click");
+                    setIsLiveNewsEnabled(true);
+                    addLog("SIGNAL_STREAM: Real-time intelligence stream activated.");
+                    setTimeout(() => {
+                      triggerManualScan();
+                    }, 50);
+                  } else {
+                    playTacticalAudio("click");
+                    setIsLiveNewsEnabled(false);
+                    setActiveNewsPopup(null);
+                    addLog("SIGNAL_STREAM: Real-time intelligence stream deactivated.");
+                  }
+                }}
                 className={cn(
-                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 border",
-                  isLiveNewsEnabled ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1.5 h-5 border cursor-pointer rounded-xs transition-all",
+                  isLiveNewsEnabled 
+                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 font-extrabold shadow-[0_0_8px_rgba(16,185,129,0.15)] animate-pulse" 
+                    : "border-zinc-900 text-zinc-650 hover:border-zinc-850 hover:text-zinc-500"
                 )}
               >
                 <Newspaper className="w-2.5 h-2.5" />
                 <span className="hidden xl:inline">NEWS_FEED</span>
+                <span className={cn(
+                  "w-1 h-1 rounded-full",
+                  isLiveNewsEnabled ? "bg-emerald-400" : "bg-zinc-700"
+                )} />
               </button>
+
+              {isLiveNewsEnabled && (
+                <button
+                  disabled={isManualScanActive}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerManualScan();
+                  }}
+                  className={cn(
+                    "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase h-5 flex items-center gap-1 cursor-pointer rounded-xs border select-none transition-all",
+                    isManualScanActive
+                      ? "bg-amber-950/20 border-amber-500/50 text-amber-400 cursor-not-allowed shadow-[0_0_6px_rgba(245,158,11,0.15)]"
+                      : "bg-emerald-950/15 border-emerald-500/35 text-emerald-400 hover:bg-emerald-900/10 hover:border-emerald-550 active:scale-95"
+                  )}
+                >
+                  <Search className={cn("w-2.5 h-2.5", isManualScanActive && "animate-spin")} />
+                  {isManualScanActive ? (
+                    <span>DECRYPT_SCAN {scanProgress}%</span>
+                  ) : (
+                    <span>MANUAL_INJECT</span>
+                  )}
+                </button>
+              )}
 
               <button
                 onClick={() => {
