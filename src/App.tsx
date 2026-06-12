@@ -372,6 +372,9 @@ export default function App() {
   const finalFilteredMatches = useMemo(() => {
     let matches = searchedResults.filter((match) => {
       const c = match.company;
+      if (searchQuery.trim().toUpperCase() === "SPCX" || (c.symbol && c.symbol.toUpperCase() === searchQuery.trim().toUpperCase())) {
+        return true;
+      }
       if (searchCategory === "ETFS") {
         return c.sector === "ETF";
       } else if (searchCategory === "STOCKS") {

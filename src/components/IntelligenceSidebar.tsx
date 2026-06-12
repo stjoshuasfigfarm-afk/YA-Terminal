@@ -952,7 +952,7 @@ export const IntelligenceSidebar = React.memo(
                 {[
                   {
                     id: "STRATEGY",
-                    label: selectedStock ? "NEWS_FEED" : "INTEL_DECK",
+                    label: selectedStock ? "NEWS_FEED" : "TACTICAL_FEED",
                     icon: <MapPin className="w-3 h-3" />,
                   },
                   ...(selectedStock ? [
@@ -991,107 +991,6 @@ export const IntelligenceSidebar = React.memo(
                 {/* STRATEGY TAB CONTENT */}
                 {innerLeftTab === "STRATEGY" && (
                    <div className="space-y-4">
-                     {/* 1. AGENT BRIEFING / COGNITIVE REPORT DECK */}
-                     {(briefing || (agentFocus && agentFocus.briefing)) && (
-                       <div className="border border-emerald-500/35 bg-black/80 rounded-sm p-3 font-mono space-y-3 relative shadow-[0_0_15px_rgba(16,185,129,0.05)] font-mono">
-                         {/* Title of the Report */}
-                         <div className="flex items-center justify-between border-b border-emerald-500/20 pb-1.5 select-none font-mono">
-                           <span className="text-[8.5px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                             <ShieldAlert className="w-3 h-3 text-emerald-400 animate-pulse" />
-                             {selectedStock ? `INTEL_DECK::${selectedStock.symbol}` : "TACTICAL_INTEL_DECK"}
-                           </span>
-                           <span className="text-[6.5px] text-zinc-500 font-bold font-mono">
-                             {agentFocus?.locationName ? agentFocus.locationName.slice(0, 24).toUpperCase() : "COGNITIVE_GRID"}
-                           </span>
-                         </div>
-
-                         {/* Content text */}
-                         <div className="space-y-2.5 font-mono">
-                           {/* Main Summary Text */}
-                           <div className="p-2 bg-zinc-950/80 border border-zinc-900 border-dashed rounded-xs font-mono">
-                             <div className="text-[6.5px] font-extrabold text-zinc-500 uppercase tracking-widest mb-1.5 font-mono">
-                               DIRECTIVE_SUMMARY
-                             </div>
-                             <Typewriter
-                               className="text-zinc-300 font-mono text-[9px] leading-relaxed"
-                               text={
-                                 typeof briefing === "string" ? briefing :
-                                 (briefing?.summary ||
-                                  briefing?.text ||
-                                  (typeof agentFocus?.briefing === "string" ? agentFocus.briefing : "") ||
-                                  "Analyzing target assets...")
-                               }
-                             />
-                           </div>
-
-                           {/* If structured company briefing: Recommendations */}
-                           {briefing && typeof briefing !== "string" && briefing.tacticalRecommendations && (
-                             <div className="space-y-1.5 p-2 bg-emerald-950/10 border border-emerald-500/10 rounded-xs font-mono">
-                               <div className="text-[6.5px] font-black text-emerald-400 uppercase tracking-wider font-mono flex items-center gap-1 font-mono">
-                                 <Zap className="w-2.5 h-2.5" /> STRATEGIC_DIRECTIVES
-                               </div>
-                               <div className="space-y-1 font-mono">
-                                 {briefing.tacticalRecommendations.map((rec: string, idx: number) => (
-                                   <div key={idx} className="text-[8px] text-zinc-300 flex gap-1.5 leading-tight font-mono">
-                                     <span className="text-emerald-500 font-bold shrink-0 font-mono">[{idx+1}]</span>
-                                     <span>{rec}</span>
-                                   </div>
-                                 ))}
-                               </div>
-                             </div>
-                           )}
-
-                           {/* If structured company briefing: Risk Factors */}
-                           {briefing && typeof briefing !== "string" && briefing.riskFactors && (
-                             <div className="space-y-1.5 p-2 bg-red-950/10 border border-red-500/10 rounded-xs font-mono">
-                               <div className="text-[6.5px] font-black text-red-400 uppercase tracking-wider font-mono flex items-center gap-1 font-mono">
-                                 <ShieldAlert className="w-2.5 h-2.5" /> THREAT_FACTORS
-                               </div>
-                               <div className="space-y-1 font-mono font-mono">
-                                 {briefing.riskFactors.map((rf: string, idx: number) => (
-                                   <div key={idx} className="text-[8px] text-zinc-300 flex gap-1.5 leading-tight font-mono">
-                                     <span className="text-red-500 font-bold shrink-0 font-mono">[{idx+1}]</span>
-                                     <span>{rf}</span>
-                                   </div>
-                                 ))}
-                               </div>
-                             </div>
-                           )}
-
-                           {/* If general search briefing: Facts List */}
-                           {agentFocus && agentFocus.facts && agentFocus.facts.length > 0 && (
-                             <div className="space-y-1.5 p-2 bg-blue-950/10 border border-blue-500/15 rounded-xs font-mono">
-                               <div className="text-[6.5px] font-black text-blue-400 uppercase tracking-wider font-mono flex items-center gap-1 font-mono">
-                                 <GlobeIcon className="w-2.5 h-2.5" /> INTELLIGENCE_FACTS
-                               </div>
-                               <div className="space-y-1 font-mono">
-                                 {agentFocus.facts.map((fact: string, idx: number) => (
-                                   <div key={idx} className="text-[8px] text-zinc-300 flex gap-1.5 leading-tight font-mono">
-                                     <span className="text-blue-500 font-bold shrink-0 font-mono">[{idx+1}]</span>
-                                     <span>{fact}</span>
-                                   </div>
-                                 ))}
-                               </div>
-                             </div>
-                           )}
-
-                           {/* Outlook details for structured company */}
-                           {briefing && typeof briefing !== "string" && briefing.outlook && (
-                             <div className="flex justify-between items-center text-[7.5px] bg-black p-1.5 border border-zinc-900 rounded-2xs font-mono font-mono">
-                               <span className="text-zinc-650 font-bold uppercase font-mono">OUTLOOK_VECTOR:</span>
-                               <span className={cn(
-                                 "font-black tracking-widest px-1.5 py-0.5 rounded-2xs border uppercase font-mono text-[7px]",
-                                 briefing.outlook === "ACCELERATING" ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-400" :
-                                 briefing.outlook === "VULNERABLE" || briefing.outlook === "COMPROMISED" ? "bg-red-950/20 border-red-500/30 text-red-500 animate-pulse" :
-                                 "bg-zinc-900 border-zinc-800 text-zinc-400"
-                               )}>
-                                 {briefing.outlook}
-                               </span>
-                             </div>
-                           )}
-                         </div>
-                       </div>
-                     )}
 
                      {/* 2. LIVE COGNITIVE FEED & NEWS (Only if selectedStock is defined) */}
                      {selectedStock && (

@@ -22,7 +22,7 @@ export const COMPANIES: Company[] = [
   { symbol: "TSM", name: "TSMC", sector: "Semiconductors", lat: 24.7816, lng: 121.0153, country: "TWN", partners: ["AAPL", "NVDA", "ASML"], workforce: "73,000", headquarters: "Hsinchu, Taiwan", domain: "tsmc.com" },
   { symbol: "ASML", name: "ASML Holding", sector: "Semiconductors", lat: 51.4035, lng: 5.4081, country: "NLD", partners: ["TSM", "INTC", "AMAT"], workforce: "39,000", headquarters: "Veldhoven, Netherlands", domain: "asml.com" },
   { symbol: "SMC", name: "Super Micro", sector: "Technology", lat: 37.3794, lng: -121.9407, country: "USA", partners: ["NVDA", "INTC"], workforce: "5,000", headquarters: "San Jose, CA", domain: "supermicro.com" },
-  { symbol: "SPCX", name: "SpaceX Tracking ETF (SPCX)", sector: "Aerospace & Tech", lat: 33.9180, lng: -118.3242, country: "USA", partners: ["TSLA", "V"], workforce: "Pending IPO / ETF Proxy", headquarters: "Hawthorne, CA", domain: "spacex.com" },
+  { symbol: "SPCX", name: "SpaceX Tracking ETF (SPCX)", sector: "ETF", lat: 33.9180, lng: -118.3242, country: "USA", partners: ["TSLA", "V"], workforce: "Pending IPO / ETF Proxy", headquarters: "Hawthorne, CA", domain: "spacex.com" },
   
   // FINANCE (US/EU)
   { symbol: "JPM", name: "JPMorgan Chase", sector: "Financial Services", lat: 40.7559, lng: -73.9749, country: "USA", partners: ["GS", "MS"], domain: "jpmorganchase.com" },

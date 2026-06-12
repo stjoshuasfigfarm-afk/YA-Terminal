@@ -1300,7 +1300,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                       ? "bg-emerald-500 border-emerald-400 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                       : "bg-zinc-900 border-emerald-500/30 text-emerald-500 hover:border-emerald-500"
                   )}
-                  title="Expand to Full News Deck"
+                  title="Expand to Full News Panel"
                 >
                   <Zap className="w-3 h-3" />
                 </button>
