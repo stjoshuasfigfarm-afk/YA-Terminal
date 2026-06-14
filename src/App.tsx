@@ -1366,18 +1366,10 @@ export default function App() {
       </div>
 
         {/* PANEL G: DATA_FLOW (ACROSS THE TOP) */}
-        <div className="border-t border-zinc-900 bg-black py-1 px-4 flex flex-row items-center gap-4 select-none shrink-0 relative z-[500] overflow-visible">
-          {/* Label */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-            <span className="text-[8px] text-zinc-400 font-mono font-black uppercase tracking-[0.15em] whitespace-nowrap">
-              PANEL G: SYSTEM_INDEX (PORT_3000)
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 flex-1 min-w-0 overflow-visible">
-            {/* Search Bar Container */}
-            <div className="relative flex-[0_0_240px] flex items-center overflow-visible">
+        <div className="border-t border-zinc-900 bg-black py-2 px-4 flex flex-col md:flex-row items-stretch md:items-center gap-2.5 md:gap-4 select-none shrink-0 relative z-[500] w-full">
+          {/* Row 1: Search Bar Container */}
+          <div className="flex items-center w-full md:w-auto">
+            <div className="relative flex-1 md:flex-[0_0_240px] flex items-center overflow-visible">
               <input
                 ref={searchInputRef}
                 type="text"
@@ -1459,8 +1451,11 @@ export default function App() {
                 )}
               </AnimatePresence>
             </div>
+          </div>
 
-            {/* Focus Toggle (Moved next to searchbar) */}
+          {/* Row 2: Control Strip (Focus, Buttons, Filters, yield compact monitor, sorting) */}
+          <div className="flex items-center gap-4 overflow-x-auto md:overflow-visible scrollbar-none w-full md:flex-1 min-w-0 py-1 md:py-0">
+            {/* Focus Toggle */}
             <button
               onClick={() => setIsFocusMode(!isFocusMode)}
               className={cn(
@@ -1477,9 +1472,7 @@ export default function App() {
             </button>
 
             {/* Scrollable Interaction Strip */}
-            <div className="flex items-center gap-4 flex-1 overflow-x-auto scrollbar-none">
-              {/* Buttons Group */}
-              <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setAutoRotateEnabled(!autoRotateEnabled)}
                 className={cn(
@@ -1594,7 +1587,7 @@ export default function App() {
                   <button
                     key={chip}
                     onClick={() => setSearchQuery(chip)}
-                    className="text-[6.5px] font-mono font-black px-1.5 py-0.5 border border-zinc-900 text-zinc-600 hover:text-zinc-400 uppercase h-5"
+                    className="text-[6.5px] font-mono font-black px-1.5 py-0.5 border border-zinc-900 text-zinc-650 hover:text-zinc-400 uppercase h-5"
                   >
                     {chip}
                   </button>
@@ -1603,7 +1596,6 @@ export default function App() {
             </div>
           </div>
         </div>
-      </div>
 
       <main className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden relative custom-scrollbar scroll-smooth">
         <div
