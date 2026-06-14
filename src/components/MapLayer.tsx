@@ -107,9 +107,12 @@ interface MapLayerProps {
   activeNewsIdx?: number;
   activeNewsPopup?: { lat: number; lng: number; title: string; symbol: string } | null;
   isLiveNewsZoomEnabled?: boolean;
+  isFocusMode?: boolean;
   isAutopilot?: boolean;
   toggleLiveNewsZoom?: () => void;
+  toggleFocusMode?: () => void;
   resetOrientationTrigger?: number;
+  onHeadlineClick?: (news: any) => void;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({
@@ -150,9 +153,12 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   activeNewsIdx: propActiveNewsIdx = 0,
   activeNewsPopup = null,
   isLiveNewsZoomEnabled = false,
+  isFocusMode = true,
   isAutopilot = false,
   toggleLiveNewsZoom,
+  toggleFocusMode,
   resetOrientationTrigger = 0,
+  onHeadlineClick,
 }) => {
   const setIsVocalizerEnabled = onToggleVocalizer;
   const [isSwapped, setIsSwapped] = useState(false);
@@ -678,7 +684,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       setPreservedBriefing({
         type: "agentFocus",
         text: extractedText,
-        title: "ANALYSIS_STREAM",
+        title: "BRIEFING",
         subTitle: agentFocus.locationName ? agentFocus.locationName.toUpperCase() : "TARGET REGION"
       });
       setIsBriefingMinimized(false);
@@ -1174,11 +1180,14 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                 onSelectNode(entity);
               }
             }}
+            onHeadlineClick={onHeadlineClick}
             activeNewsPopup={activeNewsPopup}
             isLiveNewsZoomEnabled={isLiveNewsZoomEnabled}
+            isFocusMode={isFocusMode}
             isAutopilot={isAutopilot}
             toggleGlobalNetwork={toggleGlobalNetwork}
             toggleLiveNewsZoom={toggleLiveNewsZoom}
+            toggleFocusMode={toggleFocusMode}
             resetOrientationTrigger={resetOrientationTrigger}
             partnerLines={partnerLines}
           />

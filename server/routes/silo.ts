@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 import { db } from "../firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
@@ -16,9 +17,8 @@ export async function fetchLiveQuote(symbol: string) {
   // 1. Try Financial Modeling Prep (FMP)
   if (isKeyReady(FMP_KEY)) {
     try {
-      const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`);
-      if (!response.ok) throw new Error(`FMP API error: ${response.statusText}`);
-      const fmpData = await response.json();
+      const response = await axios.get(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`, { timeout: 3000 });
+      const fmpData = response.data;
       if (fmpData && fmpData[0]) {
         data = fmpData[0];
         source = "FMP";
@@ -31,9 +31,8 @@ export async function fetchLiveQuote(symbol: string) {
   // 2. Try Finnhub
   if (source === "NONE" && isKeyReady(FINNHUB_KEY)) {
     try {
-      const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`);
-      if (!response.ok) throw new Error(`Finnhub API error: ${response.statusText}`);
-      const fhData = await response.json();
+      const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`, { timeout: 3000 });
+      const fhData = response.data;
       if (fhData && fhData.c) {
         data = {
           price: fhData.c,
@@ -54,9 +53,8 @@ export async function fetchLiveQuote(symbol: string) {
   // 3. Try ITIC
   if (source === "NONE" && isKeyReady(ITIC_KEY)) {
     try {
-      const response = await fetch(`https://api.itick.io/v1/quote?symbol=${symbol}&token=${ITIC_KEY}`);
-      if (!response.ok) throw new Error(`ITICK API error: ${response.statusText}`);
-      const itkData = await response.json();
+      const response = await axios.get(`https://api.itick.io/v1/quote?symbol=${symbol}&token=${ITIC_KEY}`, { timeout: 3000 });
+      const itkData = response.data;
       if (itkData && itkData.price) {
         data = {
           price: itkData.price,
@@ -77,34 +75,33 @@ export async function fetchLiveQuote(symbol: string) {
   // 4. Try Yahoo Finance
   if (source === "NONE") {
     try {
-      const response = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}`, {
+      const response = await axios.get(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}`, {
+        timeout: 4000,
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
       });
-      if (response.ok) {
-        const yhData = await response.json();
-        if (yhData && yhData.chart && yhData.chart.result && yhData.chart.result[0]) {
-          const meta = yhData.chart.result[0].meta;
-          const indicators = yhData.chart.result[0].indicators;
-          let volume = 0;
-          if (indicators && indicators.quote && indicators.quote[0] && indicators.quote[0].volume) {
-            const vols = indicators.quote[0].volume;
-            volume = vols[vols.length - 1] || 0;
-          }
-          data = {
-            price: meta.regularMarketPrice,
-            change: meta.regularMarketPrice - meta.previousClose,
-            changesPercentage: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 100,
-            dayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-            dayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
-            open: meta.regularMarketOpen || meta.regularMarketPrice,
-            previousClose: meta.previousClose,
-            volume: volume,
-            marketCap: meta.regularMarketPrice * (meta.sharesOutstanding || 100000000)
-          };
-          source = "YAHOO";
+      const yhData = response.data;
+      if (yhData && yhData.chart && yhData.chart.result && yhData.chart.result[0]) {
+        const meta = yhData.chart.result[0].meta;
+        const indicators = yhData.chart.result[0].indicators;
+        let volume = 0;
+        if (indicators && indicators.quote && indicators.quote[0] && indicators.quote[0].volume) {
+          const vols = indicators.quote[0].volume;
+          volume = vols[vols.length - 1] || 0;
         }
+        data = {
+          price: meta.regularMarketPrice,
+          change: meta.regularMarketPrice - meta.previousClose,
+          changesPercentage: ((meta.regularMarketPrice - (meta.previousClose || 0)) / (meta.previousClose || 1)) * 100,
+          dayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
+          dayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
+          open: meta.regularMarketOpen || meta.regularMarketPrice,
+          previousClose: meta.previousClose,
+          volume: volume,
+          marketCap: meta.regularMarketPrice * (meta.sharesOutstanding || 100000000)
+        };
+        source = "YAHOO";
       }
     } catch (e) {
       // Silent pass

@@ -1,4 +1,5 @@
 import express from "express";
+import axios from "axios";
 import { db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
@@ -40,13 +41,8 @@ async function fetchEIADataset(seriesId: string, endpoint: string, frequency: st
     if (EIA_API_KEY) {
       // Simulate real EIA v2 API Fetch
       const url = `https://api.eia.gov/v2/${endpoint}?api_key=${EIA_API_KEY}&frequency=${frequency}&data[0]=value&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=10`;
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`EIA API Error: ${response.statusText}`);
-      }
-
-      const raw = await response.json();
+      const response = await axios.get(url, { timeout: 6000 });
+      const raw = response.data;
       
       // Normalize raw EIA response -> Standardized time-series array
       if (raw.response && raw.response.data) {

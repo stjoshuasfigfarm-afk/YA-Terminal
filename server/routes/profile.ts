@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 import { COMPANIES } from "../../src/data/companies";
 
 const router = Router();
@@ -24,9 +25,8 @@ router.get("/:symbol?", async (req, res) => {
 
     if (!isKeyReady(FINNHUB_KEY)) throw new Error("Finnhub key missing");
     
-    const response = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_KEY}`);
-    if (!response.ok) throw new Error(`HTTP_${response.status}`);
-    const data = await response.json();
+    const response = await axios.get(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${FINNHUB_KEY}`, { timeout: 4000 });
+    const data = response.data;
     
     if (data && data.name) {
       return res.json({

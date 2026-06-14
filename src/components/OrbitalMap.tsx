@@ -15,7 +15,8 @@ import {
   Globe,
   Network,
   Target,
-  Box
+  Box,
+  MapPin
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -26,11 +27,14 @@ interface OrbitalMapProps {
   autoRotate?: boolean;
   is3D?: boolean;
   entities?: any[];
-  activeNewsPopup?: { lat: number; lng: number; title: string; symbol: string } | null;
+  activeNewsPopup?: { lat: number; lng: number; title: string; symbol: string; fullStory?: any } | null;
+  onHeadlineClick?: (news: any) => void;
   isLiveNewsZoomEnabled?: boolean;
+  isFocusMode?: boolean;
   isAutopilot?: boolean;
   toggleGlobalNetwork?: () => void;
   toggleLiveNewsZoom?: () => void;
+  toggleFocusMode?: () => void;
   resetOrientationTrigger?: number;
   partnerLines?: {
     coords: [[number, number], [number, number]];
@@ -48,10 +52,13 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   is3D = true,
   entities = [],
   activeNewsPopup = null,
+  onHeadlineClick,
   isLiveNewsZoomEnabled = false,
+  isFocusMode = true,
   isAutopilot = false,
   toggleGlobalNetwork,
   toggleLiveNewsZoom,
+  toggleFocusMode,
   resetOrientationTrigger = 0,
   partnerLines = []
 }) => {
@@ -65,7 +72,7 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<{ [key: string]: maplibregl.Marker }>({});
-  const liveNewsPopupRef = useRef<maplibregl.Popup | null>(null);
+  const liveNewsPopupsRef = useRef<Set<maplibregl.Popup>>(new Set());
   const [zoom, setZoom] = useState(2);
   const [center, setCenter] = useState<[number, number]>([0, 0]);
   const [pitch, setPitch] = useState(0);
@@ -86,7 +93,7 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         map.addLayer({
           id: retailLayerId,
           type: "circle",
-          source: "carto", // using the existing carto source from dark-matter style
+          source: "carto",
           "source-layer": "poi",
           minzoom: 14,
           filter: [
@@ -102,8 +109,18 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
               14, 3,
               18, 6
             ],
-            "circle-color": "#fbbf24", // distinct icon color for retail
-            "circle-stroke-width": 1,
+            "circle-color": [
+              "case",
+              ["match", ["to-string", ["get", "brand"]], ["Amazon", "Walmart", "McDonald's", "Starbucks", "Target"], true, false],
+              "#10b981", // High priority Green (Hiring)
+              "#fbbf24"  // Default Yellow
+            ],
+            "circle-stroke-width": [
+              "case",
+              ["match", ["to-string", ["get", "brand"]], ["Amazon", "Walmart", "McDonald's", "Starbucks", "Target"], true, false],
+              2,
+              1
+            ],
             "circle-stroke-color": "#000",
             "circle-opacity": 0.85
           }
@@ -234,9 +251,27 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
               </div>
               
               <div id="${popupId}" style="border-top: 1px solid #222; padding-top: 6px; font-size: 9px; display: flex; flex-direction: column; gap: 4px;">
-                  <div style="color: #60a5fa; animation: pulse 1.5s infinite;">CONNECTING TO INTEL NET...</div>
+                  <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #60a5fa; animation: pulse 1s infinite; font-size: 7px;">INIT_SECURE_UPLINK...</span>
+                        <span style="color: #333; font-size: 6px;">[SCAN_ACTIVE]</span>
+                    </div>
+                    <div style="width: 100%; height: 2px; background: #111; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: 0; left: 0; height: 100%; background: #60a5fa; width: 30%; animation: scan 1.5s linear infinite;"></div>
+                    </div>
+                  </div>
               </div>
             </div>
+            <style>
+              @keyframes scan {
+                0% { left: -30%; }
+                100% { left: 100%; }
+              }
+              @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+              }
+            </style>
           `)
           .addTo(map);
 
@@ -256,17 +291,26 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
             
             const container = popup.getElement()?.querySelector(`#${popupId}`);
             if (container) {
+                const hColor = data.hiringLikelihood === 'High' ? '#10b981' : data.hiringLikelihood === 'Moderate' ? '#60a5fa' : '#71717a';
                 container.innerHTML = `
-                    <div style="color: #666; font-size: 7px; margin-bottom: 2px;">AI STRATEGIC ASSESSMENT</div>
-                    <div style="color: #ddd; margin-bottom: 6px; line-height: 1.3;">${data.analysis || "Unable to determine"}</div>
+                    <div style="color: #444; font-size: 7px; margin-bottom: 4px; letter-spacing: 0.1em; font-weight: bold;">STRATEGIC_ASSESSMENT_V1.2</div>
+                    <div style="color: #ddd; margin-bottom: 10px; line-height: 1.4; font-size: 9px; padding: 6px; background: rgba(255,255,255,0.03); border-left: 2px solid #333;">${data.analysis || "Unable to determine"}</div>
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                       <span style="color: #666;">PARENT_CO:</span>
-                       <span style="color: #34d399; font-weight: bold; text-align:right;">${data.parentCompany || "INDEPENDENT"}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                       <span style="color: #666;">TURNOVER_RATE:</span>
-                       <span style="color: #f87171; font-weight: bold; text-align:right;">${data.employeeTurnover || "UNKNOWN"}</span>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111; padding-bottom: 4px;">
+                           <span style="color: #666; font-size: 7px;">ENTITY_UNIFIED_PARENT</span>
+                           <span style="color: #34d399; font-weight: bold; font-size: 8px;">${data.parentCompany || "INDEPENDENT"}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111; padding-bottom: 4px;">
+                           <span style="color: #666; font-size: 7px;">TURNOVER_SYSTEM_CHURN</span>
+                           <span style="color: #f87171; font-weight: bold; font-size: 8px;">${data.employeeTurnover || "UNKNOWN"}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                           <span style="color: #666; font-size: 7px;">HIRING_EXPANSION_LKL</span>
+                           <div style="display: flex; items-center; gap: 4px;">
+                             <span style="padding: 1px 4px; border-radius: 2px; background: ${hColor}22; color: ${hColor}; font-weight: 900; font-size: 8px; border: 1px solid ${hColor}44;">${(data.hiringLikelihood || "STABLE").toUpperCase()}</span>
+                           </div>
+                        </div>
                     </div>
                 `;
             }
@@ -387,13 +431,19 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       if (entity.lat && entity.lng) {
         const isSelected = selectedStock?.symbol === entity.symbol;
         const el = document.createElement('div');
-        el.className = 'custom-marker';
+        el.className = 'custom-marker z-10 transition-transform duration-300';
         el.style.cursor = 'pointer';
         
         // Use inline style & tailwind-like HTML for pulse effect
         el.innerHTML = `
-          <div class="relative w-3 h-3 rounded-full border-2 border-black/50 shadow-lg" style="background-color: ${isSelected ? '#10b981' : '#ffffff'}; box-shadow: 0 0 10px ${isSelected ? '#10b981' : 'rgba(255,255,255,0.3)'};">
-            ${isSelected ? '<div class="absolute -inset-2 rounded-full border-2 border-emerald-500 animate-ping opacity-75"></div>' : ''}
+          <div class="relative flex items-center justify-center pointer-events-none group transform hover:scale-125 transition-transform duration-300">
+            <svg width="24" height="24" viewBox="0 0 24 24" class="${isSelected ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-amber-500'} transition-colors duration-300">
+              <circle cx="12" cy="12" r="3" fill="currentColor" class="${isSelected ? 'animate-pulse' : ''}" />
+              <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="none" class="opacity-60" />
+              <path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="currentColor" stroke-width="1.5" class="opacity-80" />
+              ${isSelected ? '<circle cx="12" cy="12" r="12" stroke="currentColor" stroke-width="1" fill="none" stroke-dasharray="2 4" stroke-linecap="round" class="animate-spin-slow opacity-50" />' : ''}
+            </svg>
+            ${isSelected ? '<div class="absolute -inset-4 rounded-full border border-emerald-500 animate-ping opacity-30"></div>' : ''}
           </div>
         `;
 
@@ -418,6 +468,18 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   // Handle Autopilot/Focus Transitions
   useEffect(() => {
     if (!mapRef.current || !isStyleLoaded) return;
+
+    if (!isFocusMode) {
+      // Zoomed out to see the whole globe
+      mapRef.current.flyTo({
+        center: [0, 0],
+        zoom: 1.8,
+        duration: 3000,
+        pitch: 0,
+        bearing: 0
+      });
+      return;
+    }
 
     if (agentFocus) {
       if (!isLiveNewsZoomEnabled) {
@@ -445,66 +507,165 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         pitch: 0,
         bearing: 0
       });
-    } else {
-      mapRef.current.flyTo({
-        center: [0, 0],
-        zoom: 2,
-        duration: 2000,
-        pitch: 0,
-        bearing: 0
-      });
     }
-  }, [selectedStock, agentFocus, isStyleLoaded, isLiveNewsZoomEnabled, isAutopilot]);
+  }, [selectedStock, agentFocus, isStyleLoaded, isLiveNewsZoomEnabled, isAutopilot, isFocusMode]);
+
+  useEffect(() => {
+    return () => {
+      liveNewsPopupsRef.current.forEach(popup => popup.remove());
+      liveNewsPopupsRef.current.clear();
+    };
+  }, []);
 
   // Handle live news popup alerts on map
   useEffect(() => {
     if (!mapRef.current || !isStyleLoaded) return;
 
-    if (liveNewsPopupRef.current) {
-      liveNewsPopupRef.current.remove();
-      liveNewsPopupRef.current = null;
-    }
-
-    if (activeNewsPopup) {
+    if (activeNewsPopup && isLiveNewsZoomEnabled) {
       const { lat, lng, title, symbol } = activeNewsPopup;
+      const popupId = `news-popup-${Math.random().toString(36).substring(7)}`;
       const htmlText = `
-        <div style="font-family: monospace; font-size: 11px; color: #10b981; background: #000000; border: 1px solid rgba(16,185,129,0.5); padding: 10px; border-radius: 4px; box-shadow: 0 0 15px rgba(16,185,129,0.3); max-width: 250px;">
-          <div style="font-weight: bold; font-size: 10px; color: #34d399; margin-bottom: 4px; border-bottom: 1px solid rgba(16,185,129,0.2); padding-bottom: 3px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <span>LIVE METRIC ALERT</span>
-            <span style="color: #60a5fa; font-weight: bold;">${symbol}</span>
+        <style>
+          @keyframes tacticalPopupFadeInOut {
+            0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+            5% { opacity: 1; transform: scale(1) translateY(0); }
+            90% { opacity: 1; transform: scale(1) translateY(0); }
+            100% { opacity: 0; transform: scale(0.95) translateY(-5px); }
+          }
+          .tactical-scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(16, 185, 129, 0.4);
+            box-shadow: 0 0 4px rgba(16, 185, 129, 0.8);
+            animation: tactical-scan 2s linear infinite;
+            z-index: 10;
+            pointer-events: none;
+          }
+          @keyframes tactical-scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+          }
+        </style>
+        <div id="${popupId}" style="
+          position: relative;
+          cursor: pointer; 
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; 
+          background: rgba(5, 5, 5, 0.90); 
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(16, 185, 129, 0.3); 
+          padding: 14px; 
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(16, 185, 129, 0.05); 
+          width: 320px; 
+          border-left: 4px solid #10b981;
+          border-right: 1px solid rgba(16, 185, 129, 0.1);
+          animation: tacticalPopupFadeInOut 10s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          overflow: hidden;
+        " onmouseover="this.style.borderColor='rgba(16, 185, 129, 0.6)'; this.style.background='rgba(5, 5, 5, 0.95)'; this.style.boxShadow='0 8px 32px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(16, 185, 129, 0.1)';" onmouseout="this.style.borderColor='rgba(16, 185, 129, 0.3)'; this.style.background='rgba(5, 5, 5, 0.90)'; this.style.boxShadow='0 8px 32px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(16, 185, 129, 0.05)';">
+          
+          <div class="tactical-scanline"></div>
+          
+          <div style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 8px; 
+            border-bottom: 1px solid rgba(16, 185, 129, 0.15); 
+            padding-bottom: 6px; 
+            pointer-events: none;
+          ">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; animation: pulse 2s infinite;"></div>
+              <span style="font-weight: 800; font-size: 11px; color: #10b981; letter-spacing: 0.15em;">INTERCEPT // <span style="color: #6ee7b7;">${symbol}</span></span>
+            </div>
+            <span style="color: rgba(16, 185, 129, 0.6); font-weight: bold; font-size: 10px;">${new Date().toISOString().split('T')[1].slice(0,8)}Z</span>
           </div>
-          <div style="line-height: 1.4; color: #f3f4f6; font-size: 10px;">
+          
+          <div style="
+            color: #d4d4d8; 
+            font-size: 12px; 
+            line-height: 1.5; 
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.1);
+            font-weight: 500;
+            pointer-events: none;
+            margin-bottom: 10px;
+          ">
             ${title}
           </div>
-          <div style="margin-top: 6px; font-size: 8px; color: #6b7280; text-align: right; letter-spacing: 0.1em;">
-            ACTIVE FEED NODE
+          
+          <div style="
+            font-size: 9px; 
+            color: #10b981; 
+            opacity: 0.6;
+            text-align: right; 
+            font-weight: bold; 
+            letter-spacing: 0.05em; 
+            pointer-events: none;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 4px;
+          ">
+            <span>ACCESS BRIEFING</span>
+            <span style="font-size: 12px;">→</span>
           </div>
         </div>
       `;
 
       try {
         const popup = new maplibregl.Popup({ 
-          closeOnClick: false, 
-          closeButton: true,
-          offset: 15
+          closeOnClick: true, 
+          closeButton: false,
+          offset: 15,
+          className: 'tactical-news-popup'
         })
           .setLngLat([lng, lat])
           .setHTML(htmlText)
           .addTo(mapRef.current);
 
-        liveNewsPopupRef.current = popup;
+        // Add event listener to the specific popup content
+        const pollForContainer = setInterval(() => {
+          const el = document.getElementById(popupId);
+          if (el) {
+            el.onclick = (e) => {
+              e.stopPropagation();
+              if (onHeadlineClick) {
+                onHeadlineClick(activeNewsPopup);
+                popup.remove();
+              }
+            };
+            clearInterval(pollForContainer);
+          }
+        }, 50);
+
+        // Cleanup interval after 2 seconds if not found
+        setTimeout(() => clearInterval(pollForContainer), 2000);
+
+        liveNewsPopupsRef.current.add(popup);
+
+        // Auto remove after 10 seconds (matches animation duration)
+        setTimeout(() => {
+          if (liveNewsPopupsRef.current.has(popup)) {
+            popup.remove();
+            liveNewsPopupsRef.current.delete(popup);
+          }
+        }, 10000);
       } catch (err) {
         console.warn("Failed to mount map alerts popup", err);
       }
     }
 
     return () => {
-      if (liveNewsPopupRef.current) {
-        liveNewsPopupRef.current.remove();
-        liveNewsPopupRef.current = null;
-      }
+      // We don't remove all popups on unmount of effect, only on unmount of component?
+      // Wait, this is triggered when activeNewsPopup changes. 
+      // We only want to remove all when the component fully unmounts, not on every re-render.
+      // We'll leave the popups on the screen.
     };
-  }, [activeNewsPopup, isStyleLoaded]);
+  }, [activeNewsPopup, isStyleLoaded, isLiveNewsZoomEnabled, isFocusMode]);
 
   // Auto-rotation logic
   useEffect(() => {
@@ -816,8 +977,23 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         {/* Vignette for cinematic depth */}
         <div className="absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.9)] pointer-events-none" />
         
+        {/* Central Tactical Crosshair */}
+        {isFocusMode && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
+            <div className="relative flex items-center justify-center">
+              <div className="absolute w-[200px] h-[1px] bg-emerald-500/30" />
+              <div className="absolute h-[200px] w-[1px] bg-emerald-500/30" />
+              <div className="absolute w-[2px] h-[2px] bg-emerald-400 rounded-full" />
+              <div className="absolute w-[80px] h-[80px] rounded-full border border-emerald-500/20" />
+              <div className="absolute w-[400px] h-[400px] rounded-full border-[0.5px] border-dashed border-emerald-500/10 animate-spin-slow" />
+            </div>
+          </div>
+        )}
+
         {/* CRT Scanline Overlay */}
-        <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 bg-[length:100%_2px,3px_100%]" />
+        {isFocusMode && (
+          <div className="absolute inset-0 pointer-events-none opacity-[0.06] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.35)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 bg-[length:100%_4px,3px_100%]" />
+        )}
 
       </div>
 
@@ -830,18 +1006,6 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           onClick={() => setShow3DBuildings(!show3DBuildings)} 
           active={show3DBuildings}
           label="TOGGLE_3D_STRUCTURES" 
-          className="hidden md:flex"
-        />
-        <NavButton 
-          icon={<Network size={16} />} 
-          onClick={toggleGlobalNetwork} 
-          label="NETWORK_TOGGLE" 
-          className="hidden md:flex"
-        />
-        <NavButton 
-          icon={<Target size={16} />} 
-          onClick={toggleLiveNewsZoom} 
-          label="LIVE_FETCH_AGENT" 
           className="hidden md:flex"
         />
         <NavButton icon={<ZoomIn size={16} />} onClick={zoomIn} label="ZOOM_IN" className="hidden md:flex" />

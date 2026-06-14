@@ -29,6 +29,8 @@ import {
   Shield,
   Compass,
   Filter,
+  Users,
+  TrendingUp,
 } from "lucide-react";
 import { formatCurrency, cn, getApiBaseUrl } from "../lib/utils";
 import { analyzeSentimentAndImpact } from "../lib/sentiment";
@@ -63,6 +65,8 @@ interface IntelligenceSidebarProps {
   onGenerateBriefing: () => void;
   isMinimized: boolean;
   onToggleMinimize: () => void;
+  toggleFocusMode?: () => void;
+  isFocusMode: boolean;
   activeCorridorId?: string | null;
   onSelectCorridor?: (id: string | null) => void;
   recentNewsContent?: string;
@@ -220,6 +224,8 @@ export const IntelligenceSidebar = React.memo(
     onGenerateBriefing,
     isMinimized,
     onToggleMinimize,
+    toggleFocusMode,
+    isFocusMode = true,
     activeCorridorId = null,
     onSelectCorridor,
     recentNewsContent = "",
@@ -899,11 +905,12 @@ export const IntelligenceSidebar = React.memo(
     return (
       <aside
         className={cn(
-          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden relative transition-all duration-150 animate-crt-flicker",
+          "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden relative transition-all duration-150",
+          isFocusMode && "animate-crt-flicker",
           "w-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-r border-zinc-900",
         )}
       >
-        <div className="scanline-overlay" />
+        {isFocusMode && <div className="scanline-overlay" />}
       <div className="h-11 border-b border-zinc-800 bg-zinc-950/95 flex items-center justify-between px-3 shrink-0 relative overflow-hidden group">
         {/* Hardware Markers */}
         <div className="absolute top-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
@@ -927,10 +934,27 @@ export const IntelligenceSidebar = React.memo(
               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white font-mono truncate leading-none">
                 INTEL_COCKPIT_V4
               </span>
+              {!isFocusMode && (
+                <span className="text-[6px] text-emerald-400 font-mono font-black tracking-widest mt-0.5 animate-pulse">
+                  [SYSTEM_ENHANCED_MODE]
+                </span>
+              )}
             </div>
           </div>
         )}
         <div className="flex items-center gap-1.5 z-10">
+          <button
+            onClick={toggleFocusMode}
+            className={cn(
+              "text-[8px] font-mono px-2 py-0.5 border rounded-xs transition-all active:scale-95",
+              isFocusMode 
+                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400" 
+                : "bg-black border-zinc-800 text-zinc-600 hover:text-zinc-500"
+            )}
+            title={isFocusMode ? "Disable Focus Mode" : "Enable Focus Mode"}
+          >
+            {isFocusMode ? "FOCUS: ON" : "FOCUS: OFF"}
+          </button>
           <button
             onClick={onToggleMinimize}
             className="hidden md:flex text-zinc-500 hover:text-white transition-colors p-1 rounded-sm hover:bg-white/5 active:scale-95"
@@ -991,6 +1015,43 @@ export const IntelligenceSidebar = React.memo(
                 {/* STRATEGY TAB CONTENT */}
                 {innerLeftTab === "STRATEGY" && (
                    <div className="space-y-4">
+
+                     {/* LABOR INTELLIGENCE ASSESSMENT - Requested to highlight hiring likelihood */}
+                     {selectedStock && (selectedStock.turnover || selectedStock.hiringLikelihood) && (
+                       <div className="bg-zinc-950/50 border border-emerald-500/10 rounded-sm p-3 relative overflow-hidden group">
+                         <div className="absolute top-0 right-0 p-1">
+                           <Users className="w-2 h-2 text-emerald-500/20" />
+                         </div>
+                         <div className="flex items-center gap-2 mb-3">
+                           <div className="w-1 h-3 bg-emerald-500" />
+                           <span className="text-[8px] font-black tracking-widest text-emerald-500 uppercase font-mono">LABOR_MARKET_INTEL</span>
+                         </div>
+
+                         <div className="grid grid-cols-2 gap-4 mb-3">
+                           <div>
+                             <div className="text-[6px] text-zinc-650 uppercase font-bold mb-1">Systemic Turnover</div>
+                             <div className="text-xs font-mono font-black text-rose-400">{selectedStock.turnover || "12.4%"}</div>
+                           </div>
+                           <div>
+                             <div className="text-[6px] text-zinc-650 uppercase font-bold mb-1">Hiring Outlook</div>
+                             <div className={cn(
+                               "text-xs font-mono font-black",
+                               selectedStock.hiringLikelihood === "High" ? "text-emerald-400" : 
+                               selectedStock.hiringLikelihood === "Moderate" ? "text-blue-400" : "text-zinc-500"
+                             )}>
+                               {(selectedStock.hiringLikelihood || "STABLE").toUpperCase()}
+                             </div>
+                           </div>
+                         </div>
+
+                         <div className="text-[7px] text-zinc-500 leading-relaxed font-mono border-t border-zinc-900 pt-2">
+                           <span className="text-zinc-300 font-bold">BRIEFING:</span> Workforce churn in the {selectedStock.sector} sector remains {parseFloat(selectedStock.turnover || "12") > 20 ? "Elevated" : "Nominal"}. 
+                           {selectedStock.hiringLikelihood === "High" 
+                             ? " Recruitment velocity suggests upcoming capital projects or infrastructure scaling."
+                             : " Talent retention protocols are currently prioritized over aggressive headcount expansion."}
+                         </div>
+                       </div>
+                     )}
 
                      {/* 2. LIVE COGNITIVE FEED & NEWS (Only if selectedStock is defined) */}
                      {selectedStock && (

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
@@ -197,29 +198,12 @@ async function callOpenRouter(prompt: string, key: string, model: string, jsonMo
 
       console.log(`[ROUTE_OR_ATTEMPT] Running prompt with model: ${modelId}`);
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
+      const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", bodyData, {
         headers,
-        body: JSON.stringify(bodyData)
+        timeout: 25000 // OpenRouter can be slow
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        let errorMessage = `OpenRouter error (${response.status})`;
-        try {
-          const parsed = JSON.parse(errText);
-          errorMessage = parsed.error?.message || parsed.message || errText;
-        } catch (e) {
-          if (errText.trim().startsWith("<") || errText.toLowerCase().includes("<!doctype html>")) {
-            errorMessage = `HTML error page received (status ${response.status})`;
-          } else {
-            errorMessage = errText.length > 200 ? errText.slice(0, 200) + "..." : errText;
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
+      const result = response.data;
       const choice = result.choices?.[0];
       if (!choice || !choice.message?.content) {
         throw new Error(`Invalid response structure from OpenRouter: ${JSON.stringify(result)}`);
@@ -227,6 +211,15 @@ async function callOpenRouter(prompt: string, key: string, model: string, jsonMo
 
       return choice.message.content;
     } catch (err: any) {
+      if (err.response) {
+        const errData = err.response.data;
+        let errorMessage = `OpenRouter error (${err.response.status})`;
+        if (errData && typeof errData === 'object') {
+          errorMessage = errData.error?.message || errData.message || JSON.stringify(errData);
+        }
+        throw new Error(errorMessage);
+      }
+      
       if (isQuotaExhausted(err)) {
         console.warn(`[ROUTE_OR_FAIL] Model ${modelId} hit rate/quota limit. Immediate abort to preserve resources.`);
         throw new Error("QUOTA_EXHAUSTED");
@@ -925,12 +918,10 @@ router.post("/navigate", async (req, res) => {
          const toDate = nextMonth.toISOString().split('T')[0];
          const finnhubKey = process.env.FINNHUB_API_KEY || "";
          if (isKeyReady(finnhubKey)) {
-             const response = await fetch(`https://finnhub.io/api/v1/calendar/ipo?from=${fromDate}&to=${toDate}&token=${finnhubKey}`);
-             if (response.ok) {
-                 const ipoData = await response.json();
-                 if (ipoData && ipoData.ipoCalendar) {
-                     extraContext = `Here are upcoming IPOs to mention (use this real data): ${JSON.stringify(ipoData.ipoCalendar.slice(0, 10))}`;
-                 }
+             const response = await axios.get(`https://finnhub.io/api/v1/calendar/ipo?from=${fromDate}&to=${toDate}&token=${finnhubKey}`, { timeout: 5000 });
+             const ipoData = response.data;
+             if (ipoData && ipoData.ipoCalendar) {
+                 extraContext = `Here are upcoming IPOs to mention (use this real data): ${JSON.stringify(ipoData.ipoCalendar.slice(0, 10))}`;
              }
          }
        } catch (err) {
@@ -988,30 +979,40 @@ function getDeterministicPoiFallback(name: string, type: string, brand: string) 
 
   let employeeTurnover = "28% (Nominal)";
   let parentCompany = "INDEPENDENT OPERATIONS";
+  let hiringLikelihood = "Stable";
 
   if (normalizedBrand.includes("starbucks") || normalizedName.includes("starbucks")) {
     parentCompany = "STARBUCKS CORP [NASDAQ: SBUX]";
     employeeTurnover = "72% (High Churn)";
+    hiringLikelihood = "High";
   } else if (normalizedBrand.includes("mcdonald") || normalizedName.includes("mcdonald")) {
     parentCompany = "MCDONALDS CORP [NYSE: MCD]";
     employeeTurnover = "84% (Critical Churn)";
+    hiringLikelihood = "High";
   } else if (normalizedBrand.includes("walmart") || normalizedName.includes("walmart")) {
     parentCompany = "WALMART INC [NYSE: WMT]";
     employeeTurnover = "61% (High Churn)";
+    hiringLikelihood = "High";
   } else if (normalizedBrand.includes("target") || normalizedName.includes("target")) {
     parentCompany = "TARGET CORP [NYSE: TGT]";
     employeeTurnover = "58% (High Churn)";
+    hiringLikelihood = "Moderate";
   } else if (normalizedBrand.includes("amazon") || normalizedName.includes("amazon") || normalizedType.includes("warehouse") || normalizedType.includes("logistics")) {
     parentCompany = "AMAZON.COM INC [NASDAQ: AMZN]";
     employeeTurnover = "114% (Extreme System Churn)";
+    hiringLikelihood = "High";
   } else if (normalizedType.includes("restaurant") || normalizedType.includes("fast_food") || normalizedType.includes("cafe") || normalizedType.includes("food")) {
     employeeTurnover = "65% - 85% (Critical Service Churn)";
+    hiringLikelihood = "High";
   } else if (normalizedType.includes("retail") || normalizedType.includes("store") || normalizedType.includes("shop") || normalizedType.includes("mall")) {
     employeeTurnover = "45% - 60% (Elevated Retail Churn)";
+    hiringLikelihood = "Moderate";
   } else if (normalizedType.includes("office") || normalizedType.includes("headquarters") || normalizedType.includes("corporate") || normalizedType.includes("tech")) {
     employeeTurnover = "12% - 18% (Highly Stable)";
+    hiringLikelihood = "Low";
   } else if (normalizedType.includes("factory") || normalizedType.includes("industrial") || normalizedType.includes("plant") || normalizedType.includes("refinery") || normalizedType.includes("work")) {
     employeeTurnover = "22% - 35% (Moderate/Standard)";
+    hiringLikelihood = "Stable";
   } else {
     // Hash-based deterministic values
     let hash = 0;
@@ -1022,9 +1023,10 @@ function getDeterministicPoiFallback(name: string, type: string, brand: string) 
     const seed = Math.abs(hash);
     const rate = 15 + (seed % 65);
     employeeTurnover = `${rate}% (${rate > 55 ? "High Churn" : rate > 30 ? "Moderate" : "Stable"})`;
+    hiringLikelihood = rate > 50 ? "High" : rate > 25 ? "Moderate" : "Stable";
   }
 
-  return { employeeTurnover, parentCompany };
+  return { employeeTurnover, parentCompany, hiringLikelihood };
 }
 
 // POST /api/ai/poi-analysis
@@ -1041,13 +1043,14 @@ router.post("/poi-analysis", async (req, res) => {
       Brand: ${brand || 'Unknown'}
       Location: Lat ${lat}, Lng ${lng}
       
-      Provide a brief tactical analysis of this specific location, an estimated employee turnover rate (as a percentage, e.g., "45%"), and the likely parent company. If the parent company is unknown, make a highly educated guess based on the brand or name. Assume the worst-case scenario.
+      Provide a brief tactical analysis of this specific location, an estimated employee turnover rate (as a percentage, e.g., "45%"), hiring likelihood (e.g., "High", "Moderate", "Stable"), and the likely parent company. If the parent company is unknown, make a highly educated guess based on the brand or name. Assume the worst-case scenario.
       Keep the analysis crisp and brief (max 2 sentences).
 
       Your output MUST be a clean, valid and structured JSON object.
       {
         "analysis": "Brief tactical analysis string",
         "employeeTurnover": "XX%",
+        "hiringLikelihood": "High/Moderate/Stable",
         "parentCompany": "Company Name"
       }
     `;
@@ -1060,6 +1063,10 @@ router.post("/poi-analysis", async (req, res) => {
     if (!parsed.employeeTurnover || parsed.employeeTurnover === "Unknown" || parsed.employeeTurnover === "N/A" || parsed.employeeTurnover === "0%") {
       const fallback = getDeterministicPoiFallback(name, type, brand);
       parsed.employeeTurnover = fallback.employeeTurnover;
+    }
+    if (!parsed.hiringLikelihood) {
+        const fallback = getDeterministicPoiFallback(name, type, brand);
+        parsed.hiringLikelihood = fallback.hiringLikelihood;
     }
     if (!parsed.parentCompany || parsed.parentCompany === "Unknown" || parsed.parentCompany === "N/A") {
       const fallback = getDeterministicPoiFallback(name, type, brand);
@@ -1074,6 +1081,7 @@ router.post("/poi-analysis", async (req, res) => {
       error: "Analysis failed",
       analysis: "Unable to establish secure AI satellite link. Loading static signature assessment.",
       employeeTurnover: fallback.employeeTurnover,
+      hiringLikelihood: fallback.hiringLikelihood,
       parentCompany: fallback.parentCompany
     });
   }

@@ -24,6 +24,7 @@ interface DataSidebarProps {
   profile: any;
   isMinimized: boolean;
   onToggleMinimize: () => void;
+  isFocusMode?: boolean;
   pinnedTickers?: string[];
   onTogglePin?: (symbol: string, e: React.MouseEvent) => void;
 }
@@ -72,6 +73,7 @@ export const DataSidebar = React.memo(({
   profile,
   isMinimized,
   onToggleMinimize,
+  isFocusMode = true,
   pinnedTickers = [],
   onTogglePin,
 }: DataSidebarProps) => {
@@ -184,10 +186,11 @@ export const DataSidebar = React.memo(({
 
   return (
     <aside className={cn(
-      "h-full border-r border-zinc-800 flex flex-col bg-black bg-cyber-grid z-25 shrink-0 select-none overflow-hidden relative transition-all duration-150 animate-crt-flicker",
+      "h-full border-r border-zinc-800 flex flex-col bg-black bg-cyber-grid z-25 shrink-0 select-none overflow-hidden relative transition-all duration-150",
+      isFocusMode && "animate-crt-flicker",
       "w-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-l border-zinc-900"
     )}>
-      <div className="scanline-overlay" />
+      {isFocusMode && <div className="scanline-overlay" />}
       
       {/* Top Header */}
       <div className="h-11 border-b border-zinc-800 bg-zinc-950/95 flex items-center justify-between px-3 shrink-0 relative overflow-hidden group">
@@ -209,7 +212,11 @@ export const DataSidebar = React.memo(({
              </div>
              <div className="flex flex-col">
                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white font-mono leading-none">DATA_TEL_STREAM_V3</span>
-               <span className="text-[6px] text-zinc-500 font-mono tracking-widest mt-0.5">SAT_LINK_ACTIVE_B01</span>
+               {!isFocusMode ? (
+                 <span className="text-[6px] text-emerald-400 font-mono font-black tracking-widest mt-0.5 animate-pulse">SYSTEM_ENHANCED_V2</span>
+               ) : (
+                 <span className="text-[6px] text-zinc-500 font-mono tracking-widest mt-0.5">SAT_LINK_ACTIVE_B01</span>
+               )}
              </div>
           </div>
         )}
@@ -288,7 +295,12 @@ export const DataSidebar = React.memo(({
                   <span className="text-[8px] font-mono text-zinc-600 font-bold tracking-tighter">30D_SPAN</span>
                 </div>
                 <div className="h-[145px] w-full">
-                  <TelemetryChart data={history} aiForecast={sentiment?.forecast} ticker={selectedStock.symbol} />
+                  <TelemetryChart 
+                    data={history} 
+                    aiForecast={sentiment?.forecast} 
+                    ticker={selectedStock.symbol} 
+                    isFocusMode={isFocusMode}
+                  />
                 </div>
               </div>
 
@@ -351,35 +363,35 @@ export const DataSidebar = React.memo(({
                       val: (selectedStock.symbol.charCodeAt(0) % 2 ? "+" : "-") + (0.15 + (selectedStock.symbol.charCodeAt(1) % 10) / 20).toFixed(2), 
                       color: "#22ab94", // TradingView Green
                       type: 'histogram',
-                      signal: "Bullish"
+                      signal: selectedStock.symbol.charCodeAt(0) % 2 ? "Bullish" : "Bearish"
                     },
                     { 
                       label: "Vol. Osc", 
-                      val: quote?.volume ? "1.2x" : "0.8x", 
+                      val: `${((selectedStock.symbol.charCodeAt(0) + (selectedStock.symbol.charCodeAt(1) || 65)) % 40 - 20).toFixed(2)}%`, 
                       color: "#2962ff", // TradingView Blue
                       type: 'bars',
-                      signal: "Normal"
+                      signal: ((selectedStock.symbol.charCodeAt(0) + (selectedStock.symbol.charCodeAt(1) || 65)) % 40 - 20) > 5 ? "High Volume" : ((selectedStock.symbol.charCodeAt(0) + (selectedStock.symbol.charCodeAt(1) || 65)) % 40 - 20) < -5 ? "Low Volume" : "Normal"
                     },
                     { 
                       label: "ADX (14)", 
                       val: ((selectedStock.symbol.charCodeAt(0) % 30) + 15).toFixed(1), 
                       color: "#f23645", // TradingView Red
                       type: 'line',
-                      signal: "Strong"
+                      signal: ((selectedStock.symbol.charCodeAt(0) % 30) + 15) > 25 ? "Strong" : "Weak"
                     },
                     { 
                       label: "Stoch %K", 
                       val: ((selectedStock.symbol.charCodeAt(2) || 72) % 60 + 20).toFixed(1), 
                       color: "#ff9800", // Orange
                       type: 'stoch',
-                      signal: "Momentum"
+                      signal: ((selectedStock.symbol.charCodeAt(2) || 72) % 60 + 20) > 65 ? "Momentum" : ((selectedStock.symbol.charCodeAt(2) || 72) % 60 + 20) < 35 ? "Pullback" : "Neutral"
                     },
                     { 
                       label: "ATR (14)", 
                       val: sentiment?.atr?.toFixed(3) || (selectedStock.symbol.charCodeAt(1) % 5 + 1.25).toFixed(3), 
                       color: "#b2b5be", // Gray
                       type: 'line',
-                      signal: "Volatile"
+                      signal: (sentiment?.atr || (selectedStock.symbol.charCodeAt(1) % 5 + 1.25)) > 2.2 ? "Volatile" : "Stable"
                     }
                   ].map((sig) => {
                     // Generate deterministic sparkline data
@@ -459,8 +471,8 @@ export const DataSidebar = React.memo(({
                         <div className="flex justify-between items-center text-[5.5px] font-mono leading-none">
                           <span className={cn(
                             "px-1 py-0.5 rounded-[2px]",
-                            ["Overbought", "Bullish", "Strong", "Trending", "Momentum"].includes(sig.signal) ? "bg-emerald-500/10 text-emerald-500" :
-                            ["Oversold", "Volatile"].includes(sig.signal) ? "bg-rose-500/10 text-rose-500" :
+                            ["Overbought", "Bullish", "Strong", "Trending", "Momentum", "High Volume"].includes(sig.signal) ? "bg-emerald-500/10 text-emerald-500" :
+                            ["Oversold", "Volatile", "Bearish", "Weak", "Pullback", "Low Volume"].includes(sig.signal) ? "bg-rose-500/10 text-rose-500" :
                             "bg-zinc-800 text-zinc-500"
                           )}>
                             {sig.signal}

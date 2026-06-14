@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 
 const router = Router();
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
@@ -78,19 +79,17 @@ router.get("/:symbol?", async (req, res) => {
     if (source === "NONE" && isKeyReady(FINNHUB_KEY)) {
       try {
         const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${finnhubResolution}&from=${finnhubFrom}&to=${to}&token=${FINNHUB_KEY}`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.s === 'ok' && Array.isArray(data.t)) {
-            processed = data.t.map((t: number, i: number) => ({
-              timestamp: t * 1000,
-              price: data.c[i]
-            })).filter(d => d.price > 0);
-            if (processed.length > 0) source = "FINNHUB";
-          }
+        const response = await axios.get(url, { timeout: 3500 });
+        const data = response.data;
+        if (data && data.s === 'ok' && Array.isArray(data.t)) {
+          processed = data.t.map((t: number, i: number) => ({
+            timestamp: t * 1000,
+            price: data.c[i]
+          })).filter((d: any) => d.price > 0);
+          if (processed.length > 0) source = "FINNHUB";
         }
       } catch (e) { 
-        console.warn(`Finnhub history fetch failed for ${symbol}`); 
+        // Silent fallback as intended
       }
     }
 
@@ -98,36 +97,32 @@ router.get("/:symbol?", async (req, res) => {
     if (source === "NONE") {
       try {
         const url = `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=${yahooRange}&interval=${yahooInterval}`;
-        const response = await fetch(url, {
-          headers: { "User-Agent": "Mozilla/5.0" }
+        const response = await axios.get(url, {
+          timeout: 5000,
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" }
         });
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.chart?.result?.[0]) {
-            const result = data.chart.result[0];
-            const timestamps = result.timestamp;
-            const quoteData = result.indicators.quote[0];
-            const adjData = result.indicators.adjclose ? result.indicators.adjclose[0] : null;
-            const prices = quoteData.close || (adjData ? adjData.adjclose : null);
-            
-            if (timestamps && prices) {
-              processed = timestamps.map((t: number, i: number) => ({
-                timestamp: t * 1000,
-                price: prices[i]
-              })).filter(d => d.price != null && d.price > 0);
-              if (processed.length > 0) source = `YAHOO_${timeframe}`;
-              console.log(`YAHOO fetch success for ${yahooSymbol}, timeframe: ${timeframe}, count: ${processed.length}`);
-            } else {
-              console.warn(`YAHOO fetch missing prices/timestamps for ${yahooSymbol}`);
-            }
+        const data = response.data;
+        if (data?.chart?.result?.[0]) {
+          const result = data.chart.result[0];
+          const timestamps = result.timestamp;
+          const quoteData = result.indicators.quote[0];
+          const adjData = result.indicators.adjclose ? result.indicators.adjclose[0] : null;
+          const prices = quoteData.close || (adjData ? adjData.adjclose : null);
+          
+          if (timestamps && prices) {
+            processed = timestamps.map((t: number, i: number) => ({
+              timestamp: t * 1000,
+              price: prices[i]
+            })).filter((d: any) => d.price != null && d.price > 0);
+            if (processed.length > 0) source = `YAHOO_${timeframe}`;
           }
         }
       } catch (e) { 
-        console.warn(`Yahoo history fetch failed for ${yahooSymbol}`); 
+        // Silent fallback
       }
     }
 
-    // 3. Fallback to High-Fidelity Simulation (Deterministic per Stock & Timeframe)
+    // 3. Fallback to High-Fidelity Simulation
     if (source === "NONE") {
       const rand = seedRandom(symbol + "_" + timeframe);
       
@@ -136,19 +131,19 @@ router.get("/:symbol?", async (req, res) => {
         baseHash = symbol.charCodeAt(i) + ((baseHash << 5) - baseHash);
       }
       const seed = Math.abs(baseHash);
-      const basePrice = 50 + (seed % 280); // range $50 to $330
+      const basePrice = 50 + (seed % 280);
       
       let pointsCount = 30;
-      let intervalMs = 24 * 60 * 60 * 1000; // 1 day
-      let driftFactor = (rand() - 0.48) * 0.4; // subtle custom daily drift
-      let volFactor = 0.015; // standard daily stock volatility index
+      let intervalMs = 24 * 60 * 60 * 1000;
+      let driftFactor = (rand() - 0.48) * 0.4;
+      let volFactor = 0.015;
 
       if (timeframe === "1D") {
-        pointsCount = 78; // At 5 mins standard intervals across 6.5 trading hours
+        pointsCount = 78;
         intervalMs = 5 * 60 * 1000;
-        volFactor = 0.003; // highly granular, less change per 5m
+        volFactor = 0.003;
       } else if (timeframe === "1W") {
-        pointsCount = 120; // 5 trading days with 15m intervals
+        pointsCount = 120;
         intervalMs = 30 * 60 * 1000;
         volFactor = 0.005;
       } else if (timeframe === "1M") {
@@ -159,9 +154,9 @@ router.get("/:symbol?", async (req, res) => {
         pointsCount = 365;
         intervalMs = 24 * 60 * 60 * 1000;
         volFactor = 0.022;
-        driftFactor = (rand() - 0.46) * 1.5; // larger drift over long horizons
+        driftFactor = (rand() - 0.46) * 1.5;
       } else if (timeframe === "5Y") {
-        pointsCount = 260; // 52 weeks * 5 years
+        pointsCount = 260;
         intervalMs = 7 * 24 * 60 * 60 * 1000;
         volFactor = 0.045;
         driftFactor = (rand() - 0.43) * 6.0;
@@ -169,8 +164,6 @@ router.get("/:symbol?", async (req, res) => {
 
       let currentPrice = basePrice;
       const now = Date.now();
-      
-      // Iterate forward to simulate a beautiful continuous walk ending at the present
       const points: any[] = [];
       for (let i = pointsCount - 1; i >= 0; i--) {
         const pointTime = now - (i * intervalMs);
@@ -179,10 +172,9 @@ router.get("/:symbol?", async (req, res) => {
           price: Number(currentPrice.toFixed(2))
         });
         
-        // Random walk step
         const changePercent = (rand() - 0.5) * volFactor + driftFactor / pointsCount;
         currentPrice = currentPrice * (1 + changePercent);
-        if (currentPrice < 1.0) currentPrice = 1.0; // floor price limit
+        if (currentPrice < 1.0) currentPrice = 1.0;
       }
       
       processed = points;
@@ -191,7 +183,7 @@ router.get("/:symbol?", async (req, res) => {
 
     res.json({ processed, source });
   } catch (err: any) {
-    console.error("History fetch error:", err);
+    console.error("History fetch error:", err.message);
     res.status(500).json({ error: "Failed to fetch historical data", processed: [] });
   }
 });

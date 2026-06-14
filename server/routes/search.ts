@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 import { COMPANIES } from "../../src/data/companies.js";
 
 const router = Router();
@@ -12,13 +13,17 @@ router.get("/", async (req, res) => {
     if (!query) return res.json([]);
     
     if (isKeyReady(FMP_KEY)) {
-      const response = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${query}&limit=10&apikey=${FMP_KEY}`);
-      if (response.ok) {
-        const data = await response.json();
-        return res.json(data.map((item: any) => ({
-          symbol: item.symbol,
-          name: item.name
-        })));
+      try {
+        const response = await axios.get(`https://financialmodelingprep.com/api/v3/search?query=${query}&limit=10&apikey=${FMP_KEY}`, { timeout: 3000 });
+        const data = response.data;
+        if (data && Array.isArray(data)) {
+          return res.json(data.map((item: any) => ({
+            symbol: item.symbol,
+            name: item.name
+          })));
+        }
+      } catch (e) {
+        // Fallback to mock search
       }
     }
     

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 import Parser from 'rss-parser';
 
 const router = Router();
@@ -43,38 +44,20 @@ router.get("/:symbol?", async (req, res) => {
 
       try {
         const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
-        
-        let attempts = 0;
-        let response;
-        const maxAttempts = 2;
+        const response = await axios.get(url, { timeout: 6000 });
+        const data = response.data;
 
-        while (attempts < maxAttempts) {
-          response = await fetch(url);
-          if (response.ok) break;
-          
-          if (response.status === 504 || response.status === 502) {
-            attempts++;
-            console.warn(`Finnhub News fetch API: Received ${response.status} (attempt ${attempts}/${maxAttempts}). Retrying...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            continue;
-          }
-          break;
-        }
-
-        if (response && response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            mappedNews = data.slice(0, 15).map((n: any) => ({
-              title: n.headline || "",
-              description: n.summary || "",
-              published_at: n.datetime ? new Date(n.datetime * 1000).toISOString() : new Date().toISOString(),
-              url: n.url || "",
-              image: n.image || "",
-              source: n.source || "Finnhub",
-              category: n.category || "General",
-              related: n.related || ""
-            }));
-          }
+        if (Array.isArray(data)) {
+          mappedNews = data.slice(0, 15).map((n: any) => ({
+            title: n.headline || "",
+            description: n.summary || "",
+            published_at: n.datetime ? new Date(n.datetime * 1000).toISOString() : new Date().toISOString(),
+            url: n.url || "",
+            image: n.image || "",
+            source: n.source || "Finnhub",
+            category: n.category || "General",
+            related: n.related || ""
+          }));
         }
       } catch (err: any) {
         console.warn("Finnhub news fetch failed, skipping:", err.message);
@@ -93,13 +76,13 @@ router.get("/:symbol?", async (req, res) => {
 
     try {
       const yahooUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(yahooSymbol)}&newsCount=15`;
-      const response = await fetch(yahooUrl, {
-        headers: { "User-Agent": "Mozilla/5.0" }
+      const response = await axios.get(yahooUrl, {
+        timeout: 5000,
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" }
       });
-      if (response.ok) {
-        const result = await response.json();
-        if (result && Array.isArray(result.news)) {
-          yahooNews = result.news.map((item: any) => {
+      const result = response.data;
+      if (result && Array.isArray(result.news)) {
+        yahooNews = result.news.map((item: any) => {
             // Pick image URL from resolution list if available
             let imageUrl = "";
             if (item.thumbnail && item.thumbnail.resolutions && Array.isArray(item.thumbnail.resolutions)) {
@@ -119,7 +102,6 @@ router.get("/:symbol?", async (req, res) => {
             };
           });
         }
-      }
     } catch (e: any) {
       console.warn(`Yahoo news fetch failed for ${yahooSymbol}:`, e.message);
     }

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
 
 const router = Router();
@@ -197,29 +198,12 @@ async function callOpenRouter(prompt: string, key: string, model: string, jsonMo
 
       console.log(`[CORRIDOR_OR_ATTEMPT] Running prompt with model: ${modelId}`);
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
+      const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", bodyData, {
         headers,
-        body: JSON.stringify(bodyData)
+        timeout: 25000
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        let errorMessage = `OpenRouter error (${response.status})`;
-        try {
-          const parsed = JSON.parse(errText);
-          errorMessage = parsed.error?.message || parsed.message || errText;
-        } catch (e) {
-          if (errText.trim().startsWith("<") || errText.toLowerCase().includes("<!doctype html>")) {
-            errorMessage = `HTML error page received (status ${response.status})`;
-          } else {
-            errorMessage = errText.length > 200 ? errText.slice(0, 200) + "..." : errText;
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
+      const result = response.data;
       const choice = result.choices?.[0];
       if (!choice || !choice.message?.content) {
         throw new Error(`Invalid response structure from OpenRouter: ${JSON.stringify(result)}`);
@@ -227,6 +211,15 @@ async function callOpenRouter(prompt: string, key: string, model: string, jsonMo
 
       return choice.message.content;
     } catch (err: any) {
+      if (err.response) {
+        const errData = err.response.data;
+        let errorMessage = `OpenRouter error (${err.response.status})`;
+        if (errData && typeof errData === 'object') {
+          errorMessage = errData.error?.message || errData.message || JSON.stringify(errData);
+        }
+        throw new Error(errorMessage);
+      }
+      
       if (isQuotaExhausted(err)) {
         console.warn(`[CORRIDOR_OR_FAIL] Model ${modelId} hit rate/quota limit. Immediate abort to preserve resources.`);
         throw new Error("QUOTA_EXHAUSTED");

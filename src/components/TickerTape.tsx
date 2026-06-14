@@ -23,24 +23,28 @@ export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
       try {
         const symbolsStr = tickerItems.map(item => item.symbol).join(",");
         const response = await fetch(`/api/quote?symbols=${symbolsStr}`);
-        if (response.ok) {
-          const dataList = await response.json();
-          const updatedPrices: Record<string, { price: number; change: number }> = {};
-          
-          if (Array.isArray(dataList)) {
-            dataList.forEach((item: any) => {
-              if (item && item.symbol) {
-                updatedPrices[item.symbol] = {
-                  price: item.price || 100,
-                  change: item.changesPercentage || item.changes || item.change || 0
-                };
-              }
-            });
-            setPrices(updatedPrices);
-          }
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 50)}`);
         }
-      } catch (err) {
-        console.error("Failed to fetch real-time ticker quotes from server:", err);
+
+        const dataList = await response.json();
+        const updatedPrices: Record<string, { price: number; change: number }> = {};
+        
+        if (Array.isArray(dataList)) {
+          dataList.forEach((item: any) => {
+            if (item && item.symbol) {
+              updatedPrices[item.symbol] = {
+                price: item.price || 100,
+                change: item.changesPercentage || item.changes || item.change || 0
+              };
+            }
+          });
+          setPrices(updatedPrices);
+        }
+      } catch (err: any) {
+        console.warn("TickerTape: Telemetry stream interrupted. Retrying in cycle.", err.message);
       }
     };
 

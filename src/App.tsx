@@ -22,6 +22,7 @@ import {
   Compass,
   Mic,
   Zap,
+  Target,
 } from "lucide-react";
 import { analyzeSentimentAndImpact } from "./lib/sentiment";
 import { cn } from "./lib/utils";
@@ -81,6 +82,13 @@ export default function App() {
   const [isManualScanActive, setIsManualScanActive] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [activeNewsPopup, setActiveNewsPopup] = useState<{ lat: number; lng: number; title: string; symbol: string } | null>(null);
+  const [isFocusMode, setIsFocusMode] = useState(true);
+  
+  const stateRefs = useRef({ isFocusMode, isLiveNewsZoomEnabled });
+  useEffect(() => {
+    stateRefs.current = { isFocusMode, isLiveNewsZoomEnabled };
+  }, [isFocusMode, isLiveNewsZoomEnabled]);
+
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [terminalScale, setTerminalScale] = useState<number>(() => {
@@ -201,46 +209,6 @@ export default function App() {
   const [resetOrientationTrigger, setResetOrientationTrigger] = useState(0);
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(false);
   const [activeStoryIdx, setActiveStoryIdx] = useState(0);
-
-  // Auto-cycle effect for 3D Globe: Zoom out, select next story, zoom back in every 30s
-  useEffect(() => {
-    let cycleTimer: NodeJS.Timeout;
-    
-    if (isAutopilot) {
-      cycleTimer = setInterval(() => {
-        // Force a zoom out first for cinematic feel
-        setAgentFocus(prev => prev ? { ...prev, zoomLevel: 1.5 } : { lat: 20, lng: 0, locationName: "ORBIT", zoomLevel: 1.5 });
-        
-        // After 5s of "being zoomed out", pick the next story and zoom in
-        setTimeout(() => {
-          const news = marketData.news || [];
-          if (news.length > 0) {
-            const nextIdx = (activeStoryIdx + 1) % news.length;
-            setActiveStoryIdx(nextIdx);
-            const story = news[nextIdx];
-            
-            // Try to find a related company
-            const company = COMPANIES.find(c => 
-              story.title.includes(c.symbol) || 
-              story.title.includes(c.name) || 
-              (story.summary && (story.summary.includes(c.symbol) || story.summary.includes(c.name)))
-            );
-            
-            if (company) {
-              handleSelectNode(company, false, true, story);
-            } else {
-              // Otherwise just pick a random major company to keep it moving
-              const randomCo = COMPANIES[Math.floor(Math.random() * Math.min(COMPANIES.length, 20))];
-              handleSelectNode(randomCo, false, true, story);
-            }
-          }
-        }, 5000);
-        
-      }, 30000);
-    }
-    
-    return () => clearInterval(cycleTimer);
-  }, [isAutopilot, marketData.news, activeStoryIdx]);
 
   // System-wide Global Risk Matrix (World Shocks)
   const [taiwanStraitBlocked, setTaiwanStraitBlocked] = useState(false);
@@ -999,8 +967,8 @@ export default function App() {
       `SIGNAL_DECODED: ${randomCompany.symbol} news injected into stream.`,
     );
 
-    // Active news alert window pointing to headline coordinates, enabled by default
-    if (isLiveNewsEnabled) {
+    // Active news alert window pointing to headline coordinates, enabled if news feed or live fetch is on
+    if (isLiveNewsEnabled || isLiveNewsZoomEnabled) {
       setActiveNewsPopup({
         lat: Number(randomCompany.lat),
         lng: Number(randomCompany.lng),
@@ -1011,19 +979,16 @@ export default function App() {
 
     // Auto-clear popups after 15 seconds to keep map clean
     setTimeout(() => {
-      setActiveNewsPopup((prev) => 
-        prev?.title === headline ? null : prev
-      );
+      setActiveNewsPopup((prev) => prev?.title === headline ? null : prev);
     }, 15000);
 
-    // Zoom and position camera to live news location dynamically only if enabled (default disabled)
-    if (isLiveNewsZoomEnabled) {
+    // Zoom and position camera to live news location dynamically only if enabled AND focus mode is on
+    if (isLiveNewsZoomEnabled && stateRefs.current.isFocusMode) {
       setAgentFocus({
         locationName: randomCompany.name,
         lat: randomCompany.lat,
         lng: randomCompany.lng,
         zoomLevel: 5,
-        briefing: `URGENT_TELEMETRY: ${headline}`,
       });
 
       // Reset center focus after 8 seconds to resume normal operation
@@ -1139,6 +1104,11 @@ export default function App() {
   }, [injectLiveNews, isAiProcessing]);
 
   // Intelligence Stream Cycle (Neural Stream)
+  const latestNewsRef = useRef(marketData.news);
+  useEffect(() => {
+    latestNewsRef.current = marketData.news;
+  }, [marketData.news]);
+
   useEffect(() => {
     let timer: any;
     if (isAutopilot) {
@@ -1149,7 +1119,7 @@ export default function App() {
         
         // Step 2: Next Story & Zoom In (after a delay for zoom out)
         setTimeout(() => {
-          const stories = marketData.news || [];
+          const stories = latestNewsRef.current || [];
           if (stories.length > 0) {
             setAutopilotNewsIndex((prevIndex) => (prevIndex + 1) % stories.length);
           } else {
@@ -1163,16 +1133,14 @@ export default function App() {
         }, 4000); // 4 seconds for a broad zoom out and pause before next story
       };
 
-      // Run once immediately if not already set
-      if (autopilotNewsIndex === 0) {
-         cycle();
-      }
+      // Run once immediately if not already set (skip dependency on index to avoid rerun triggers)
+      cycle();
 
       timer = setInterval(cycle, 35000); // 35 seconds total per cycle (30s stay + 5s transition)
     }
 
     return () => clearInterval(timer);
-  }, [isAutopilot, marketData.news, companies, handleSelectNode, setSelectedStock]);
+  }, [isAutopilot, companies, handleSelectNode, setSelectedStock]);
 
   // Handle focusing nodes when autopilot news index changes
   useEffect(() => {
@@ -1190,6 +1158,27 @@ export default function App() {
       }
     }
   }, [autopilotNewsIndex, isAutopilot, marketData.news, companies, handleSelectNode, isAutopilotTransitioning]);
+
+  const handleHeadlineClick = useCallback((news: any) => {
+    if (!news) return;
+    
+    // 1. Identification of target entity
+    const targetSymbol = news.symbol || news.ticker;
+    const company = companies.find((c) => c.symbol === targetSymbol);
+    
+    if (company) {
+      // 2. Execution of node selection (triggers telemetry + briefing)
+      handleSelectNode(company, false, true, news);
+      setActiveTab("INTEL");
+    } else {
+      // 3. Fallback: Generic location briefing
+      setBriefing(news.description || news.title);
+      setActiveTab("INTEL");
+    }
+    
+    addLog(`MANUAL_OVERRIDE: Node briefing initiated for ${targetSymbol || 'unidentified_node'}`);
+    playTacticalAudio("click");
+  }, [companies, handleSelectNode, setActiveTab, addLog, playTacticalAudio]);
 
   useEffect(() => {
     // Dynamically adjust root document zoom to scale the entire terminal UI cleanly
@@ -1231,6 +1220,7 @@ export default function App() {
           backgroundSize: "40px 40px",
         }}
       />
+      {/* Header section relocated to root */}
       <Header
         selectedStock={marketData.quote}
         yields={marketData.yields}
@@ -1470,6 +1460,22 @@ export default function App() {
               </AnimatePresence>
             </div>
 
+            {/* Focus Toggle (Moved next to searchbar) */}
+            <button
+              onClick={() => setIsFocusMode(!isFocusMode)}
+              className={cn(
+                "px-2 py-0.5 text-[7px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1.5 cursor-pointer rounded-xs h-5 border shrink-0 active:scale-95",
+                isFocusMode 
+                  ? "bg-emerald-500/15 border-emerald-500/60 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)] animate-pulse" 
+                  : "bg-transparent border-zinc-900 text-zinc-650 hover:border-zinc-800"
+              )}
+              title={isFocusMode ? "Disable Global Focus" : "Enable Global Focus"}
+            >
+              <Target className={cn("w-2.5 h-2.5", isFocusMode && "animate-pulse")} />
+              <span className="hidden sm:inline">{isFocusMode ? "FOCUS: ENABLED" : "FOCUS: DISABLED"}</span>
+              <span className="sm:hidden">{isFocusMode ? "FOCUS: ON" : "FOCUS: OFF"}</span>
+            </button>
+
             {/* Scrollable Interaction Strip */}
             <div className="flex items-center gap-4 flex-1 overflow-x-auto scrollbar-none">
               {/* Buttons Group */}
@@ -1520,61 +1526,6 @@ export default function App() {
                 <MapPin className="w-2.5 h-2.5" />
                 <span className="hidden xl:inline">LIVE_FETCH</span>
               </button>
-
-              <button
-                onClick={() => {
-                  if (isManualScanActive) return;
-                  if (!isLiveNewsEnabled) {
-                    playTacticalAudio("click");
-                    setIsLiveNewsEnabled(true);
-                    addLog("SIGNAL_STREAM: Real-time intelligence stream activated.");
-                    setTimeout(() => {
-                      triggerManualScan();
-                    }, 50);
-                  } else {
-                    playTacticalAudio("click");
-                    setIsLiveNewsEnabled(false);
-                    setActiveNewsPopup(null);
-                    addLog("SIGNAL_STREAM: Real-time intelligence stream deactivated.");
-                  }
-                }}
-                className={cn(
-                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1.5 h-5 border cursor-pointer rounded-xs transition-all",
-                  isLiveNewsEnabled 
-                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 font-extrabold shadow-[0_0_8px_rgba(16,185,129,0.15)] animate-pulse" 
-                    : "border-zinc-900 text-zinc-650 hover:border-zinc-850 hover:text-zinc-500"
-                )}
-              >
-                <Newspaper className="w-2.5 h-2.5" />
-                <span className="hidden xl:inline">NEWS_FEED</span>
-                <span className={cn(
-                  "w-1 h-1 rounded-full",
-                  isLiveNewsEnabled ? "bg-emerald-400" : "bg-zinc-700"
-                )} />
-              </button>
-
-              {isLiveNewsEnabled && (
-                <button
-                  disabled={isManualScanActive}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    triggerManualScan();
-                  }}
-                  className={cn(
-                    "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase h-5 flex items-center gap-1 cursor-pointer rounded-xs border select-none transition-all",
-                    isManualScanActive
-                      ? "bg-amber-950/20 border-amber-500/50 text-amber-400 cursor-not-allowed shadow-[0_0_6px_rgba(245,158,11,0.15)]"
-                      : "bg-emerald-950/15 border-emerald-500/35 text-emerald-400 hover:bg-emerald-900/10 hover:border-emerald-550 active:scale-95"
-                  )}
-                >
-                  <Search className={cn("w-2.5 h-2.5", isManualScanActive && "animate-spin")} />
-                  {isManualScanActive ? (
-                    <span>DECRYPT_SCAN {scanProgress}%</span>
-                  ) : (
-                    <span>MANUAL_INJECT</span>
-                  )}
-                </button>
-              )}
 
               <button
                 onClick={() => {
@@ -1722,8 +1673,11 @@ export default function App() {
                   isTransitioning={isAutopilotTransitioning}
                   activeNewsIdx={autopilotNewsIndex}
                   activeNewsPopup={activeNewsPopup}
+                  onHeadlineClick={handleHeadlineClick}
                   isLiveNewsZoomEnabled={isLiveNewsZoomEnabled}
+                  isFocusMode={isFocusMode}
                   toggleLiveNewsZoom={() => setIsLiveNewsZoomEnabled(!isLiveNewsZoomEnabled)}
+                  toggleFocusMode={() => setIsFocusMode(!isFocusMode)}
                   isAutopilot={isAutopilot}
                   toggleIntelligenceStream={() => {
                     const next = !isAutopilot;
@@ -1791,6 +1745,7 @@ export default function App() {
           className={cn(
             "border-b md:border-b-0 md:border-r border-zinc-800 transition-all duration-150 shrink-0 order-2 md:order-1 flex",
             mobileView === "DATA" ? "flex" : "hidden md:flex",
+            !isFocusMode && "shadow-[0_0_30px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/10",
             isDataSidebarMinimized
               ? "h-12 md:w-8"
               : "w-full h-auto md:h-full md:w-[220px] lg:w-[260px] xl:w-[320px]"
@@ -1807,6 +1762,7 @@ export default function App() {
             onToggleMinimize={() =>
               setIsDataSidebarMinimized(!isDataSidebarMinimized)
             }
+            isFocusMode={isFocusMode}
             pinnedTickers={pinnedTickers}
             onTogglePin={togglePin}
           />
@@ -1818,6 +1774,7 @@ export default function App() {
           className={cn(
             "border-t md:border-t-0 md:border-l border-zinc-800 transition-all duration-150 shrink-0 order-3 flex",
             mobileView === "INTEL" ? "flex" : "hidden md:flex",
+            !isFocusMode && "shadow-[0_0_30px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/10",
             isIntelSidebarMinimized
               ? "h-12 md:w-8"
               : "w-full h-auto md:h-full md:w-[240px] lg:w-[330px] xl:w-[380px]"
@@ -1854,6 +1811,8 @@ export default function App() {
             onToggleMinimize={() =>
               setIsIntelSidebarMinimized(!isIntelSidebarMinimized)
             }
+            toggleFocusMode={() => setIsFocusMode(!isFocusMode)}
+            isFocusMode={isFocusMode}
             activeCorridorId={activeCorridorId}
             onSelectCorridor={(id) => {
               setActiveCorridorId(id);

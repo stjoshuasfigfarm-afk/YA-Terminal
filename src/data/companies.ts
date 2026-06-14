@@ -10,19 +10,21 @@ export interface Company {
   headquarters?: string;
   domain?: string;
   logo?: string;
+  turnover?: string;
+  hiringLikelihood?: 'High' | 'Moderate' | 'Low' | 'Stable';
 }
 
 // Registry of 150+ global company nodes
 export const COMPANIES: Company[] = [
   
   // TECH / SEMI (US/ASIA)
-  { symbol: "AAPL", name: "Apple Inc.", sector: "Technology", lat: 37.3349, lng: -122.0091, country: "USA", partners: ["TSM", "FOXCONN", "MSFT"], workforce: "164,000", headquarters: "Cupertino, CA", domain: "apple.com" },
-  { symbol: "MSFT", name: "Microsoft", sector: "Technology", lat: 47.6396, lng: -122.1283, country: "USA", partners: ["NVDA", "ORCL", "AMD"], workforce: "221,000", headquarters: "Redmond, WA", domain: "microsoft.com" },
-  { symbol: "NVDA", name: "Nvidia", sector: "Semiconductors", lat: 37.3712, lng: -121.9663, country: "USA", partners: ["TSM", "ARM", "SMC"], workforce: "26,000", headquarters: "Santa Clara, CA", domain: "nvidia.com" },
-  { symbol: "TSM", name: "TSMC", sector: "Semiconductors", lat: 24.7816, lng: 121.0153, country: "TWN", partners: ["AAPL", "NVDA", "ASML"], workforce: "73,000", headquarters: "Hsinchu, Taiwan", domain: "tsmc.com" },
-  { symbol: "ASML", name: "ASML Holding", sector: "Semiconductors", lat: 51.4035, lng: 5.4081, country: "NLD", partners: ["TSM", "INTC", "AMAT"], workforce: "39,000", headquarters: "Veldhoven, Netherlands", domain: "asml.com" },
+  { symbol: "AAPL", name: "Apple Inc.", sector: "Technology", lat: 37.3349, lng: -122.0091, country: "USA", partners: ["TSM", "FOXCONN", "MSFT"], workforce: "164,000", headquarters: "Cupertino, CA", domain: "apple.com", turnover: "12.5%", hiringLikelihood: "Moderate" },
+  { symbol: "MSFT", name: "Microsoft", sector: "Technology", lat: 47.6396, lng: -122.1283, country: "USA", partners: ["NVDA", "ORCL", "AMD"], workforce: "221,000", headquarters: "Redmond, WA", domain: "microsoft.com", turnover: "14.2%", hiringLikelihood: "High" },
+  { symbol: "NVDA", name: "Nvidia", sector: "Semiconductors", lat: 37.3712, lng: -121.9663, country: "USA", partners: ["TSM", "ARM", "SMC"], workforce: "26,000", headquarters: "Santa Clara, CA", domain: "nvidia.com", turnover: "8.5%", hiringLikelihood: "High" },
+  { symbol: "TSM", name: "TSMC", sector: "Semiconductors", lat: 24.7816, lng: 121.0153, country: "TWN", partners: ["AAPL", "NVDA", "ASML"], workforce: "73,000", headquarters: "Hsinchu, Taiwan", domain: "tsmc.com", turnover: "16.1%", hiringLikelihood: "Moderate" },
+  { symbol: "ASML", name: "ASML Holding", sector: "Semiconductors", lat: 51.4035, lng: 5.4081, country: "NLD", partners: ["TSM", "INTC", "AMAT"], workforce: "39,000", headquarters: "Veldhoven, Netherlands", domain: "asml.com", turnover: "10.1%", hiringLikelihood: "High" },
   { symbol: "SMC", name: "Super Micro", sector: "Technology", lat: 37.3794, lng: -121.9407, country: "USA", partners: ["NVDA", "INTC"], workforce: "5,000", headquarters: "San Jose, CA", domain: "supermicro.com" },
-  { symbol: "SPCX", name: "SpaceX Tracking ETF (SPCX)", sector: "ETF", lat: 33.9180, lng: -118.3242, country: "USA", partners: ["TSLA", "V"], workforce: "Pending IPO / ETF Proxy", headquarters: "Hawthorne, CA", domain: "spacex.com" },
+  { symbol: "SPCX", name: "SpaceX Tracking ETF (SPCX)", sector: "ETF", lat: 25.9973, lng: -97.1578, country: "USA", partners: ["TSLA", "V"], workforce: "Pending IPO / ETF Proxy", headquarters: "Starbase, TX", domain: "spacex.com" },
   
   // FINANCE (US/EU)
   { symbol: "JPM", name: "JPMorgan Chase", sector: "Financial Services", lat: 40.7559, lng: -73.9749, country: "USA", partners: ["GS", "MS"], domain: "jpmorganchase.com" },
@@ -31,17 +33,17 @@ export const COMPANIES: Company[] = [
   { symbol: "DB", name: "Deutsche Bank", sector: "Financial Services", lat: 50.1136, lng: 8.6690, country: "DEU", partners: ["HSBC"], domain: "db.com" },
   
   // ENERGY / AUTO
-  { symbol: "TSLA", name: "Tesla Inc.", sector: "Automotive", lat: 30.2241, lng: -97.6258, country: "USA", partners: ["CATL", "PANASONIC", "PARK"], domain: "tesla.com" },
-  { symbol: "TM", name: "Toyota Motor", sector: "Automotive", lat: 35.0838, lng: 137.1557, country: "JPN", partners: ["PANASONIC", "DENSO"], domain: "toyota.com" },
-  { symbol: "XOM", name: "ExxonMobil", sector: "Energy", lat: 32.8925, lng: -96.9452, country: "USA", partners: ["CVX", "SHEL"], domain: "exxon.com" },
-  { symbol: "SHEL", name: "Shell PLC", sector: "Energy", lat: 52.3702, lng: 4.8952, country: "GBR", partners: ["XOM", "TOT"], domain: "shell.com" },
-  { symbol: "ARAMCO", name: "Saudi Aramco", sector: "Energy", lat: 26.3861, lng: 50.1264, country: "SAU", partners: ["TOT", "XOM"], domain: "aramco.com" },
+  { symbol: "TSLA", name: "Tesla Inc.", sector: "Automotive", lat: 30.2241, lng: -97.6258, country: "USA", partners: ["CATL", "PANASONIC", "PARK"], domain: "tesla.com", turnover: "18.2%", hiringLikelihood: "High" },
+  { symbol: "TM", name: "Toyota Motor", sector: "Automotive", lat: 35.0838, lng: 137.1557, country: "JPN", partners: ["PANASONIC", "DENSO"], domain: "toyota.com", turnover: "9.5%", hiringLikelihood: "Stable" },
+  { symbol: "XOM", name: "ExxonMobil", sector: "Energy", lat: 32.8925, lng: -96.9452, country: "USA", partners: ["CVX", "SHEL"], domain: "exxon.com", turnover: "7.8%", hiringLikelihood: "Stable" },
+  { symbol: "SHEL", name: "Shell PLC", sector: "Energy", lat: 52.3702, lng: 4.8952, country: "GBR", partners: ["XOM", "TOT"], domain: "shell.com", turnover: "8.2%", hiringLikelihood: "Moderate" },
+  { symbol: "ARAMCO", name: "Saudi Aramco", sector: "Energy", lat: 26.3861, lng: 50.1264, country: "SAU", partners: ["TOT", "XOM"], domain: "aramco.com", turnover: "4.5%", hiringLikelihood: "Low" },
   
   // CONSUMER / RETAIL
-  { symbol: "AMZN", name: "Amazon.com", sector: "Consumer Cyclical", lat: 47.6092, lng: -122.3331, country: "USA", partners: ["UPS", "FDX", "RIVN"], domain: "amazon.com" },
-  { symbol: "LVMH", name: "LVMH", sector: "Consumer Cyclical", lat: 48.8718, lng: 2.3015, country: "FRA", partners: ["RMS"], domain: "lvmh.com" },
-  { symbol: "NKE", name: "Nike Inc.", sector: "Consumer Cyclical", lat: 45.4907, lng: -122.8276, country: "USA", partners: ["ADDYY"], domain: "nike.com" },
-  { symbol: "ADDYY", name: "Adidas", sector: "Consumer Cyclical", lat: 49.5815, lng: 10.8841, country: "DEU", partners: ["NKE"], domain: "adidas.com" },
+  { symbol: "AMZN", name: "Amazon.com", sector: "Consumer Cyclical", lat: 47.6092, lng: -122.3331, country: "USA", partners: ["UPS", "FDX", "RIVN"], domain: "amazon.com", turnover: "114%", hiringLikelihood: "High" },
+  { symbol: "LVMH", name: "LVMH", sector: "Consumer Cyclical", lat: 48.8718, lng: 2.3015, country: "FRA", partners: ["RMS"], domain: "lvmh.com", turnover: "11.2%", hiringLikelihood: "Moderate" },
+  { symbol: "NKE", name: "Nike Inc.", sector: "Consumer Cyclical", lat: 45.4907, lng: -122.8276, country: "USA", partners: ["ADDYY"], domain: "nike.com", turnover: "16.8%", hiringLikelihood: "Moderate" },
+  { symbol: "ADDYY", name: "Adidas", sector: "Consumer Cyclical", lat: 49.5815, lng: 10.8841, country: "DEU", partners: ["NKE"], domain: "adidas.com", turnover: "15.5%", hiringLikelihood: "Stable" },
 
   // ASIA SPECIAL NODES
   { symbol: "700", name: "Tencent", sector: "Technology", lat: 22.5431, lng: 114.0579, country: "CHN", partners: ["BABA", "BIDU"], domain: "tencent.com", headquarters: "Shenzhen, China" },
@@ -53,13 +55,13 @@ export const COMPANIES: Company[] = [
   { symbol: "VALE", name: "Vale S.A.", sector: "Basic Materials", lat: -22.9068, lng: -43.1729, country: "BRA", partners: ["RIO", "BHP"], domain: "vale.com", headquarters: "Rio de Janeiro, Brazil" },
 
   // Adding more nodes to reach 150+ (abbreviated list, adding procedurally or more manual entries)
-  { symbol: "META", name: "META Platforms", sector: "Technology", lat: 37.4851, lng: -122.1483, country: "USA", partners: ["NVDA", "GOOGL"], domain: "meta.com", headquarters: "Menlo Park, CA" },
-  { symbol: "GOOGL", name: "Alphabet Inc.", sector: "Technology", lat: 37.4221, lng: -122.0841, country: "USA", partners: ["AAPL", "MSFT", "NVDA"], domain: "google.com", headquarters: "Mountain View, CA" },
-  { symbol: "ORCL", name: "Oracle Corp.", sector: "Technology", lat: 40.5284, lng: -111.8906, country: "USA", partners: ["MSFT", "AMZN"], domain: "oracle.com", headquarters: "Austin, TX" },
-  { symbol: "V", name: "Visa Inc.", sector: "Financial Services", lat: 37.5592, lng: -122.2858, country: "USA", partners: ["MA", "PYPL", "JPM"], domain: "visa.com", headquarters: "San Francisco, CA" },
-  { symbol: "MA", name: "Mastercard", sector: "Financial Services", lat: 41.1009, lng: -73.6841, country: "USA", partners: ["V", "GS"], domain: "mastercard.com", headquarters: "Purchase, NY" },
-  { symbol: "CATL", name: "CATL", sector: "Industrials", lat: 26.6655, lng: 119.5479, country: "CHN", partners: ["TSLA", "BYD"], domain: "catl.com", headquarters: "Ningde, China" },
-  { symbol: "AMD", name: "AMD", sector: "Technology", lat: 37.3842, lng: -121.9790, country: "USA", domain: "amd.com", headquarters: "Santa Clara, CA" },
+  { symbol: "META", name: "META Platforms", sector: "Technology", lat: 37.4851, lng: -122.1483, country: "USA", partners: ["NVDA", "GOOGL"], domain: "meta.com", headquarters: "Menlo Park, CA", turnover: "14.5%", hiringLikelihood: "Moderate" },
+  { symbol: "GOOGL", name: "Alphabet Inc.", sector: "Technology", lat: 37.4221, lng: -122.0841, country: "USA", partners: ["AAPL", "MSFT", "NVDA"], domain: "google.com", headquarters: "Mountain View, CA", turnover: "11.8%", hiringLikelihood: "Moderate" },
+  { symbol: "ORCL", name: "Oracle Corp.", sector: "Technology", lat: 40.5284, lng: -111.8906, country: "USA", partners: ["MSFT", "AMZN"], domain: "oracle.com", headquarters: "Austin, TX", turnover: "15.2%", hiringLikelihood: "Moderate" },
+  { symbol: "V", name: "Visa Inc.", sector: "Financial Services", lat: 37.5592, lng: -122.2858, country: "USA", partners: ["MA", "PYPL", "JPM"], domain: "visa.com", headquarters: "San Francisco, CA", turnover: "9.1%", hiringLikelihood: "Stable" },
+  { symbol: "MA", name: "Mastercard", sector: "Financial Services", lat: 41.1009, lng: -73.6841, country: "USA", partners: ["V", "GS"], domain: "mastercard.com", headquarters: "Purchase, NY", turnover: "8.8%", hiringLikelihood: "Stable" },
+  { symbol: "CATL", name: "CATL", sector: "Industrials", lat: 26.6655, lng: 119.5479, country: "CHN", partners: ["TSLA", "BYD"], domain: "catl.com", headquarters: "Ningde, China", turnover: "21.5%", hiringLikelihood: "High" },
+  { symbol: "AMD", name: "AMD", sector: "Technology", lat: 37.3842, lng: -121.9790, country: "USA", domain: "amd.com", headquarters: "Santa Clara, CA", turnover: "10.4%", hiringLikelihood: "High" },
   { symbol: "QCOM", name: "Qualcomm", sector: "Technology", lat: 32.8955, lng: -117.1970, country: "USA", domain: "qualcomm.com", headquarters: "San Diego, CA" },
   { symbol: "TXN", name: "Texas Instruments", sector: "Technology", lat: 32.9126, lng: -96.7610, country: "USA", domain: "ti.com", headquarters: "Dallas, TX" },
   { symbol: "AVGO", name: "Broadcom", sector: "Technology", lat: 37.3995, lng: -121.9213, country: "USA", domain: "broadcom.com", headquarters: "San Jose, CA" },
@@ -80,14 +82,14 @@ export const COMPANIES: Company[] = [
   { symbol: "FDX", name: "FedEx", sector: "Industrials", lat: 35.1495, lng: -90.0490, country: "USA" },
   { symbol: "DAL", name: "Delta Air Lines", sector: "Industrials", lat: 33.6407, lng: -84.4277, country: "USA" },
   { symbol: "LUV", name: "Southwest Airlines", sector: "Industrials", lat: 32.8461, lng: -96.8518, country: "USA" },
-  { symbol: "MCD", name: "McDonald's", sector: "Consumer Cyclical", lat: 41.8845, lng: -87.8920, country: "USA" },
-  { symbol: "SBUX", name: "Starbucks", sector: "Consumer Cyclical", lat: 47.5818, lng: -122.3352, country: "USA" },
-  { symbol: "DIS", name: "Disney", sector: "Communication Services", lat: 34.1561, lng: -118.3418, country: "USA" },
-  { symbol: "NFLX", name: "Netflix", sector: "Communication Services", lat: 37.2367, lng: -121.9616, country: "USA" },
-  { symbol: "KO", name: "Coca-Cola", sector: "Consumer Defensive", lat: 33.7711, lng: -84.3900, country: "USA" },
-  { symbol: "PEP", name: "PepsiCo", sector: "Consumer Defensive", lat: 41.0379, lng: -73.6811, country: "USA" },
-  { symbol: "WMT", name: "Walmart", sector: "Consumer Defensive", lat: 36.3729, lng: -94.2088, country: "USA" },
-  { symbol: "COST", name: "Costco", sector: "Consumer Defensive", lat: 47.5301, lng: -122.0326, country: "USA" },
+  { symbol: "MCD", name: "McDonald's", sector: "Consumer Cyclical", lat: 41.8845, lng: -87.8920, country: "USA", turnover: "84%", hiringLikelihood: "High" },
+  { symbol: "SBUX", name: "Starbucks", sector: "Consumer Cyclical", lat: 47.5818, lng: -122.3352, country: "USA", turnover: "72%", hiringLikelihood: "High" },
+  { symbol: "DIS", name: "Disney", sector: "Communication Services", lat: 34.1561, lng: -118.3418, country: "USA", turnover: "22.5%", hiringLikelihood: "Moderate" },
+  { symbol: "NFLX", name: "Netflix", sector: "Communication Services", lat: 37.2367, lng: -121.9616, country: "USA", turnover: "11.2%", hiringLikelihood: "Stable" },
+  { symbol: "KO", name: "Coca-Cola", sector: "Consumer Defensive", lat: 33.7711, lng: -84.3900, country: "USA", turnover: "9.5%", hiringLikelihood: "Stable" },
+  { symbol: "PEP", name: "PepsiCo", sector: "Consumer Defensive", lat: 41.0379, lng: -73.6811, country: "USA", turnover: "10.2%", hiringLikelihood: "Stable" },
+  { symbol: "WMT", name: "Walmart", sector: "Consumer Defensive", lat: 36.3729, lng: -94.2088, country: "USA", turnover: "61%", hiringLikelihood: "High" },
+  { symbol: "COST", name: "Costco", sector: "Consumer Defensive", lat: 47.5301, lng: -122.0326, country: "USA", turnover: "15.5%", hiringLikelihood: "Stable" },
   { symbol: "PG", name: "Procter & Gamble", sector: "Consumer Defensive", lat: 39.1027, lng: -84.5097, country: "USA" },
   { symbol: "JNJ", name: "Johnson & Johnson", sector: "Healthcare", lat: 40.4982, lng: -74.4448, country: "USA" },
   { symbol: "PFE", name: "Pfizer", sector: "Healthcare", lat: 40.7497, lng: -73.9723, country: "USA" },
