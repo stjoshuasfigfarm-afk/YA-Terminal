@@ -66,7 +66,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelect, isOpen
             onClick={onClose}
             className="absolute inset-0 bg-black/80 backdrop-blur-md overflow-hidden"
           >
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none animate-[flicker_0.15s_infinite]" style={{
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
               backgroundImage: 'repeating-linear-gradient(0deg, #fff, #fff 1px, transparent 1px, transparent 2px)'
             }} />
           </div>

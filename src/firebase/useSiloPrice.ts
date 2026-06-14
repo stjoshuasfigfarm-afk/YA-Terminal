@@ -68,7 +68,19 @@ export function useSiloPrice(symbol: string) {
       },
       (err) => {
         console.error(`[useSiloPrice] Real-time subscription failed for ${targetSymbol}:`, err);
-        setError(err);
+        const errInfo = {
+          error: err instanceof Error ? err.message : String(err),
+          operationType: 'get',
+          path: `silo_prices/${targetSymbol}`,
+          authInfo: {
+            userId: null,
+            email: null,
+            emailVerified: null,
+            isAnonymous: null,
+          }
+        };
+        console.error('Firestore Error: ', JSON.stringify(errInfo));
+        setError(new Error(JSON.stringify(errInfo)));
         setLoading(false);
       }
     );

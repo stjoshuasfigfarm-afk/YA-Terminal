@@ -212,12 +212,6 @@
       transparent 50%
     );
     background-size: 100% 4px;
-    animation: scanline-move 20s linear infinite;
-  }
-
-  @keyframes scanline-move {
-    from { background-position: 0 0; }
-    to { background-position: 0 100%; }
   }
 
   @keyframes marquee {
@@ -225,15 +219,7 @@
     100% { transform: translateX(-50%); }
   }
 
-  @keyframes crt-flicker {
-    0% { opacity: 0.99; }
-    5% { opacity: 0.95; }
-    10% { opacity: 0.99; }
-    100% { opacity: 0.99; }
-  }
-
   .animate-crt-flicker {
-    animation: crt-flicker 0.1s infinite;
   }
 
   .bg-scan-line {

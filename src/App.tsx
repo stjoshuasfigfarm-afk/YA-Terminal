@@ -1461,12 +1461,12 @@ export default function App() {
               className={cn(
                 "px-2 py-0.5 text-[7px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1.5 cursor-pointer rounded-xs h-5 border shrink-0 active:scale-95",
                 isFocusMode 
-                  ? "bg-emerald-500/15 border-emerald-500/60 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)] animate-pulse" 
+                  ? "bg-emerald-500/15 border-emerald-500/60 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)]" 
                   : "bg-transparent border-zinc-900 text-zinc-650 hover:border-zinc-800"
               )}
               title={isFocusMode ? "Disable Global Focus" : "Enable Global Focus"}
             >
-              <Target className={cn("w-2.5 h-2.5", isFocusMode && "animate-pulse")} />
+              <Target className="w-2.5 h-2.5" />
               <span className="hidden sm:inline">{isFocusMode ? "FOCUS: ENABLED" : "FOCUS: DISABLED"}</span>
               <span className="sm:hidden">{isFocusMode ? "FOCUS: ON" : "FOCUS: OFF"}</span>
             </button>
@@ -1527,7 +1527,7 @@ export default function App() {
                 }}
                 className="px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 bg-blue-950/20 border border-blue-500/30 text-blue-400 hover:text-blue-300"
               >
-                <Compass className="w-2.5 h-2.5 animate-pulse" />
+                <Compass className="w-2.5 h-2.5" />
                 <span className="hidden xl:inline">CENTER_VIEW</span>
               </button>
             </div>

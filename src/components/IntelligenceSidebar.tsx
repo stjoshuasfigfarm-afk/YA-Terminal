@@ -825,6 +825,19 @@ export const IntelligenceSidebar = React.memo(
     const [selectedSourceFilter, setSelectedSourceFilter] = useState<
       "ALL" | "YAHOO" | "FINNHUB"
     >("ALL");
+    const [selectedSectorFilter, setSelectedSectorFilter] = useState<string>("ALL");
+
+    const distinctSectors = useMemo(() => {
+      const sectors = new Set<string>();
+      news.forEach((item) => {
+        const compSym = item.symbol || item.ticker || "";
+        const found = COMPANIES.find((c) => c.symbol === compSym);
+        if (found && found.sector) {
+          sectors.add(found.sector);
+        }
+      });
+      return Array.from(sectors);
+    }, [news]);
 
     const runSupplyChainAudit = (symbol: string) => {
       setAuditStatus("running");
@@ -864,9 +877,17 @@ export const IntelligenceSidebar = React.memo(
         if (selectedSourceFilter === "YAHOO" && !s.includes("yahoo")) return false;
         if (selectedSourceFilter === "FINNHUB" && (s.includes("yahoo") || s === "")) return false;
 
+        // Sector Filter
+        if (selectedSectorFilter !== "ALL") {
+          const compSym = item.symbol || item.ticker || "";
+          const foundCompany = COMPANIES.find(c => c.symbol === compSym);
+          const itemSector = foundCompany ? foundCompany.sector : "Other";
+          if (itemSector !== selectedSectorFilter) return false;
+        }
+
         return true;
       });
-    }, [news, newsSearch, sentimentFilter, impactFilter, selectedSourceFilter]);
+    }, [news, newsSearch, sentimentFilter, impactFilter, selectedSourceFilter, selectedSectorFilter]);
 
     // --- Cognitive Synthesis Agent Logic REMOVED (Moved to Deck) ---
 
@@ -906,7 +927,6 @@ export const IntelligenceSidebar = React.memo(
       <aside
         className={cn(
           "h-full border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden relative transition-all duration-150",
-          isFocusMode && "animate-crt-flicker",
           "w-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-r border-zinc-900",
         )}
       >
@@ -1161,6 +1181,42 @@ export const IntelligenceSidebar = React.memo(
                         </div>
                       </div>
 
+                      {/* Sector filter quick buttons */}
+                      <div className="flex flex-col gap-1.5 border-t border-zinc-900/60 pt-2 mt-1">
+                        <span className="text-[6.5px] font-bold text-zinc-600 font-mono tracking-wider uppercase">SECTOR:</span>
+                        <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto custom-scrollbar">
+                          {["ALL", ...distinctSectors].map((sector) => {
+                            const count = news.filter((item) => {
+                              if (sector === "ALL") return true;
+                              const compSym = item.symbol || item.ticker || "";
+                              const found = COMPANIES.find((c) => c.symbol === compSym);
+                              return found && found.sector === sector;
+                            }).length;
+
+                            return (
+                              <button
+                                key={sector}
+                                onClick={() => setSelectedSectorFilter(sector)}
+                                className={cn(
+                                  "text-[6px] font-mono px-1.5 py-0.5 border cursor-pointer uppercase transition-all rounded-2xs flex items-center gap-1",
+                                  selectedSectorFilter === sector
+                                    ? "bg-amber-950/35 border-amber-500/50 text-amber-500 font-extrabold shadow-[0_0_8px_rgba(245,158,11,0.15)]"
+                                    : "border-zinc-900 text-zinc-650 hover:text-zinc-400"
+                                )}
+                              >
+                                {sector}
+                                <span className={cn(
+                                  "text-[5px] font-mono font-black border rounded-xs px-0.5",
+                                  selectedSectorFilter === sector ? "bg-amber-500/20 text-amber-300 border-amber-500/30" : "bg-black text-zinc-600 border-zinc-900"
+                                )}>
+                                  {count}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       {/* News List */}
                       {filteredNews.length > 0 ? (
                         <div className="space-y-3 pr-0.5">
@@ -1290,40 +1346,194 @@ export const IntelligenceSidebar = React.memo(
                 {innerLeftTab === "LOGISTICS_COCKPIT" && selectedStock && (
                   <div className="space-y-4">
                     {/* Stress Monitor HUD */}
-                    <div className="p-3 border border-red-900/30 bg-red-950/5 rounded-sm space-y-3">
-                      <div className="flex items-center justify-between border-b border-red-950/30 pb-2">
+                    <div id="stress-chokepoint-mitigation-hud" className="p-3 border border-red-955/25 bg-red-955/2 rounded-sm space-y-3.5">
+                      <div className="flex items-center justify-between border-b border-red-955/15 pb-2">
                         <div className="flex items-center gap-2">
-                          <div className="w-1 h-3 bg-red-500/50 rounded-full" />
+                          <Sliders className="w-3 h-3 text-red-500 animate-pulse" />
                           <span className="text-[9px] text-red-400 font-mono font-black uppercase tracking-[0.15em]">STRESS_CHOKEPOINT_VECTORS</span>
                         </div>
-                        <span className="text-[7px] bg-red-950/40 border border-red-900/30 px-1 py-0.5 rounded-2xs text-red-500 animate-pulse font-bold">
-                          THREAT_DETECTION
+                        <span className={cn(
+                          "text-[7px] border px-1.5 py-0.5 rounded-2xs font-extrabold font-mono",
+                          (taiwanStraitBlocked || suezCanalBlocked || malaccaStraitBlocked || panamaCanalBlocked)
+                            ? "bg-red-500/10 border-red-500/30 text-red-400 animate-pulse"
+                            : "bg-emerald-500/10 border-emerald-500/30 text-emerald-450"
+                        )}>
+                          {(taiwanStraitBlocked || suezCanalBlocked || malaccaStraitBlocked || panamaCanalBlocked) ? "SHOCK_LIVE" : "OPTIMAL_FLOW"}
                         </span>
                       </div>
-                      <div className="space-y-1 font-mono text-[8px] text-zinc-400">
-                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
-                          <span>TAIWAN AIR-SEA SPACE RESTRICTIONS:</span>
-                          <span className={cn("font-bold uppercase", taiwanStraitBlocked ? "text-red-500" : "text-emerald-500")}>
-                            {taiwanStraitBlocked ? "BLOCKED" : "CLEAR"}
-                          </span>
+
+                      <div className="space-y-2">
+                        <div className="text-[7.5px] text-zinc-500 font-mono tracking-widest uppercase font-black flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-px"></span>
+                          <span>[1] Global Shipping Lane Blockades</span>
                         </div>
-                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
-                          <span>SUEZ CANAL MARITIME TRANSIT GATE:</span>
-                          <span className={cn("font-bold uppercase", suezCanalBlocked ? "text-red-500" : "text-emerald-500")}>
-                            {suezCanalBlocked ? "BLOCKED" : "CLEAR"}
-                          </span>
+                        <div className="grid grid-cols-2 gap-2 text-[8px] font-mono">
+                          {/* Taiwan Blockade */}
+                          <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
+                            <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Taiwan Air-Sea Space</span>
+                            <div className="flex gap-1.5 mt-1">
+                              <button
+                                onClick={() => setTaiwanStraitBlocked?.(true)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  taiwanStraitBlocked
+                                    ? "bg-red-950/40 text-red-400 border-red-500/35 shadow-[0_0_8px_rgba(239,68,68,0.25)]"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                BLOCK
+                              </button>
+                              <button
+                                onClick={() => setTaiwanStraitBlocked?.(false)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  !taiwanStraitBlocked
+                                    ? "bg-emerald-950/30 text-emerald-450 border-emerald-500/35"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                CLEAR
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Suez Canal */}
+                          <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
+                            <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Suez Maritime Transit</span>
+                            <div className="flex gap-1.5 mt-1">
+                              <button
+                                onClick={() => setSuezCanalBlocked?.(true)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  suezCanalBlocked
+                                    ? "bg-red-950/40 text-red-400 border-red-500/35 shadow-[0_0_8px_rgba(239,68,68,0.25)]"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                BLOCK
+                              </button>
+                              <button
+                                onClick={() => setSuezCanalBlocked?.(false)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  !suezCanalBlocked
+                                    ? "bg-emerald-950/30 text-emerald-450 border-emerald-500/35"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                CLEAR
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Malacca Strait */}
+                          <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
+                            <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Malacca Demurrage</span>
+                            <div className="flex gap-1.5 mt-1">
+                              <button
+                                onClick={() => setMalaccaStraitBlocked?.(true)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  malaccaStraitBlocked
+                                    ? "bg-red-950/40 text-red-400 border-red-500/35 shadow-[0_0_8px_rgba(239,68,68,0.25)]"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                BLOCK
+                              </button>
+                              <button
+                                onClick={() => setMalaccaStraitBlocked?.(false)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  !malaccaStraitBlocked
+                                    ? "bg-emerald-950/30 text-emerald-450 border-emerald-500/35"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                CLEAR
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Panama Canal */}
+                          <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
+                            <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Panama Draft Limit</span>
+                            <div className="flex gap-1.5 mt-1">
+                              <button
+                                onClick={() => setPanamaCanalBlocked?.(true)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  panamaCanalBlocked
+                                    ? "bg-red-950/40 text-red-400 border-red-500/35 shadow-[0_0_8px_rgba(239,68,68,0.25)]"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                BLOCK
+                              </button>
+                              <button
+                                onClick={() => setPanamaCanalBlocked?.(false)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  !panamaCanalBlocked
+                                    ? "bg-emerald-950/30 text-emerald-450 border-emerald-500/35"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                CLEAR
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
-                          <span>MALACCA STRAIT DEMURRAGE bottlenecks:</span>
-                          <span className={cn("font-bold uppercase", malaccaStraitBlocked ? "text-yellow-500" : "text-emerald-500")}>
-                            {malaccaStraitBlocked ? "BLOCKED" : "CLEAR"}
-                          </span>
+                      </div>
+
+                      {/* Mitigations */}
+                      <div className="space-y-2 border-t border-zinc-900/60 pt-2.5">
+                        <div className="text-[7.5px] text-zinc-500 font-mono tracking-widest uppercase font-black flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-px"></span>
+                          <span>[2] Mitigation Response Tactics</span>
                         </div>
-                        <div className="flex justify-between items-center border-b border-zinc-900/30 py-0.5">
-                          <span>PANAMA draft constraints:</span>
-                          <span className={cn("font-bold uppercase", panamaCanalBlocked ? "text-yellow-500" : "text-emerald-500")}>
-                            {panamaCanalBlocked ? "BLOCKED" : "CLEAR"}
-                          </span>
+                        <div className="grid grid-cols-3 gap-1.5 text-[8px] font-mono">
+                          {/* Air Freight */}
+                          <button
+                            onClick={() => setAirFreightActive?.(!airFreightActive)}
+                            className={cn(
+                              "p-1 border transition-all cursor-pointer rounded-sm flex flex-col items-center justify-center gap-1.5 text-center min-h-[36px]",
+                              airFreightActive
+                                ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/35 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                                : "bg-black/40 border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-400"
+                            )}
+                          >
+                            <span className="text-[6.5px] uppercase truncate w-full">Priority Air</span>
+                            <span className="text-[6.5px] font-black">{airFreightActive ? "ACTIVE" : "STANDBY"}</span>
+                          </button>
+
+                          {/* Strategic Stockpile */}
+                          <button
+                            onClick={() => setStrategicStockpileActive?.(!strategicStockpileActive)}
+                            className={cn(
+                              "p-1 border transition-all cursor-pointer rounded-sm flex flex-col items-center justify-center gap-1.5 text-center min-h-[36px]",
+                              strategicStockpileActive
+                                ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/35 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                                : "bg-black/40 border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-400"
+                            )}
+                          >
+                            <span className="text-[6.5px] uppercase truncate w-full">Stockpiling</span>
+                            <span className="text-[6.5px] font-black">{strategicStockpileActive ? "ACTIVE" : "STANDBY"}</span>
+                          </button>
+
+                          {/* Dual Sourcing */}
+                          <button
+                            onClick={() => setDualSourcingActive?.(!dualSourcingActive)}
+                            className={cn(
+                              "p-1 border transition-all cursor-pointer rounded-sm flex flex-col items-center justify-center gap-1.5 text-center min-h-[36px]",
+                              dualSourcingActive
+                                ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/35 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                                : "bg-black/40 border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:text-zinc-400"
+                            )}
+                          >
+                            <span className="text-[6.5px] uppercase truncate w-full">Dual Sourcing</span>
+                            <span className="text-[6.5px] font-black">{dualSourcingActive ? "ACTIVE" : "STANDBY"}</span>
+                          </button>
                         </div>
                       </div>
                     </div>

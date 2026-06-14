@@ -253,12 +253,10 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
               <div id="${popupId}" style="border-top: 1px solid #222; padding-top: 6px; font-size: 9px; display: flex; flex-direction: column; gap: 4px;">
                   <div style="display: flex; flex-direction: column; gap: 4px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #60a5fa; animation: pulse 1s infinite; font-size: 7px;">INIT_SECURE_UPLINK...</span>
+                        <span style="color: #60a5fa; font-size: 7px;">INIT_SECURE_UPLINK...</span>
                         <span style="color: #333; font-size: 6px;">[SCAN_ACTIVE]</span>
                     </div>
-                    <div style="width: 100%; height: 2px; background: #111; position: relative; overflow: hidden;">
-                        <div style="position: absolute; top: 0; left: 0; height: 100%; background: #60a5fa; width: 30%; animation: scan 1.5s linear infinite;"></div>
-                    </div>
+                    <div style="width: 100%; height: 2px; background: rgba(96, 165, 250, 0.5);"></div>
                   </div>
               </div>
             </div>
@@ -434,16 +432,16 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         el.className = 'custom-marker z-10 transition-transform duration-300';
         el.style.cursor = 'pointer';
         
-        // Use inline style & tailwind-like HTML for pulse effect
+        // Use inline style & tailwind-like HTML for optimized, static visual details
         el.innerHTML = `
           <div class="relative flex items-center justify-center pointer-events-none group transform hover:scale-125 transition-transform duration-300">
             <svg width="24" height="24" viewBox="0 0 24 24" class="${isSelected ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-amber-500'} transition-colors duration-300">
-              <circle cx="12" cy="12" r="3" fill="currentColor" class="${isSelected ? 'animate-pulse' : ''}" />
+              <circle cx="12" cy="12" r="3" fill="currentColor" />
               <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="none" class="opacity-60" />
               <path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="currentColor" stroke-width="1.5" class="opacity-80" />
-              ${isSelected ? '<circle cx="12" cy="12" r="12" stroke="currentColor" stroke-width="1" fill="none" stroke-dasharray="2 4" stroke-linecap="round" class="animate-spin-slow opacity-50" />' : ''}
+              ${isSelected ? '<circle cx="12" cy="12" r="12" stroke="currentColor" stroke-width="1" fill="none" stroke-dasharray="2 4" stroke-linecap="round" class="opacity-50" />' : ''}
             </svg>
-            ${isSelected ? '<div class="absolute -inset-4 rounded-full border border-emerald-500 animate-ping opacity-30"></div>' : ''}
+            ${isSelected ? '<div class="absolute -inset-2 rounded-full border border-emerald-500/40 opacity-70"></div>' : ''}
           </div>
         `;
 
@@ -532,24 +530,6 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
             90% { opacity: 1; transform: scale(1) translateY(0); }
             100% { opacity: 0; transform: scale(0.95) translateY(-5px); }
           }
-          .tactical-scanline {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: rgba(16, 185, 129, 0.4);
-            box-shadow: 0 0 4px rgba(16, 185, 129, 0.8);
-            animation: tactical-scan 2s linear infinite;
-            z-index: 10;
-            pointer-events: none;
-          }
-          @keyframes tactical-scan {
-            0% { top: 0%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-          }
         </style>
         <div id="${popupId}" style="
           position: relative;
@@ -566,8 +546,6 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           animation: tacticalPopupFadeInOut 10s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           overflow: hidden;
         " onmouseover="this.style.borderColor='rgba(16, 185, 129, 0.6)'; this.style.background='rgba(5, 5, 5, 0.95)'; this.style.boxShadow='0 8px 32px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(16, 185, 129, 0.1)';" onmouseout="this.style.borderColor='rgba(16, 185, 129, 0.3)'; this.style.background='rgba(5, 5, 5, 0.90)'; this.style.boxShadow='0 8px 32px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(16, 185, 129, 0.05)';">
-          
-          <div class="tactical-scanline"></div>
           
           <div style="
             display: flex; 
@@ -985,7 +963,7 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
               <div className="absolute h-[200px] w-[1px] bg-emerald-500/30" />
               <div className="absolute w-[2px] h-[2px] bg-emerald-400 rounded-full" />
               <div className="absolute w-[80px] h-[80px] rounded-full border border-emerald-500/20" />
-              <div className="absolute w-[400px] h-[400px] rounded-full border-[0.5px] border-dashed border-emerald-500/10 animate-spin-slow" />
+              <div className="absolute w-[400px] h-[400px] rounded-full border-[0.5px] border-dashed border-emerald-500/10" />
             </div>
           </div>
         )}

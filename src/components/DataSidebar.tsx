@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Company, COMPANIES } from "../data/companies";
 import { 
   Activity, 
@@ -61,6 +61,212 @@ const Sparkline = ({ data }: { data?: any[] }) => {
         className="text-emerald-500/60 transition-all duration-1000"
       />
     </svg>
+  );
+};
+
+interface OscillatorProps {
+  sig: {
+    label: string;
+    val: string;
+    color: string;
+         type: string;
+         signal: string;
+  };
+  symbol: string;
+}
+
+const OscillatorCard = ({ sig, symbol }: OscillatorProps) => {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const pointsCount = 20;
+  const pathData = useMemo(() => {
+    return Array.from({ length: pointsCount }).map((_, i) => {
+      const seed = symbol.charCodeAt(0) + sig.label.length;
+      const noise = Math.sin(i * 0.8 + seed) * 12 + Math.cos(i * 0.4 + seed) * 6;
+      let baseVal = 50;
+      if (sig.label.includes("RSI")) {
+        baseVal = parseFloat(sig.val) || 52;
+      } else if (sig.label.includes("MACD")) {
+        baseVal = (symbol.charCodeAt(0) % 2 ? 1 : -1) * (0.15 + (symbol.charCodeAt(1) % 10) / 20) * 15 + 50;
+      } else if (sig.label.includes("Vol")) {
+        baseVal = parseFloat(sig.val) || 45;
+      } else if (sig.label.includes("ADX")) {
+        baseVal = parseFloat(sig.val) || 28;
+      } else if (sig.label.includes("Stoch")) {
+        baseVal = parseFloat(sig.val) || 60;
+      } else if (sig.label.includes("ATR")) {
+        baseVal = (parseFloat(sig.val) * 15) || 30;
+      }
+      
+      const val = baseVal + noise * 1.2;
+      
+      // Scale into 15% - 85% space inside a 100x100 box
+      const yMin = 15;
+      const yMax = 85;
+      const percentY = (val / 100) * 70 + 15;
+      const finalY = Math.max(yMin, Math.min(yMax, 100 - percentY));
+      return { 
+        index: i,
+        x: (i / (pointsCount - 1)) * 100, 
+        y: finalY, 
+        realVal: val 
+      };
+    });
+  }, [symbol, sig.label, sig.val]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const pctX = (e.clientX - rect.left) / rect.width;
+    const rawIdx = Math.round(pctX * (pointsCount - 1));
+    const finalIdx = Math.max(0, Math.min(pointsCount - 1, rawIdx));
+    setHoverIdx(finalIdx);
+  };
+
+  const handleMouseLeave = () => {
+    setHoverIdx(null);
+  };
+
+  const activePoint = hoverIdx !== null ? pathData[hoverIdx] : null;
+  const displayVal = activePoint 
+    ? (sig.label.includes("MACD") || sig.label.includes("ATR") ? (activePoint.realVal / 10).toFixed(3) : activePoint.realVal.toFixed(1)) 
+    : sig.val;
+
+  // Render signal badge depending on value or current hover status
+  const currentSignal = activePoint
+    ? (sig.type === 'area' ? (activePoint.realVal > 65 ? "Overbought" : activePoint.realVal < 35 ? "Oversold" : "Neutral") : sig.signal)
+    : sig.signal;
+
+  return (
+    <div 
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="p-2 border border-zinc-900 bg-black rounded-sm group hover:border-[#2962ff]/50 hover:shadow-[0_0_12px_rgba(41,98,255,0.08)] transition-all cursor-crosshair relative overflow-hidden"
+    >
+      <div className="flex justify-between items-start mb-1 text-zinc-400 select-none">
+        <div className="text-[6.5px] font-bold tracking-tight text-zinc-500 uppercase">{sig.label}</div>
+        <div className="text-[8px] font-mono font-black tabular-nums text-white group-hover:text-emerald-400 transition-colors">
+          {displayVal}
+        </div>
+      </div>
+      
+      <div className="h-8 w-full relative mb-1.5 bg-zinc-950/40 rounded-xs border border-zinc-950/40 overflow-hidden">
+        <svg className="w-full h-full animate-[fadeIn_0.5s_ease-out]" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {/* TradingView-style grid line at 50% */}
+          <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" strokeDasharray="2,2" />
+          
+          {sig.type === 'area' && (
+            <>
+              {/* RSI Shaded Zone */}
+              <rect x="0" y="30" width="100" height="40" fill="#7e72a2" fillOpacity="0.05" />
+              <path 
+                d={`M 0 100 L ${pathData[0].x} ${pathData[0].y} ${pathData.map(p => `L ${p.x} ${p.y}`).join(' ')} L 100 100 Z`}
+                fill={`${sig.color}`}
+                fillOpacity="0.05"
+              />
+              <path 
+                d={`M ${pathData[0].x} ${pathData[0].y} ${pathData.map(p => `L ${p.x} ${p.y}`).join(' ')}`}
+                fill="none"
+                stroke={sig.color}
+                strokeWidth="1.5"
+                className="drop-shadow-[0_0_2px_rgba(126,114,162,0.5)]"
+              />
+            </>
+          )}
+          
+          {sig.type === 'histogram' && (
+            pathData.map((p, i) => (
+              <rect 
+                key={i}
+                x={p.x - 1} 
+                y={p.y > 50 ? 50 : p.y} 
+                width="2" 
+                height={Math.max(1, Math.abs(50 - p.y))} 
+                fill={p.y < 50 ? "#22ab94" : "#f23645"} 
+                fillOpacity={hoverIdx === i ? "1" : "0.6"}
+              />
+            ))
+          )}
+          
+          {sig.type === 'bars' && (
+            pathData.map((p, i) => (
+              <rect 
+                key={i}
+                x={p.x - 1} 
+                y={p.y} 
+                width="1.5" 
+                height={Math.max(1, 100 - p.y)} 
+                fill="#2962ff" 
+                fillOpacity={hoverIdx === i ? "1" : "0.35"}
+              />
+            ))
+          )}
+          
+          {(sig.type === 'line' || sig.type === 'stoch') && (
+            <>
+              {sig.type === 'stoch' && (
+                <rect x="0" y="20" width="100" height="60" fill="#ff9800" fillOpacity="0.02" />
+              )}
+              <path 
+                d={`M ${pathData[0].x} ${pathData[0].y} ${pathData.map(p => `L ${p.x} ${p.y}`).join(' ')}`}
+                fill="none"
+                stroke={sig.color}
+                strokeWidth="1.2"
+              />
+            </>
+          )}
+
+          {/* Interactive Crosshair & Value Marker */}
+          {activePoint && (
+            <>
+              {/* Highlight Vertical Line */}
+              <line 
+                x1={activePoint.x} 
+                y1="0" 
+                x2={activePoint.x} 
+                y2="100" 
+                stroke="rgba(16, 185, 129, 0.45)" 
+                strokeWidth="0.5" 
+                strokeDasharray="2,2" 
+              />
+              {/* Point Marker */}
+              <circle 
+                cx={activePoint.x} 
+                cy={activePoint.y} 
+                r="2.5" 
+                fill="#10b981" 
+                stroke="#fff" 
+                strokeWidth="0.8"
+                className="shadow-lg"
+              />
+            </>
+          )}
+        </svg>
+
+        {/* Floating crosshair details */}
+        {activePoint && (
+          <div className="absolute bottom-1 right-1 px-1 py-[0.5px] bg-black/95 border border-zinc-900 text-[5px] text-zinc-500 font-mono tracking-tighter uppercase leading-none rounded-3xs shadow-md">
+            T-{20 - hoverIdx} | {activePoint.realVal.toFixed(1)}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-between items-center text-[5.5px] font-mono leading-none select-none">
+        <span className={cn(
+          "px-1 py-0.5 rounded-[2px] transition-all font-bold uppercase",
+          ["Overbought", "Bullish", "Strong", "Trending", "Momentum", "High Volume"].includes(currentSignal) ? "bg-emerald-950/60 text-emerald-400 border border-emerald-900/30 font-black" :
+          ["Oversold", "Volatile", "Bearish", "Weak", "Pullback", "Low Volume"].includes(currentSignal) ? "bg-rose-950/60 text-rose-400 border border-rose-900/30 font-black" :
+          "bg-zinc-900 text-zinc-400 border border-zinc-800/30"
+        )}>
+          {currentSignal}
+        </span>
+        <span className="text-zinc-650 font-black tracking-widest text-[5px]">
+          {activePoint ? `VAL_POS: ${hoverIdx}` : "CONF: 0.89"}
+        </span>
+      </div>
+    </div>
   );
 };
 
@@ -184,10 +390,59 @@ export const DataSidebar = React.memo(({
     ];
   }, [selectedStock, profile, financials, quote]);
 
+  const consensusData = useMemo(() => {
+    if (!selectedStock) return { label: "NEUTRAL", score: 0, color: "text-zinc-400", bgGlow: "rgba(113, 113, 122, 0.15)", hex: "#71717a" };
+    
+    const rsiVal = sentiment?.rsi || ((selectedStock.symbol.charCodeAt(0) % 40) + 42);
+    const rsiSignal = rsiVal > 70 ? -1 : rsiVal < 30 ? 1 : 0;
+
+    const macdIsBullish = selectedStock.symbol.charCodeAt(0) % 2 === 1;
+    const macdSignal = macdIsBullish ? 1 : -1;
+
+    const volOscVal = (selectedStock.symbol.charCodeAt(0) + (selectedStock.symbol.charCodeAt(1) || 65)) % 40 - 20;
+    const volSignal = volOscVal > 5 ? 1 : volOscVal < -5 ? -1 : 0;
+
+    const adxVal = (selectedStock.symbol.charCodeAt(0) % 30) + 15;
+    const adxSignal = adxVal > 25 ? 1 : 0;
+
+    const stochVal = (selectedStock.symbol.charCodeAt(2) || 72) % 60 + 20;
+    const stochSignal = stochVal > 65 ? -1 : stochVal < 35 ? 1 : 0;
+
+    const score = rsiSignal + macdSignal + volSignal + adxSignal + stochSignal;
+
+    let label = "NEUTRAL";
+    let color = "text-zinc-500 border border-zinc-500/25";
+    let bgGlow = "rgba(113, 113, 122, 0.15)";
+    let hex = "#71717a";
+    
+    if (score >= 2) {
+      label = "STRONG BUY";
+      color = "text-emerald-400 border border-emerald-500/25 bg-emerald-950/20";
+      bgGlow = "rgba(16, 185, 129, 0.25)";
+      hex = "#10b981";
+    } else if (score === 1) {
+      label = "BUY";
+      color = "text-cyan-400 border border-cyan-500/25 bg-cyan-950/10";
+      bgGlow = "rgba(6, 182, 212, 0.25)";
+      hex = "#06b6d4";
+    } else if (score === -1) {
+      label = "SELL";
+      color = "text-amber-500 border border-amber-500/25 bg-amber-950/10";
+      bgGlow = "rgba(245, 158, 11, 0.25)";
+      hex = "#f59e0b";
+    } else if (score <= -2) {
+      label = "STRONG SELL";
+      color = "text-rose-500 border border-rose-500/25 bg-rose-950/20 animate-pulse";
+      bgGlow = "rgba(239, 68, 68, 0.25)";
+      hex = "#ef4444";
+    }
+
+    return { label, score, color, bgGlow, hex };
+  }, [selectedStock, sentiment]);
+
   return (
     <aside className={cn(
       "h-full border-r border-zinc-800 flex flex-col bg-black bg-cyber-grid z-25 shrink-0 select-none overflow-hidden relative transition-all duration-150",
-      isFocusMode && "animate-crt-flicker",
       "w-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-l border-zinc-900"
     )}>
       {isFocusMode && <div className="scanline-overlay" />}
@@ -349,6 +604,52 @@ export const DataSidebar = React.memo(({
                     <Settings className="w-2.5 h-2.5 text-zinc-700" />
                   </div>
                 </div>
+
+                {/* Tactical aggregate speed gauge */}
+                <div className="border border-zinc-900 bg-zinc-950/80 rounded-sm p-2 px-3 mb-3 flex items-center justify-between gap-2 relative overflow-hidden group/gauge">
+                  <div className="flex flex-col flex-1 font-sans">
+                    <span className="text-[6.5px] text-zinc-500 font-mono font-black tracking-widest uppercase">AGG_ANALYSIS_PULSE</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className={cn("text-[8.5px] font-mono font-black tracking-widest leading-none px-1.5 py-0.5 rounded-2xs border uppercase", consensusData.color)}>
+                        {consensusData.label}
+                      </span>
+                    </div>
+                    <span className="text-[6.5px] text-zinc-400 font-mono leading-tight mt-1.5">
+                      Indicator matrices confirm {consensusData.label.toLowerCase()} profile signature.
+                    </span>
+                  </div>
+
+                  <div className="relative w-20 h-10 flex items-center justify-center pt-2 select-none shrink-0">
+                    <svg viewBox="0 0 100 50" className="w-full h-full overflow-visible">
+                      <defs>
+                        <radialGradient id="gaugeGlow" cx="50%" cy="90%" r="90%">
+                          <stop offset="0%" stopColor={consensusData.hex} stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+                        </radialGradient>
+                      </defs>
+                      <path d="M 12 45 A 38 38 0 0 1 88 45 Z" fill="url(#gaugeGlow)" />
+                      <path d="M 15 45 A 35 35 0 0 1 85 45" fill="none" stroke="#222" strokeWidth="4" strokeLinecap="round" />
+                      
+                      {/* Interactive regions */}
+                      <path d="M 15 45 A 35 35 0 0 1 35 25" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.4" />
+                      <path d="M 35 25 A 35 35 0 0 1 65 25" fill="none" stroke="#71717a" strokeWidth="1.5" strokeOpacity="0.4" />
+                      <path d="M 65 25 A 35 35 0 0 1 85 45" fill="none" stroke="#10b981" strokeWidth="1.5" strokeOpacity="0.4" />
+                      
+                      <circle cx="50" cy="45" r="3.5" fill="#fff" />
+                      <circle cx="50" cy="45" r="5" fill="none" stroke="#444" strokeWidth="0.8" />
+                      
+                      <g style={{ transform: `rotate(${90 - (consensusData.score * 35)}deg)`, transformOrigin: "50px 45px", transition: "transform 1s cubic-bezier(0.19, 1, 0.22, 1)" }}>
+                        <line x1="50" y1="45" x2="50" y2="15" stroke={consensusData.score === 0 ? "#71717a" : consensusData.hex} strokeWidth="1.8" strokeLinecap="round" />
+                        <polygon points="48.5,28 51.5,28 50,11" fill={consensusData.score === 0 ? "#71717a" : consensusData.hex} />
+                      </g>
+                    </svg>
+                    
+                    <div className="absolute bottom-0 text-[6px] font-mono text-zinc-500 tracking-wider font-bold">
+                      COEF_SLOPE: {consensusData.score > 0 ? "+" : ""}{consensusData.score}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { 
@@ -393,95 +694,9 @@ export const DataSidebar = React.memo(({
                       type: 'line',
                       signal: (sentiment?.atr || (selectedStock.symbol.charCodeAt(1) % 5 + 1.25)) > 2.2 ? "Volatile" : "Stable"
                     }
-                  ].map((sig) => {
-                    // Generate deterministic sparkline data
-                    const points = 20;
-                    const pathData = Array.from({ length: points }).map((_, i) => {
-                      const seed = selectedStock.symbol.charCodeAt(0) + sig.label.length;
-                      const noise = Math.sin(i * 0.8 + seed) * 10 + Math.cos(i * 0.4 + seed) * 5;
-                      const val = 50 + noise;
-                      return { x: (i / (points - 1)) * 100, y: Math.max(10, Math.min(90, val)) };
-                    });
-
-                    return (
-                      <div key={sig.label} className="p-2 border border-zinc-900 bg-black rounded-sm group hover:border-[#2962ff]/50 transition-all cursor-crosshair">
-                        <div className="flex justify-between items-start mb-1 text-zinc-400">
-                          <div className="text-[6.5px] font-bold tracking-tight">{sig.label}</div>
-                          <div className="text-[8px] font-mono font-black tabular-nums">{sig.val}</div>
-                        </div>
-                        
-                        <div className="h-8 w-full relative mb-1.5 bg-black/20 rounded-xs overflow-hidden">
-                          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                            {/* TradingView-style grid line at 50% */}
-                            <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" strokeDasharray="2,2" />
-                            
-                            {sig.type === 'area' && (
-                              <>
-                                {/* RSI Shaded Zone */}
-                                <rect x="0" y="30" width="100" height="40" fill="#7e72a2" fillOpacity="0.05" />
-                                <path 
-                                  d={`M ${pathData[0].x} ${pathData[0].y} ${pathData.map(p => `L ${p.x} ${p.y}`).join(' ')}`}
-                                  fill="none"
-                                  stroke={sig.color}
-                                  strokeWidth="1.5"
-                                  className="drop-shadow-[0_0_2px_rgba(126,114,162,0.5)]"
-                                />
-                              </>
-                            )}
-                            
-                            {sig.type === 'histogram' && (
-                              pathData.map((p, i) => (
-                                <rect 
-                                  key={i}
-                                  x={p.x - 1} 
-                                  y={p.y > 50 ? 50 : p.y} 
-                                  width="2" 
-                                  height={Math.abs(50 - p.y)} 
-                                  fill={p.y < 50 ? "#22ab94" : "#f23645"} 
-                                  fillOpacity="0.7"
-                                />
-                              ))
-                            )}
-                            
-                            {sig.type === 'bars' && (
-                              pathData.map((p, i) => (
-                                <rect 
-                                  key={i}
-                                  x={p.x - 1} 
-                                  y={p.y} 
-                                  width="1.5" 
-                                  height={100 - p.y} 
-                                  fill="#2962ff" 
-                                  fillOpacity={i === points - 1 ? "1" : "0.4"}
-                                />
-                              ))
-                            )}
-                            
-                            {(sig.type === 'line' || sig.type === 'stoch') && (
-                              <path 
-                                d={`M ${pathData[0].x} ${pathData[0].y} ${pathData.map(p => `L ${p.x} ${p.y}`).join(' ')}`}
-                                fill="none"
-                                stroke={sig.color}
-                                strokeWidth="1.2"
-                              />
-                            )}
-                          </svg>
-                        </div>
-
-                        <div className="flex justify-between items-center text-[5.5px] font-mono leading-none">
-                          <span className={cn(
-                            "px-1 py-0.5 rounded-[2px]",
-                            ["Overbought", "Bullish", "Strong", "Trending", "Momentum", "High Volume"].includes(sig.signal) ? "bg-emerald-500/10 text-emerald-500" :
-                            ["Oversold", "Volatile", "Bearish", "Weak", "Pullback", "Low Volume"].includes(sig.signal) ? "bg-rose-500/10 text-rose-500" :
-                            "bg-zinc-800 text-zinc-500"
-                          )}>
-                            {sig.signal}
-                          </span>
-                          <span className="text-zinc-600">CONF: 0.89</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  ].map((sig) => (
+                    <OscillatorCard key={sig.label} sig={sig} symbol={selectedStock.symbol} />
+                  ))}
                 </div>
               </div>              {/* Valuation & Core Metrics Grid */}
               <div className="p-3 border-b border-zinc-900 bg-black/20">

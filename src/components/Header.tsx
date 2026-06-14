@@ -40,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
     return Number(base.toFixed(2));
   });
   const [vixTrend, setVixTrend] = useState<'↑' | '↓' | '-'>('-');
+  const [pulseBars, setPulseBars] = useState<number[]>([40, 60, 50, 70, 35, 55]);
+  const [linkStability, setLinkStability] = useState<number[]>([1, 1, 1, 1, 1, 1, 1, 0]);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -57,10 +59,24 @@ export const Header: React.FC<HeaderProps> = ({
         return Number(next.toFixed(2));
       });
     }, 4000);
+    const waveTimer = setInterval(() => {
+      setPulseBars(prev => prev.map(() => Math.floor(Math.random() * 70) + 15));
+    }, 800);
+    const linkTimer = setInterval(() => {
+      setLinkStability(prev => {
+        const next = [...prev];
+        const idx = Math.floor(Math.random() * next.length);
+        next[idx] = Math.random() > 0.15 ? 1 : 0;
+        return next;
+      });
+    }, 2500);
+
     return () => {
       clearInterval(timer);
       clearInterval(latencyTimer);
       clearInterval(vixTimer);
+      clearInterval(waveTimer);
+      clearInterval(linkTimer);
     };
   }, []);
 
@@ -69,6 +85,18 @@ export const Header: React.FC<HeaderProps> = ({
       prevTreasuryData.current = treasuryData;
     }
   }, [treasuryData]);
+
+  useEffect(() => {
+    // Dynamic feedback loop: shift VIX immediately based on global stress/riskScore spikes
+    setVix(prev => {
+      const targetVix = 11.5 + (riskScore * 0.45);
+      const diff = targetVix - prev;
+      const step = diff * 0.5; // step 50% closer for fluid transition
+      const nextVal = prev + step + (Math.random() * 0.6 - 0.3);
+      setVixTrend(diff > 0.05 ? '↑' : diff < -0.05 ? '↓' : '-');
+      return Number(Math.max(9.0, Math.min(85.0, nextVal)).toFixed(2));
+    });
+  }, [riskScore]);
 
   // Handle click outside to close the drawer
   useEffect(() => {
@@ -167,24 +195,30 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="h-4 w-[1px] bg-emerald-500/10 mx-2 hidden lg:block" />
         <div className="hidden lg:flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex gap-[1px] h-2 items-end">
-               {[...Array(6)].map((_, i) => (
+          <div className="flex items-center gap-2 group/pulse relative cursor-help">
+            <div className="flex gap-[1px] h-3 items-end w-4 justify-center">
+               {pulseBars.map((barVal, i) => (
                  <div 
                    key={i} 
-                   className="w-[2px] bg-emerald-500 h-1/2" 
+                   className="w-[2.5px] bg-emerald-500 rounded-2xs transition-all duration-300"
+                   style={{ height: `${barVal}%` }}
                  />
                ))}
             </div>
-            <span className="text-zinc-650 font-mono text-[8px] font-black tracking-widest uppercase">SYST_PULSE</span>
-            <div className="ml-2 px-1 border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-[6.5px] font-mono font-bold tracking-widest">
+            <span className="text-zinc-550 font-mono text-[8px] font-black tracking-widest uppercase">SYST_PULSE</span>
+            <div className="ml-1 px-1.5 py-0.5 border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[6.5px] font-mono font-bold tracking-widest rounded-3xs shadow-[0_0_8px_rgba(16,185,129,0.1)]">
               {latency}MS
+            </div>
+            {/* Tooltip */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-36 p-1.5 bg-zinc-950/95 border border-emerald-500/35 rounded-xs text-[6.5px] text-zinc-300 font-mono shadow-[0_4px_12px_rgba(0,0,0,0.8)] opacity-0 scale-95 pointer-events-none group-hover/pulse:opacity-100 group-hover/pulse:scale-100 transition-all duration-150 z-50">
+              <span className="text-emerald-400 font-black">SYS_PULSE_LOCK: OK</span>
+              <p className="text-zinc-500 mt-0.5 text-[6.0px]">Packet transit latency is active. Drift factor: +/- 2ms.</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 border-l border-zinc-900 pl-4">
-             <div className="text-[6.5px] text-zinc-700 font-bold uppercase tracking-widest">NEURAL_LOAD</div>
-             <div className="h-1.5 w-16 bg-zinc-900 rounded-full overflow-hidden flex gap-[1px] p-[1px]">
+          <div className="flex items-center gap-2 border-l border-zinc-900 pl-4 group/load relative cursor-help">
+             <div className="text-[6.5px] text-zinc-500 font-bold uppercase tracking-widest">NEURAL_LOAD</div>
+             <div className="h-2 w-16 bg-zinc-950 border border-zinc-800/80 rounded-full overflow-hidden flex gap-[1px] p-[1.5px] shadow-inner">
                {[...Array(12)].map((_, i) => {
                  const isActive = (i / 12) * 100 < riskScore;
                  const isCrit = riskScore >= 75;
@@ -193,32 +227,65 @@ export const Header: React.FC<HeaderProps> = ({
                    <div
                      key={i}
                      className={cn(
-                       "flex-1 h-full", 
+                       "flex-1 h-full rounded-3xs transition-all duration-500", 
                        isActive 
-                         ? (isCrit ? "bg-red-500" : isWarn ? "bg-amber-500" : "bg-emerald-500") 
-                         : "bg-zinc-800"
+                         ? (isCrit ? "bg-red-500 shadow-[0_0_4px_#ef4444]" : isWarn ? "bg-amber-500 shadow-[0_0_4px_#f59e0b]" : "bg-emerald-500 shadow-[0_0_4px_#10b981]") 
+                         : "bg-zinc-900"
                      )}
                    />
                  );
                })}
              </div>
+             {/* Tooltip */}
+             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-40 p-1.5 bg-zinc-950/95 border border-emerald-500/35 rounded-xs text-[6.5px] text-zinc-300 font-mono shadow-[0_4px_12px_rgba(0,0,0,0.8)] opacity-0 scale-95 pointer-events-none group-hover/load:opacity-100 group-hover/load:scale-100 transition-all duration-150 z-50">
+               <span className="text-emerald-400 font-black">NEURAL LOAD INDEX</span>
+               <div className="flex justify-between items-center border-t border-zinc-800 mt-1 pt-1 text-[6.0px]">
+                 <span className="text-zinc-500">UTILIZATION:</span>
+                 <span className="text-white font-extrabold">{riskScore}%</span>
+               </div>
+               <p className="text-zinc-500 mt-0.5 text-[5.5px]">Represents processing stress coefficient across local GPU cluster threads.</p>
+             </div>
           </div>
-          <div className="flex items-center gap-2 border-l border-zinc-900 pl-3 pr-2">
-            <div className={`w-1.5 h-1.5 rounded-full ${riskScore > 40 ? "bg-red-500 animate-pulse" : "bg-emerald-500"} shadow-[0_0_8px_rgba(16,185,129,0.5)]`} />
+
+          <div className="flex items-center gap-2 border-l border-zinc-900 pl-3 pr-2 group/threat relative cursor-help">
+            <div className={`w-2 h-2 rounded-full ${riskScore > 40 ? "bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse" : "bg-emerald-500 shadow-[0_0_8px_#10b981]"}`} />
             <span className={cn(
-              "text-[8px] font-mono font-black tracking-widest",
-              riskScore > 40 ? "text-red-500" : "text-emerald-500"
+               "text-[8px] font-mono font-black tracking-widest",
+               riskScore > 40 ? "text-red-500 text-shadow-red" : "text-emerald-500 text-shadow-emerald"
             )}>
               {riskScore > 40 ? "THREAT::ACTIVE" : "THREAT::STANDBY"}
             </span>
+            {/* Tooltip */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-40 p-1.5 bg-zinc-950/95 border border-emerald-500/35 rounded-xs text-[6.5px] text-zinc-300 font-mono shadow-[0_4px_12px_rgba(0,0,0,0.8)] opacity-0 scale-95 pointer-events-none group-hover/threat:opacity-100 group-hover/threat:scale-100 transition-all duration-150 z-50">
+              <span className="text-white font-black uppercase">Threat Vector Matrix</span>
+              <p className="text-zinc-500 mt-0.5 text-[6.0px]">
+                {riskScore > 40 
+                  ? "SYSTEM ALERT: Inverted term spreads trigger active stress alerts." 
+                  : "CALM STATUS: Spreads and spot price behaviors within standard bounds."
+                }
+              </p>
+            </div>
           </div>
           
-          <div className="hidden xl:flex items-center gap-6 font-mono border-l border-zinc-900 px-6 h-8 bg-zinc-950/30 text-[9px]">
-            <div className="hidden 2xl:flex flex-col pl-6">
-              <span className="text-[6px] text-zinc-650 font-bold uppercase tracking-widest">LINK_STABILITY</span>
-              <div className="flex gap-[1px] mt-0.5">
-                {[1,1,1,1,1,1,1,0].map((v, i) => <div key={i} className={`w-1 h-1.5 ${v ? "bg-emerald-500/60" : "bg-zinc-800"}`} />)}
+          <div className="hidden xl:flex items-center gap-6 font-mono border-l border-zinc-900 px-4 h-8 text-[9px] group/link relative cursor-help">
+            <div className="hidden 2xl:flex flex-col">
+              <span className="text-[6px] text-zinc-500 font-bold uppercase tracking-widest">LINK_STABILITY</span>
+              <div className="flex gap-[1.5px] mt-1 items-center">
+                {linkStability.map((v, i) => (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "w-1 h-2 rounded-[0.5px] transition-all duration-300",
+                      v ? "bg-emerald-500/70 shadow-[0_0_3px_rgba(16,185,129,0.3)]" : "bg-zinc-900"
+                    )} 
+                  />
+                ))}
               </div>
+            </div>
+            {/* Tooltip */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-36 p-1.5 bg-zinc-950/95 border border-emerald-500/35 rounded-xs text-[6.5px] text-zinc-300 font-mono shadow-[0_4px_12px_rgba(0,0,0,0.8)] opacity-0 scale-95 pointer-events-none group-hover/link:opacity-100 group-hover/link:scale-100 transition-all duration-150 z-50">
+              <span className="text-emerald-400 font-black">SAT_LINK: ONLINE</span>
+              <p className="text-zinc-500 mt-0.5 text-[6.0px]">Satellite feed consistency. Sourced from orbital transponder network.</p>
             </div>
           </div>
 
@@ -258,6 +325,42 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-3 md:gap-5 font-mono text-[9px]">
+        {/* VIX volatility index interactive indicator */}
+        <div id="vix-interactive-indicator" className={cn(
+          "hidden md:flex items-center gap-1.5 px-2 py-1 border rounded-2xs transition-all relative group cursor-help font-mono",
+          vix < 15 ? "bg-zinc-950 border-zinc-900 hover:border-emerald-500/20" :
+          vix < 25 ? "bg-amber-950/20 border-amber-900/35 hover:border-amber-500/40" :
+          "bg-red-955/15 border-red-500/45 animate-[pulse_2.5s_infinite] shadow-[0_0_8px_rgba(239,68,68,0.22)]"
+        )}>
+          <span className="text-zinc-600 font-extrabold text-[7.5px] tracking-wider uppercase">VIX_VOL_FEAR_INDEX:</span>
+          <span className={cn(
+            "font-extrabold text-[8.5px] tracking-wide tabular-nums",
+            vix < 15 ? "text-emerald-400" : vix < 25 ? "text-amber-500" : "text-red-500 [text-shadow:0_0_6px_rgba(239,68,68,0.5)]"
+          )}>{vix.toFixed(2)}</span>
+          <span className={cn(
+            "text-[7px] font-black",
+            vixTrend === '↑' ? "text-red-500" : vixTrend === '↓' ? "text-emerald-500" : "text-zinc-500"
+          )}>
+            {vixTrend === '↑' ? "▲" : vixTrend === '↓' ? "▼" : "■"}
+          </span>
+          <span className={cn(
+            "text-[6px] border px-1 py-[1.5px] rounded-2xs font-extrabold",
+            vix < 15 ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-400" :
+            vix < 25 ? "border-amber-500/25 bg-amber-500/5 text-amber-500" :
+            "border-red-500/45 bg-red-400/5 text-red-400 animate-pulse"
+          )}>
+            {vix < 15 ? "LOW_FEAR" : vix < 25 ? "ELEVATED" : "CRITICAL_SHOCK"}
+          </span>
+          {/* Tooltip */}
+          <div className="absolute top-full right-0 mt-2 w-48 p-2 bg-zinc-950 border border-zinc-800 rounded-sm text-[7px] text-zinc-300 font-mono shadow-[0_4px_16px_rgba(0,0,0,0.9)] opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 z-[200]">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-1 mb-1 text-zinc-400">
+              <span className="font-bold">CBOE VIX INDICATOR</span>
+              <span className="text-amber-500 font-bold font-mono">LIVE_CALC</span>
+            </div>
+            <p className="text-zinc-500 leading-tight">Implied 30-day volatility proxy derived from live yield threat risk scores.</p>
+          </div>
+        </div>
+
         {selectedStock && (
           <div className="hidden xl:flex items-center gap-2 bg-zinc-950 px-2 py-0.5 border border-emerald-500/20 text-emerald-400 uppercase tracking-[0.2em] font-black text-[8px]">
             <Shield className="w-2.5 h-2.5 text-emerald-500/50" />
@@ -286,8 +389,11 @@ export const Header: React.FC<HeaderProps> = ({
             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
           </svg>
         </a>
-        <div className="text-emerald-500/50 bg-black px-2 py-0.5 border border-zinc-900 font-bold tracking-widest font-mono">
-          {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+        <div className="flex items-center gap-1.5 bg-black px-2.5 py-0.5 border border-zinc-900 rounded-2xs font-bold font-mono text-[8.5px] shadow-sm select-none">
+          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping shrink-0" />
+          <span className="text-emerald-450 tracking-widest leading-none">
+            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+          </span>
         </div>
       </div>
     </header>
