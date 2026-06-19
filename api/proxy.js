@@ -303,6 +303,7 @@ export default async function handler(req, res) {
 
     let yahooSymbol = symbol;
     if (symbol === "VIX") yahooSymbol = "^VIX";
+    else if (symbol === "SPCX") yahooSymbol = "ARKX";
 
     // 1. Try Finnhub
     if (source === "NONE" && isKeyReady(FINNHUB_KEY)) {

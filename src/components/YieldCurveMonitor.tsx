@@ -125,10 +125,10 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
 
       const isInverted = spreadDetails.isInverted;
       
-      // Dynamic Theme Color Mapping
-      const themeColor = isInverted ? '#f59e0b' : '#06b6d4'; // warning Amber vs crisp Cyan
-      const glowIntensity = isInverted ? 'rgba(245, 158, 11, 0.4)' : 'rgba(6, 182, 212, 0.4)';
-      const gradientStart = isInverted ? 'rgba(245, 158, 11, 0.18)' : 'rgba(6, 182, 212, 0.18)';
+      // Cyber Terminal Theme (Emerald/Green as default to match App)
+      const themeColor = '#10b981';
+      const glowIntensity = 'rgba(16, 185, 129, 0.4)';
+      const gradientStart = 'rgba(16, 185, 129, 0.18)';
 
       const categories = curveData.map(d => d.term);
       const values = curveData.map(d => d.yieldVal);
@@ -273,7 +273,7 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
           },
           axisLabel: {
             color: '#a1a1aa', // zinc-405
-            fontFamily: 'var(--font-sans)',
+            fontFamily: 'monospace',
             fontSize: 8,
             margin: 6
           }
@@ -295,7 +295,7 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
           },
           axisLabel: {
             color: '#71717a', // zinc-500
-            fontFamily: 'var(--font-sans)',
+            fontFamily: 'monospace',
             fontSize: 8,
             formatter: '{value}%'
           }
@@ -356,35 +356,35 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
     return (
       <div 
         id="yield-curve-monitor-compact" 
-        className="flex items-center gap-2 border border-zinc-900 bg-zinc-950/60 p-1 px-2 rounded-sm h-7 select-none shrink-0"
+        className="flex items-center gap-2 border border-zinc-900 bg-zinc-950/60 p-1 px-2 rounded-sm h-7 select-none shrink-0 font-mono text-zinc-300"
       >
         <div className="flex items-center gap-1 shrink-0">
-          <TrendingUp className="w-3 h-3 text-emerald-400" />
-          <span className="text-[7.5px] text-zinc-500 font-mono font-bold tracking-wider hidden xl:inline uppercase">
+          <TrendingUp className="w-3 h-3 text-emerald-400 animate-pulse" />
+          <span className="text-[7.5px] text-emerald-550 font-bold tracking-wider hidden xl:inline uppercase">
             {activeYields.country || "YIELD"}
           </span>
           {spreadDetails.isInverted ? (
-            <span className="text-[6.5px] font-black text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1 py-px rounded-3xs" title="Yield Curve Inverted">
+            <span className="text-[6.5px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-px rounded-3xs" title="Yield Curve Inverted">
               INVERTED
             </span>
           ) : (
-            <span className="text-[6.5px] font-black text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1 py-px rounded-3xs" title="Yield Curve Normal">
+            <span className="text-[6.5px] font-black text-emerald-500/60 bg-emerald-500/5 border border-emerald-500/10 px-1 py-px rounded-3xs" title="Yield Curve Normal">
               NORMAL
             </span>
           )}
         </div>
 
         {/* Vector Metrics (10Y-2Y and CORE CB Rate) */}
-        <div className="flex items-center gap-1.5 text-[7px] font-mono shrink-0">
+        <div className="flex items-center gap-1.5 text-[7px] shrink-0">
           <div className="flex items-center gap-1 px-1 py-0.5 bg-black/40 border border-zinc-900 rounded-2xs">
-            <span className="text-zinc-600 block text-[6px]">10Y-2Y</span>
-            <span className={`font-black ${spreadDetails.spread < 0 ? "text-amber-500" : "text-emerald-500"}`}>
+            <span className="text-zinc-650 block text-[6px]">10Y-2Y</span>
+            <span className="font-black text-emerald-500">
               {spreadDetails.spread > 0 ? "+" : ""}{spreadDetails.spread.toFixed(2)}%
             </span>
           </div>
           <div className="flex items-center gap-1 px-1 py-0.5 bg-black/40 border border-zinc-900 rounded-2xs">
             <span className="text-zinc-650 block text-[6px]">CB_RATE</span>
-            <span className="text-zinc-300 font-black">
+            <span className="text-emerald-400 font-black">
               {(activeYields.interestRate ?? 5.50).toFixed(2)}%
             </span>
           </div>
@@ -416,7 +416,7 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
             onClick={() => runAnalysis("STRESSING")}
             disabled={analysisStatus !== "NORMAL"}
             title="Stress test extreme scenario"
-            className="px-1 py-0.5 text-[6px] font-mono font-bold text-zinc-500 border border-zinc-900 hover:border-orange-500/40 hover:text-orange-400 bg-zinc-950/25 transition-all rounded-2xs cursor-pointer disabled:pointer-events-none disabled:opacity-20"
+            className="px-1 py-0.5 text-[6px] font-mono font-bold text-zinc-500 border border-zinc-900 hover:border-emerald-500/40 hover:text-emerald-400 bg-zinc-950/25 transition-all rounded-2xs cursor-pointer disabled:pointer-events-none disabled:opacity-20"
           >
             STRESS
           </button>
@@ -426,20 +426,20 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
   }
 
   return (
-    <div id="yield-curve-monitor" className="p-2 border-b border-zinc-900 bg-zinc-950/40 font-sans text-[9px] select-none">
+    <div id="yield-curve-monitor" className="p-2 border-b border-zinc-900 bg-zinc-950/40 font-mono text-[9px] select-none text-zinc-300">
       <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-zinc-900">
-        <div className="text-[8px] text-emerald-500 font-black uppercase tracking-[0.2em] flex items-center gap-1.5">
+        <div className="text-[8px] text-emerald-500 font-extrabold uppercase tracking-[0.2em] flex items-center gap-1.5">
           <TrendingUp className="w-2.5 h-2.5 text-emerald-400" /> Treasury Term Structure
         </div>
         
-        {/* Inversion Status Badge Indicator */}
+        {/* Inversion Status Badge Indicator in Terminal Colors */}
         <div className="flex items-center gap-1">
           {spreadDetails.isInverted ? (
-            <div className="flex items-center gap-1 bg-amber-500/10 text-amber-500 px-1.5 py-0.5 border border-amber-500/20 text-[7px] font-black uppercase tracking-tighter rounded-sm shadow-[0_0_8px_rgba(245,158,11,0.2)]">
-              <AlertTriangle className="w-1.5 h-1.5" /> [Inverted]
+            <div className="flex items-center gap-1 bg-emerald-500/10 text-emerald-450 px-1.5 py-0.5 border border-emerald-500/20 text-[7px] font-black uppercase tracking-tighter rounded-sm shadow-[0_0_8px_rgba(16,185,129,0.2)] animate-pulse">
+              <AlertTriangle className="w-1.5 h-1.5 text-emerald-400" /> [Inverted]
             </div>
           ) : (
-            <div className="flex items-center gap-1 bg-cyan-950/40 text-cyan-400 px-1.5 py-0.5 border border-cyan-500/20 text-[7px] font-black uppercase tracking-tighter rounded-sm shadow-[0_0_8px_rgba(6,182,212,0.15)]">
+            <div className="flex items-center gap-1 bg-emerald-950/40 text-emerald-400 px-1.5 py-0.5 border border-emerald-500/20 text-[7px] font-black uppercase tracking-tighter rounded-sm shadow-[0_0_8px_rgba(16,185,129,0.15)]">
               <CheckCircle className="w-1.5 h-1.5" /> [Normal]
             </div>
           )}
@@ -467,14 +467,14 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
         <button 
           onClick={() => runAnalysis("RECALIBRATING")}
           disabled={analysisStatus !== "NORMAL"}
-          className="flex-1 py-1 text-[7px] font-sans text-zinc-500 bg-zinc-950/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
+          className="flex-1 py-1 text-[7px] font-mono text-zinc-500 bg-zinc-950/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
         >
           Recalibrate
         </button>
         <button 
           onClick={() => runAnalysis("STRESSING")}
           disabled={analysisStatus !== "NORMAL"}
-          className="flex-1 py-1 text-[7px] font-sans text-zinc-500 bg-zinc-955/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
+          className="flex-1 py-1 text-[7px] font-mono text-zinc-500 bg-zinc-950/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
         >
           Stress Test
         </button>
@@ -483,13 +483,13 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
       <div className="mt-1.5 grid grid-cols-2 gap-1.5 text-[7px] text-zinc-500 tracking-wider">
         <div className="flex justify-between bg-zinc-900/40 px-1.5 py-1 border border-zinc-800/80">
           <span className="uppercase text-[6px] text-zinc-600 font-black tracking-widest pt-0.5">Vector (10Y-2Y)</span>
-          <span className={`font-black ${spreadDetails.spread < 0 ? "text-amber-500" : "text-emerald-500"}`}>
+          <span className="font-black text-emerald-400">
             {spreadDetails.spread > 0 ? "+" : ""}{spreadDetails.spread.toFixed(2)}%
           </span>
         </div>
         <div className="flex justify-between bg-zinc-900/40 px-1.5 py-1 border border-zinc-800/80">
           <span className="uppercase text-[6px] text-zinc-600 font-black tracking-widest pt-0.5">Core CB Rate</span>
-          <span className="text-zinc-300 font-black">{(activeYields.interestRate ?? 5.50).toFixed(2)}%</span>
+          <span className="text-emerald-450 font-black">{(activeYields.interestRate ?? 5.50).toFixed(2)}%</span>
         </div>
       </div>
     </div>

@@ -33,6 +33,7 @@ export const COMPANIES: Company[] = [
   { symbol: "DB", name: "Deutsche Bank", sector: "Financial Services", lat: 50.1136, lng: 8.6690, country: "DEU", partners: ["HSBC"], domain: "db.com" },
   
   // ENERGY / AUTO
+  { symbol: "WTI", name: "WTI Crude Oil (Spot/Futures)", sector: "Energy", lat: 35.9850, lng: -96.7663, country: "USA", partners: ["XOM", "CVX", "SHEL", "ARAMCO", "USO"], domain: "eia.gov", headquarters: "Cushing, OK", workforce: "Strategic Hub" },
   { symbol: "TSLA", name: "Tesla Inc.", sector: "Automotive", lat: 30.2241, lng: -97.6258, country: "USA", partners: ["CATL", "PANASONIC", "PARK"], domain: "tesla.com", turnover: "18.2%", hiringLikelihood: "High" },
   { symbol: "TM", name: "Toyota Motor", sector: "Automotive", lat: 35.0838, lng: 137.1557, country: "JPN", partners: ["PANASONIC", "DENSO"], domain: "toyota.com", turnover: "9.5%", hiringLikelihood: "Stable" },
   { symbol: "XOM", name: "ExxonMobil", sector: "Energy", lat: 32.8925, lng: -96.9452, country: "USA", partners: ["CVX", "SHEL"], domain: "exxon.com", turnover: "7.8%", hiringLikelihood: "Stable" },

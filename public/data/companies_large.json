@@ -1,5 +1,17 @@
 [
   {
+    "symbol": "WTI",
+    "name": "WTI Crude Oil (Spot/Futures)",
+    "sector": "Energy",
+    "lat": 35.9850,
+    "lng": -96.7663,
+    "country": "USA",
+    "workforce": "Strategic Hub",
+    "headquarters": "Cushing, OK",
+    "domain": "eia.gov",
+    "partners": ["XOM", "CVX", "SHEL", "ARAMCO", "USO"]
+  },
+  {
     "symbol": "SPCX",
     "name": "SpaceX Tracking ETF (SPCX)",
     "sector": "ETF",

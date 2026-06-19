@@ -90,10 +90,17 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
 
   const chartData = useMemo(() => {
     // Process historical data
-    const historical = [...chartHistory].filter(d => d.timestamp > 0 && d.price > 0);
+    const historical = [...chartHistory].filter(d => 
+      d.timestamp > 0 && 
+      typeof d.price === 'number' && 
+      !isNaN(d.price) && 
+      d.price > 0
+    );
     
-    // Concatenate historical and live heartbeat telemetry
-    const merged = [...historical, ...liveTicks].sort((a, b) => a.timestamp - b.timestamp);
+    // Concatenate historical and live heartbeat telemetry and filter NaN prices
+    const merged = [...historical, ...liveTicks]
+      .filter(d => typeof d.price === 'number' && !isNaN(d.price))
+      .sort((a, b) => a.timestamp - b.timestamp);
     
     if (merged.length === 0) return [];
     
@@ -181,14 +188,19 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
       </div>
 
       <div className={cn(
-        "flex-1 w-full mt-5 -mb-1 transition-opacity duration-150", 
+        "flex-1 w-full mt-5 -mb-1 transition-opacity duration-150 relative", 
         isFetching ? "opacity-30" : "opacity-80 group-hover:opacity-100"
       )}>
+        {isFetching && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
+            <span className="text-[10px] font-mono text-emerald-500 tracking-widest font-black uppercase">REFRESHING</span>
+          </div>
+        )}
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.3}/>
+                <stop offset="5%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.2}/>
                 <stop offset="95%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0}/>
               </linearGradient>
             </defs>
@@ -215,12 +227,12 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
             <Tooltip 
               contentStyle={{ 
                 backgroundColor: 'rgba(0, 0, 0, 0.95)', 
-                border: `1px solid ${stats.isPositive ? '#10b98144' : '#ef444444'}`,
-                borderRadius: '2px',
+                border: `1px solid ${stats.isPositive ? '#10b98122' : '#ef444422'}`,
+                borderRadius: '0px',
                 fontSize: '8px',
                 fontFamily: 'monospace',
                 padding: '4px 6px',
-                boxShadow: `0 0 10px ${stats.isPositive ? '#10b98122' : '#ef444422'}`
+                boxShadow: `0 0 10px ${stats.isPositive ? '#10b98111' : '#ef444411'}`
               }}
               itemStyle={{ color: stats.isPositive ? '#10b981' : '#ef4444', padding: 0 }}
               labelStyle={{ color: '#71717a', fontSize: '7px', fontWeight: 'bold', fontFamily: 'monospace', marginBottom: '2px' }}
@@ -241,8 +253,8 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
                       <div className="flex justify-between items-center border-b border-zinc-900 pb-1 mb-2">
                         <span className="text-zinc-500 font-bold uppercase tracking-widest">{formatTooltipLabel(label)}</span>
                         <div className="flex items-center gap-1">
-                          <div className={cn("w-1 h-1 rounded-full animate-pulse", isPos ? "bg-emerald-500" : "bg-rose-500")} />
-                          <span className={isPos ? "text-emerald-500" : "text-rose-500"}>LIVE_SYNC</span>
+                          <div className={cn("w-1 h-1 rounded-full", isPos ? "bg-emerald-500" : "bg-rose-500")} />
+                          <span className={isPos ? "text-emerald-500" : "text-rose-500"}>SYNCED</span>
                         </div>
                       </div>
                       
@@ -276,16 +288,15 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
               }}
             />
             <Area 
-              type="monotone" 
+              type="linear" 
               dataKey="price" 
               stroke={stats.isPositive ? "#10b981" : "#ef4444"} 
-              strokeWidth={isFocusMode ? 1.5 : 2.5}
+              strokeWidth={1.5}
               fillOpacity={1}
               fill="url(#colorPrice)"
               dot={false}
               connectNulls={true}
-              activeDot={{ r: 3, fill: stats.isPositive ? "#10b981" : "#ef4444", strokeWidth: 0 }}
-              style={!isFocusMode ? { filter: `drop-shadow(0 0 5px ${stats.isPositive ? "#10b981" : "#ef4444"}88)` } : {}}
+              activeDot={{ r: 2, fill: stats.isPositive ? "#10b981" : "#ef4444", strokeWidth: 0 }}
             />
           </AreaChart>
         </ResponsiveContainer>

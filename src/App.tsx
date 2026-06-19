@@ -23,6 +23,7 @@ import {
   Mic,
   Zap,
   Target,
+  Activity,
 } from "lucide-react";
 import { analyzeSentimentAndImpact } from "./lib/sentiment";
 import { cn } from "./lib/utils";
@@ -61,6 +62,21 @@ declare global {
 }
 
 import { TickerTape } from "./components/TickerTape";
+
+const pulseFeed = [
+  { tag: "IMTC", msg: "Immersive Logistics Telemetry Controller initiated", time: "Just now", color: "text-purple-400" },
+  { tag: "SIGNAL", msg: "Whale alert: $42M USDT move detected in SOL ecosystem", time: "1m ago", color: "text-amber-500" },
+  { tag: "MACRO", msg: "ECB indicates flexible rate path despite inflation sticky", time: "4m ago", color: "text-zinc-500" },
+  { tag: "TRADE", msg: "High convergence detected on Semi-cap yield spreads", time: "8m ago", color: "text-emerald-500" },
+  { tag: "ALERT", msg: "Unusual options activity detected in TSLA put chain", time: "12m ago", color: "text-rose-500" },
+  { tag: "FLOW", msg: "Darkpool buy imbalance detected in energy sector ETFs", time: "15m ago", color: "text-blue-500" },
+  { tag: "SIGNAL", msg: "Massive liquidation event triggered in BTC perps: -$12M", time: "20m ago", color: "text-rose-500" },
+  { tag: "MACRO", msg: "BOJ Governor hints at yield curve control flexibility", time: "25m ago", color: "text-zinc-500" },
+  { tag: "TRADE", msg: "Arbitrage opportunity: Cross-exchange spread on ETH/USDT > 0.4%", time: "30m ago", color: "text-emerald-500" },
+  { tag: "ALERT", msg: "Systemic risk spike detected in EU sovereign debt spreads", time: "35m ago", color: "text-amber-500" },
+  { tag: "INTEL", msg: "Geographic cluster of freight delays emerging in Southeast Asia", time: "40m ago", color: "text-blue-500" },
+  { tag: "FLOW", msg: "Unusual institutional accumulation in mid-cap biotechs", time: "45m ago", color: "text-emerald-400" },
+];
 
 export default function App() {
   const { companies, allCompanies } = useCompanies();
@@ -173,7 +189,12 @@ export default function App() {
   const [agentEntities, setAgentEntities] = useState<any[]>([]);
   const [isAgentSearching, setIsAgentSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchCursor, setSearchCursor] = useState(-1);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setSearchCursor(-1);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -381,10 +402,33 @@ export default function App() {
     }
   }, [activeTab, searchCategory]);
 
+  const [isSpeechPlaying, setIsSpeechPlaying] = useState(false);
+
+  useEffect(() => {
+    const handleSpeechStart = () => setIsSpeechPlaying(true);
+    const handleSpeechEnd = () => setIsSpeechPlaying(false);
+
+    window.addEventListener("app-speech-start", handleSpeechStart);
+    window.addEventListener("app-speech-end", handleSpeechEnd);
+
+    return () => {
+      window.removeEventListener("app-speech-start", handleSpeechStart);
+      window.removeEventListener("app-speech-end", handleSpeechEnd);
+    };
+  }, []);
+
   const [isVocalizerEnabled, setIsVocalizerEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem("terminal_vocalizer_enabled");
     return saved === "true";
   });
+
+  // Since live fetch being disabled means live vocalization should also be disabled
+  useEffect(() => {
+    if (!isLiveNewsZoomEnabled) {
+      setIsVocalizerEnabled(false);
+      localStorage.setItem("terminal_vocalizer_enabled", "false");
+    }
+  }, [isLiveNewsZoomEnabled]);
 
   const toggleVocalizer = useCallback((val: boolean) => {
     setIsVocalizerEnabled(val);
@@ -654,7 +698,7 @@ export default function App() {
 
   const handleAgentSearch = useCallback(
     async (query: string) => {
-      if (!query.trim() || isAgentSearching) return;
+      if (!query.trim() || isAgentSearching) return null;
 
       setIsAgentSearching(true);
       addLog(`Searching for "${query.toUpperCase()}"...`);
@@ -671,11 +715,19 @@ export default function App() {
         }
 
         const data = await response.json();
-        if (data && typeof data.lat === "number" && typeof data.lng === "number") {
+        if (data) {
+          const rawLat = data.lat !== undefined ? data.lat : data.latitude;
+          const rawLng = data.lng !== undefined ? data.lng : (data.longitude !== undefined ? data.longitude : data.lng);
+
+          const parsedLat = typeof rawLat === "number" ? rawLat : Number(rawLat);
+          const parsedLng = typeof rawLng === "number" ? rawLng : Number(rawLng);
+
+          const hasCoords = !isNaN(parsedLat) && !isNaN(parsedLng);
+
           const result = {
             locationName: data.locationName || "Target location",
-            lat: data.lat,
-            lng: data.lng,
+            lat: hasCoords ? parsedLat : 37.3349,
+            lng: hasCoords ? parsedLng : -122.0091,
             zoomLevel: typeof data.zoomLevel === "number" ? data.zoomLevel : 6,
             briefing: data.briefing || data.aiStrategyAnalysis || data.explanation || "Location mapped.",
             facts: data.facts || [],
@@ -686,8 +738,8 @@ export default function App() {
           setAgentEntities(data.entities || []);
           addLog(`Location found: ${result.locationName}`);
 
-          if (data.aiStrategyAnalysis) {
-            setBriefing(data.aiStrategyAnalysis);
+          if (data.briefing || data.aiStrategyAnalysis || data.explanation) {
+            setBriefing(data.briefing || data.aiStrategyAnalysis || data.explanation);
           }
 
           setActiveTab("INTEL"); // Switch to Intelligence tab in sidebar
@@ -700,15 +752,23 @@ export default function App() {
               fetchData(matched.symbol);
             }
           }
+          return {
+            ...data,
+            lat: result.lat,
+            lng: result.lng,
+            briefing: result.briefing
+          };
         }
+        return null;
       } catch (err: any) {
         console.error(err);
         addLog(`Search Error: ${err.message}`);
+        throw err;
       } finally {
         setIsAgentSearching(false);
       }
     },
-    [isAgentSearching, addLog, telemetryFetch, fetchData],
+    [isAgentSearching, addLog, telemetryFetch, fetchData, companies],
   );
 
   // Global Key Listeners
@@ -1181,17 +1241,21 @@ export default function App() {
   }, [companies, handleSelectNode, setActiveTab, addLog, playTacticalAudio]);
 
   useEffect(() => {
-    // Dynamically adjust root document zoom to scale the entire terminal UI cleanly
-    // without shrinking the actual container edges or cutting off columns/sidebar.
-    document.documentElement.style.zoom = String(terminalScale);
-    return () => {
-      document.documentElement.style.zoom = "1.0";
-    };
+    // Dynamically adjust root document scale to scale the entire terminal UI cleanly
   }, [terminalScale]);
 
   return (
-    <div className="flex flex-col w-screen h-screen overflow-hidden bg-[#050505] text-zinc-300 font-sans border-2 border-zinc-900 selection:bg-emerald-500/30 selection:text-emerald-100 relative shadow-[inset_0_0_150px_rgba(0,0,0,0.9)]">
-      {/* HUD Corner Accents */}
+    <div className="w-screen h-screen overflow-hidden bg-black relative">
+      <div 
+        className="flex flex-col w-screen h-screen overflow-hidden bg-[#050505] text-zinc-300 font-sans border-2 border-zinc-900 selection:bg-emerald-500/30 selection:text-emerald-100 relative shadow-[inset_0_0_150px_rgba(0,0,0,0.9)]"
+        style={{
+          transform: `scale(${terminalScale})`,
+          transformOrigin: 'top left',
+          width: `${100 / terminalScale}%`,
+          height: `${100 / terminalScale}%`
+        }}
+      >
+        {/* HUD Corner Accents */}
       <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-500/30 m-2 pointer-events-none z-50 rounded-tl-sm" />
       <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-500/30 m-2 pointer-events-none z-50 rounded-tr-sm" />
       <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-500/10 m-2 pointer-events-none z-50 rounded-bl-sm" />
@@ -1223,120 +1287,89 @@ export default function App() {
       {/* Header section relocated to root */}
       <Header
         selectedStock={marketData.quote}
-        yields={marketData.yields}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onSelectStock={handleSelectNode}
         riskScore={systemRiskScore}
       />
 
       {/* Secondary Command Header */}
-      <div className="flex flex-col border-b border-zinc-900 bg-black/60">
-        <div className="hidden sm:flex h-8 items-center px-2 md:px-4 overflow-hidden divide-x divide-zinc-900 select-none">
-          <div className="flex items-center gap-2 md:gap-3 pr-2 md:pr-4">
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-              <span className="text-[7.5px] font-mono text-emerald-500 font-black tracking-widest uppercase">
-                Global_Logistics_Core
-              </span>
-            </div>
-          </div>
-          <div className="px-2 md:px-4 flex items-center gap-4 md:gap-8 overflow-x-auto scrollbar-none h-full">
-            {[
-              {
-                label: "NET_LATENCY",
-                val: "24ms",
-                color: "text-emerald-500",
-                hideOnMobile: true,
-              },
-              {
-                label: "NODE_LOAD",
-                val: "1.4TB/S",
-                color: "text-zinc-300",
-                hideOnMobile: false,
-              },
-              {
-                label: "THREAT_LVL",
-                val: "MINIMAL",
-                color: "text-emerald-400",
-                hideOnMobile: false,
-              },
-              {
-                label: "SYST_UPTIME",
-                val: "99.98%",
-                color: "text-zinc-300",
-                hideOnMobile: true,
-              },
-              {
-                label: "BREADTH",
-                val: "68.4%",
-                color: "text-emerald-400",
-                hideOnMobile: true,
-              },
-              {
-                label: "GEOSPATIAL",
-                val: "CALIBRATED",
-                color: "text-zinc-500",
-                hideOnMobile: false,
-              },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex flex-col whitespace-nowrap group cursor-help shrink-0",
-                  item.hideOnMobile ? "hidden md:flex" : "flex",
-                )}
-              >
-                <span className="text-[5.5px] text-zinc-700 font-black tracking-[0.15em] group-hover:text-emerald-500/50 transition-colors uppercase">
-                  {item.label}
-                </span>
-                <span
-                  className={cn(
-                    "text-[8px] font-mono font-black transition-colors",
-                    item.color || "text-zinc-300",
-                  )}
-                >
-                  {item.val}
-                </span>
+      <div className="border-b border-zinc-900 bg-black/60 p-2 md:p-4">
+        <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 w-full">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Macro Risk Dashboard */}
+              <div className="flex items-center space-x-4 px-3 py-1 bg-zinc-950 border border-zinc-900 rounded text-xs tracking-wider font-mono flex-wrap md:flex-nowrap shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+                {/* SEGMENT A (VOLATILITY) */}
+                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                  <span className="text-zinc-500 uppercase tracking-tight text-[10px]">VIX:</span>
+                  <span className="text-amber-500 font-extrabold text-[10px]">21.37</span>
+                </div>
+                {/* SEGMENT B (YIELDS MATRIX) */}
+                <div className="flex items-center gap-3 border-l border-zinc-900 pl-3 whitespace-nowrap">
+                  <div className="flex gap-1 items-center">
+                    <span className="text-zinc-500 uppercase tracking-tight text-[10px]">US2Y:</span>
+                    <span className="text-emerald-400 font-extrabold text-[10px]">
+                      {marketData.yields?.treasuries?.['2Y'] ? `${marketData.yields.treasuries['2Y'].toFixed(2)}%` : "4.82%"}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 items-center">
+                    <span className="text-zinc-500 uppercase tracking-tight text-[10px]">US10Y:</span>
+                    <span className="text-emerald-400 font-extrabold text-[10px]">
+                      {marketData.yields?.treasuries?.['10Y'] ? `${marketData.yields.treasuries['10Y'].toFixed(2)}%` : "4.44%"}
+                    </span>
+                  </div>
+                </div>
+                {/* SEGMENT C (THE YIELD CURVE SPREAD) */}
+                <div className="flex items-center gap-1.5 border-l border-zinc-900 pl-3 whitespace-nowrap">
+                  <span className="text-zinc-500 uppercase tracking-tight text-[10px]">SPREAD (10Y-2Y):</span>
+                  {(() => {
+                    const y2 = marketData.yields?.treasuries?.['2Y'] ?? 4.82;
+                    const y10 = marketData.yields?.treasuries?.['10Y'] ?? 4.44;
+                    const spread = y10 - y2;
+                    const isInverted = y2 > y10;
+                    return (
+                      <>
+                        <span className={cn(
+                          "font-extrabold text-[10px]",
+                          isInverted ? "text-amber-500" : "text-emerald-400"
+                        )}>
+                          {spread > 0 ? "+" : ""}{spread.toFixed(2)}%
+                        </span>
+                        <span className={cn(
+                          "text-[8px] font-black px-1.5 py-px border rounded-xs uppercase tracking-widest leading-none",
+                          isInverted 
+                            ? "bg-amber-950/20 border-amber-500/30 text-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.15)] animate-pulse" 
+                            : "bg-emerald-950/20 border-emerald-500/30 text-emerald-450"
+                        )}>
+                          {isInverted ? "INVERTED" : "NORMAL"}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
-            ))}
-          </div>
-          {/* Real-time Status Stream */}
-          <div className="flex-1 overflow-hidden h-4 px-4 hidden lg:block">
-            <div className="whitespace-nowrap text-[6.5px] font-mono text-zinc-650 flex items-center gap-8">
-              {marketData.news && marketData.news.length > 0 ? (
-                marketData.news.slice(0, 5).map((n: any, i: number) => (
-                  <span key={i}>
-                    <span className="text-emerald-500/50">[INTEL_{i}]</span>{" "}
-                    {(n.title || "").toUpperCase()} ... [OK]
-                  </span>
-                ))
-              ) : (
-                <>
-                  <span>
-                    [LOG] ATTEMPTING_HANDSHAKE_WITH_GLOBAL_RELAY_NODES... [OK]
-                  </span>
-                  <span>
-                    [LOG] CROSS_BORDER_CAPITAL_FLOW_BUFFER_INDEXED... [OK]
-                  </span>
-                  <span>
-                    [LOG] NEURAL_NETWORK_SYNAPSE_LOAD: 0.12ms... [NOMINAL]
-                  </span>
-                  <span>
-                    [LOG] ESG_VULNERABILITY_VECTORS_CALCULATED... [STABLE]
-                  </span>
-                  <span>
-                    [LOG] SENTIMENT_PIPELINE_ACTIVE: TOPIC_MODEL_V4... [OK]
-                  </span>
-                  <span>[LOG] SYSTEM_UPTIME: 1442.22_HRS... [STABLE]</span>
-                </>
-              )}
             </div>
-          </div>
-
-          <div className="ml-auto pl-2 md:pl-4 flex items-center gap-3">
-            <div className="flex items-center gap-1 text-[7px] text-zinc-500 font-mono">
-              <span className="text-zinc-700 hidden lg:inline">KERNEL:</span>
-              <span>v6.4.2-LOGISTICS</span>
+          {/* Live Flow replacing Real-time Status Stream */}
+          <div className="flex-1 overflow-hidden h-8 bg-zinc-950/45 border border-zinc-900 rounded flex items-center select-none whitespace-nowrap relative min-w-0">
+            <div className="relative z-10 flex items-center gap-1.5 shrink-0 border-r border-zinc-900 px-2.5 h-full bg-zinc-950/80 backdrop-blur-xs">
+              <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
+              <span className="text-[7.5px] font-mono font-black text-emerald-500 uppercase tracking-widest">LIVE_FLOW</span>
+            </div>
+            <div className="flex-1 flex gap-8 items-center animate-[marquee_150s_linear_infinite] pl-4 min-w-0">
+               {pulseFeed.map((pulse, i) => (
+                 <div key={i} className="flex items-center gap-2 text-[7.5px] font-mono shrink-0">
+                   <span className={cn("font-black px-1 border border-current rounded-xs text-[6px]", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
+                   <span className="text-zinc-400 font-medium">{pulse.msg}</span>
+                   <span className="text-zinc-600 font-bold">{pulse.time}</span>
+                 </div>
+               ))}
+               {/* Duplicated for smooth loop */}
+               {pulseFeed.map((pulse, i) => (
+                 <div key={`${i}-dup`} className="flex items-center gap-2 text-[7.5px] font-mono shrink-0">
+                   <span className={cn("font-black px-1 border border-current rounded-xs text-[6px]", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
+                   <span className="text-zinc-400 font-medium">{pulse.msg}</span>
+                   <span className="text-zinc-650 font-bold">{pulse.time}</span>
+                 </div>
+               ))}
             </div>
           </div>
         </div>
@@ -1368,7 +1401,9 @@ export default function App() {
         {/* PANEL G: DATA_FLOW (ACROSS THE TOP) */}
         <div className="border-t border-zinc-900 bg-black py-2 px-4 flex flex-col md:flex-row items-stretch md:items-center gap-2.5 md:gap-4 select-none shrink-0 relative z-[500] w-full">
           {/* Row 1: Search Bar Container */}
-          <div className="flex items-center w-full md:w-auto">
+          <div className="flex items-center gap-4 w-full md:w-auto">
+
+            {/* Ticker Search Bar */}
             <div className="relative flex-1 md:flex-[0_0_240px] flex items-center overflow-visible">
               <input
                 ref={searchInputRef}
@@ -1378,16 +1413,32 @@ export default function App() {
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && searchQuery) {
+                  if (e.key === "ArrowDown") {
                     e.preventDefault();
-                    if (finalFilteredMatches.length > 0) {
-                      const matched = finalFilteredMatches[0].company;
+                    setSearchCursor((prev) =>
+                      prev < finalFilteredMatches.length - 1 ? prev + 1 : 0
+                    );
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setSearchCursor((prev) =>
+                      prev > 0 ? prev - 1 : finalFilteredMatches.length - 1
+                    );
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setIsSearchFocused(false);
+                    searchInputRef.current?.blur();
+                  } else if (e.key === "Enter" && searchQuery) {
+                    e.preventDefault();
+                    const activeIdx = searchCursor >= 0 && searchCursor < finalFilteredMatches.length ? searchCursor : 0;
+                    if (finalFilteredMatches.length > activeIdx) {
+                      const matched = finalFilteredMatches[activeIdx].company;
                       handleSelectNode(matched, false, true);
-                      setSearchQuery(matched.symbol);
+                      setSearchQuery("");
                       setIsSearchFocused(false);
                       searchInputRef.current?.blur();
                     } else if (handleAgentSearch) {
                       handleAgentSearch(searchQuery);
+                      setSearchQuery("");
                     }
                   }
                 }}
@@ -1409,6 +1460,7 @@ export default function App() {
                       finalFilteredMatches.map(({ company }, idx) => {
                         const isSelected = selectedStock?.symbol === company.symbol;
                         const isPinned = pinnedTickers.includes(company.symbol);
+                        const isHoveredByCursor = searchCursor === idx;
                         return (
                           <div
                             key={`${company.symbol}-${idx}`}
@@ -1420,7 +1472,8 @@ export default function App() {
                             }}
                             className={cn(
                               "group flex items-center justify-between p-1.5 text-[10px] cursor-pointer transition-all hover:bg-emerald-500/10",
-                              isSelected ? "bg-emerald-500/5 border-l-2 border-emerald-500" : ""
+                              isSelected ? "bg-emerald-500/5 border-l-2 border-emerald-500" : "",
+                              isHoveredByCursor ? "bg-emerald-500/15 text-emerald-400 border-l-2 border-emerald-400" : ""
                             )}
                           >
                             <div className="flex items-center gap-1.5 min-w-0">
@@ -1485,14 +1538,30 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => toggleVocalizer(!isVocalizerEnabled)}
+                onClick={() => {
+                  if (isLiveNewsZoomEnabled) {
+                    toggleVocalizer(!isVocalizerEnabled);
+                  } else {
+                    if (isSpeechPlaying) {
+                      // Stop speaking
+                      if (window.speechSynthesis) window.speechSynthesis.cancel();
+                      window.dispatchEvent(new CustomEvent("app-tts-play", { detail: { origin: "app-btn" } }));
+                    } else {
+                      // Trigger reading
+                      window.dispatchEvent(new CustomEvent("app-vocalize-news"));
+                    }
+                  }
+                }}
                 className={cn(
                   "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 border",
-                  isVocalizerEnabled ? "bg-cyan-500/10 border-cyan-500 text-cyan-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                  isLiveNewsZoomEnabled 
+                    ? (isVocalizerEnabled ? "bg-cyan-500/10 border-cyan-500 text-cyan-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800")
+                    : (isSpeechPlaying ? "bg-cyan-500/10 border-cyan-500 text-cyan-400 animate-pulse" : "border-zinc-900 text-zinc-650 hover:border-zinc-800")
                 )}
+                title={isLiveNewsZoomEnabled ? "Toggle Live News Vocalization" : (isSpeechPlaying ? "Stop Vocalizer Reading" : "Vocalize Curated News List")}
               >
-                <Mic className="w-2.5 h-2.5" />
-                <span className="hidden xl:inline">VOCALIZER_AI</span>
+                <Mic className={cn("w-2.5 h-2.5", !isLiveNewsZoomEnabled && isSpeechPlaying ? "animate-bounce" : "")} />
+                <span className="hidden xl:inline">{!isLiveNewsZoomEnabled && isSpeechPlaying ? "SPEAKING..." : "VOCALIZER_AI"}</span>
               </button>
 
               <button
@@ -1520,16 +1589,10 @@ export default function App() {
                 <span className="hidden xl:inline">LIVE_FETCH</span>
               </button>
 
-              <button
-                onClick={() => {
-                  setResetOrientationTrigger((prev) => prev + 1);
-                  setViewportLock(true);
-                }}
-                className="px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 bg-blue-950/20 border border-blue-500/30 text-blue-400 hover:text-blue-300"
-              >
-                <Compass className="w-2.5 h-2.5" />
-                <span className="hidden xl:inline">CENTER_VIEW</span>
-              </button>
+
+
+
+
             </div>
 
             {/* Cognitive Synthesis Indicator (Moved from Sidebar) */}
@@ -1552,10 +1615,7 @@ export default function App() {
               </div>
             )}
 
-            {/* Yield Monitor */}
-            <div className="shrink-0 flex items-center border-l border-zinc-900 pl-3">
-              <YieldCurveMonitor yields={marketData.yields} compact={true} />
-            </div>
+
 
             {/* Category Filters */}
             <div className="flex items-center gap-1 shrink-0 border-l border-zinc-900 pl-3">
@@ -1583,7 +1643,7 @@ export default function App() {
               </button>
               
               <div className="hidden lg:flex items-center gap-1">
-                {["c:USA", "s:Semi", "p:NVDA"].map((chip) => (
+                {["c:USA", "s:Semi", "p:NVDA", "WTI"].map((chip) => (
                   <button
                     key={chip}
                     onClick={() => setSearchQuery(chip)}
@@ -1779,7 +1839,9 @@ export default function App() {
             financials={marketData.financials}
             profile={marketData.profile}
             history={marketData.history}
-            isAiProcessing={isAiProcessing}
+            isAiProcessing={isAiProcessing || isAgentSearching}
+            onAgentSearch={handleAgentSearch}
+            isAgentSearching={isAgentSearching}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             onSelectNode={handleSelectNode}
@@ -1857,6 +1919,7 @@ export default function App() {
             setAutoRotateEnabled={setAutoRotateEnabled}
             isVocalizerEnabled={isVocalizerEnabled}
             setIsVocalizerEnabled={setIsVocalizerEnabled}
+            isLiveNewsZoomEnabled={isLiveNewsZoomEnabled}
           />
         </aside>
       </main>
@@ -2040,6 +2103,7 @@ export default function App() {
         )}
       </AnimatePresence>
       <TickerTape onSelectStock={handleSelectNode} />
+      </div>
     </div>
   );
 }

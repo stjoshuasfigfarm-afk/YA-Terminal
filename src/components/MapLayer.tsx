@@ -234,11 +234,23 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
+  // Synchronize MapLayer local isSpeaking state to global app level via custom events
+  useEffect(() => {
+    if (isSpeaking) {
+      window.dispatchEvent(new CustomEvent("app-speech-start"));
+    } else {
+      window.dispatchEvent(new CustomEvent("app-speech-end"));
+    }
+  }, [isSpeaking]);
+
   const stopAllAudio = () => {
+    // 1. Stop HTMLAudioElement
     if (audioRef.current) {
-      try { audioRef.current.pause(); } catch (err) {}
+      try { audioRef.current.pause(); audioRef.current.currentTime = 0; } catch (err) {}
       audioRef.current = null;
     }
+    
+    // 2. Stop AudioContext Sources
     if ((window as any)._activeTtsSource) {
       try { (window as any)._activeTtsSource.stop(); } catch (e) {}
       (window as any)._activeTtsSource = null;
@@ -247,7 +259,10 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       try { (window as any)._activeTtsSourceMap.stop(); } catch (e) {}
       (window as any)._activeTtsSourceMap = null;
     }
+    
+    // 3. Stop SpeechSynthesis
     if (window.speechSynthesis) window.speechSynthesis.cancel();
+    
     setIsSpeaking(false);
   };
 
@@ -468,8 +483,8 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
   };
 
-  const speakWithEnhancedVoice = async (text: string) => {
-    if (!isVocalizerEnabled) return;
+  const speakWithEnhancedVoice = async (text: string, force = false) => {
+    if (!isVocalizerEnabled && !force) return;
     
     // Increment request ID to supersede any active loading/fetch
     ttsRequestIdRef.current += 1;
@@ -836,9 +851,35 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       prevLatestNewsRef.current.title !== currentLatest.title
     ) {
       // A brand new story just popped up!
-      if (isVocalizerEnabled) {
-        const text = `Incoming intelligence: ${currentLatest.headline || currentLatest.title}.`;
-        speakWithEnhancedVoice(text);
+      if (isVocalizerEnabled && isLiveNewsZoomEnabled) {
+        const storySymbol = (currentLatest.symbol || currentLatest.ticker || currentLatest.related || "").toUpperCase();
+        const selectedSymbol = (selectedStock?.symbol || "").toUpperCase();
+        const isForSelectedTicker = selectedSymbol && storySymbol === selectedSymbol;
+
+        if (isForSelectedTicker) {
+          // Get prior existing news items (reports) for the selected stock
+          const otherReports = (allNewsData || [])
+            .filter(item => {
+              const itemSym = (item.symbol || item.ticker || item.related || "").toUpperCase();
+              return itemSym === selectedSymbol && item.title !== currentLatest.title;
+            })
+            .slice(0, 3); // Keep only top 3 reports for brevity
+          
+          let text = "";
+          if (otherReports.length > 0) {
+            const reportsText = otherReports
+              .map((r, i) => `Report ${i + 1}: ${r.title || r.headline}`)
+              .join(". ");
+            text = `Intelligence briefing for selected ticker ${selectedStock.symbol}. Existing reports are: ${reportsText}. Finally, newly arrived news headline: ${currentLatest.headline || currentLatest.title}.`;
+          } else {
+            text = `Incoming intelligence for selected ticker ${selectedStock.symbol}: ${currentLatest.headline || currentLatest.title}.`;
+          }
+          speakWithEnhancedVoice(text);
+        } else {
+          // Normal headline reading for non-selected/other tickers
+          const text = `Incoming intelligence: ${currentLatest.headline || currentLatest.title}.`;
+          speakWithEnhancedVoice(text);
+        }
       }
       if (isNewsCyclingActive) {
         // App-level cycle timer will handle this
@@ -852,7 +893,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
 
     prevLatestNewsRef.current = currentLatest;
-  }, [allNewsData, isNewsCyclingActive, onSelectNode]);
+  }, [allNewsData, isNewsCyclingActive, onSelectNode, isVocalizerEnabled, isLiveNewsZoomEnabled, selectedStock]);
 
   // Local cycling effects removed in favor of App-level cycle control
 
@@ -1190,6 +1231,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             toggleFocusMode={toggleFocusMode}
             resetOrientationTrigger={resetOrientationTrigger}
             partnerLines={partnerLines}
+            mapLayers={mapLayers}
           />
         </Suspense>
       </div>
@@ -1263,7 +1305,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                       const textToSpeak = preservedBriefing.type === "briefing"
                         ? (typeof preservedBriefing.data === "string" ? preservedBriefing.data : (preservedBriefing.data?.summary || preservedBriefing.data?.text || "Analyzing..."))
                         : (preservedBriefing.text || "Analyzing...");
-                      speakWithEnhancedVoice(textToSpeak);
+                      speakWithEnhancedVoice(textToSpeak, true);
                     }
                   }}
                   disabled={isSpeechLoading}
@@ -1320,7 +1362,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
               <div className="space-y-4">
                 <div className="p-2 bg-zinc-900/50 border border-emerald-500/10 rounded-sm">
                    <div className="text-[7.5px] font-black text-emerald-400/70 uppercase tracking-[0.2em] mb-1.5 border-b border-emerald-500/10 pb-0.5">
-                     DECK_DETAIL_SUMMARY
+                     DECK_AGENT_SUMMARY
                    </div>
                    <Typewriter
                      className="text-zinc-300 font-mono text-[9px]"

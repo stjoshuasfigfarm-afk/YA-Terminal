@@ -22,10 +22,18 @@ async function fetchQuoteDetail(symbol: string) {
   let data: any = {};
   let source = "NONE";
 
+  let querySymbol = symbol;
+  if (symbol === "ARAMCO") querySymbol = "2222.SR";
+  else if (symbol === "700" || symbol === "TCEHY") querySymbol = "0700.HK";
+  else if (symbol === "9988" || symbol === "BABA") querySymbol = "9988.HK";
+  else if (symbol === "005930") querySymbol = "005930.KS";
+  else if (symbol === "SMC") querySymbol = "SMCI";
+  else if (symbol === "WTI") querySymbol = "CL=F";
+
   // Try FMP
   if (isKeyReady(FMP_KEY)) {
     try {
-      const response = await axios.get(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${FMP_KEY}`, { timeout: 3000 });
+      const response = await axios.get(`https://financialmodelingprep.com/api/v3/quote/${querySymbol}?apikey=${FMP_KEY}`, { timeout: 3000 });
       if (response.data && response.data[0]) {
         data = response.data[0];
         source = "FMP";
@@ -38,7 +46,7 @@ async function fetchQuoteDetail(symbol: string) {
   // Try Finnhub
   if (source === "NONE" && isKeyReady(FINNHUB_KEY)) {
     try {
-      const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_KEY}`, { timeout: 3000 });
+      const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${querySymbol}&token=${FINNHUB_KEY}`, { timeout: 3000 });
       const fhData = response.data;
       if (fhData && fhData.c) {
         data = {
@@ -60,14 +68,7 @@ async function fetchQuoteDetail(symbol: string) {
   // Try Yahoo Finance fallback
   if (source === "NONE") {
     try {
-      let yahooSymbol = symbol;
-      if (symbol === "ARAMCO") yahooSymbol = "2222.SR";
-      else if (symbol === "700" || symbol === "TCEHY") yahooSymbol = "0700.HK";
-      else if (symbol === "9988" || symbol === "BABA") yahooSymbol = "9988.HK";
-      else if (symbol === "005930") yahooSymbol = "005930.KS";
-      else if (symbol === "SMC") yahooSymbol = "SMCI";
-
-      const response = await axios.get(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}`, {
+      const response = await axios.get(`https://query2.finance.yahoo.com/v8/finance/chart/${querySymbol}`, {
         timeout: 4000,
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -100,8 +101,15 @@ async function fetchQuoteDetail(symbol: string) {
       hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
     }
     const seed = Math.abs(hash);
-    const basePrice = 45 + (seed % 280);
-    const change = ((seed % 100) / 10 - 5) * 0.4;
+    
+    const params: Record<string, { price: number, drift: number, vol: number }> = {
+      "SPCX": { price: 201.80, drift: 0.8, vol: 5 }
+    };
+    
+    const config = params[symbol] || { price: (45 + (seed % 280)), drift: 0.4, vol: 2 };
+    
+    const basePrice = config.price;
+    const change = ((seed % 100) / 10 - 5) * config.drift;
     const previousClose = basePrice - change;
     const changesPercentage = (change / (previousClose || 1)) * 100;
 
@@ -109,8 +117,8 @@ async function fetchQuoteDetail(symbol: string) {
       price: basePrice,
       change: change,
       changesPercentage: changesPercentage,
-      dayHigh: basePrice + 2,
-      dayLow: basePrice - 2,
+      dayHigh: basePrice + config.vol,
+      dayLow: basePrice - config.vol,
       open: previousClose + 0.1,
       previousClose: previousClose
     };

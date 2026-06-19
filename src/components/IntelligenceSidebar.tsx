@@ -31,11 +31,16 @@ import {
   Filter,
   Users,
   TrendingUp,
+  Bot,
+  Send,
+  MessageSquare,
+  Sparkles,
 } from "lucide-react";
 import { formatCurrency, cn, getApiBaseUrl } from "../lib/utils";
 import { analyzeSentimentAndImpact } from "../lib/sentiment";
 import { SupplyChainPanel } from "./SupplyChainPanel";
 import { MacroCorridor } from "./yield-terminal/MacroCorridor";
+import { YieldCurveMonitor } from "./YieldCurveMonitor";
 
 import { motion, AnimatePresence } from "motion/react";
 
@@ -107,6 +112,9 @@ interface IntelligenceSidebarProps {
   setAutoRotateEnabled?: (v: boolean) => void;
   isVocalizerEnabled?: boolean;
   setIsVocalizerEnabled?: (v: boolean) => void;
+  isLiveNewsZoomEnabled?: boolean;
+  onAgentSearch?: (query: string) => Promise<any>;
+  isAgentSearching?: boolean;
 }
 
 const Typewriter = ({
@@ -256,6 +264,9 @@ export const IntelligenceSidebar = React.memo(
     setAutoRotateEnabled,
     isVocalizerEnabled = false,
     setIsVocalizerEnabled,
+    isLiveNewsZoomEnabled = false,
+    onAgentSearch,
+    isAgentSearching = false,
   }: IntelligenceSidebarProps) => {
     const { companies } = useCompanies();
     const {
@@ -291,8 +302,22 @@ export const IntelligenceSidebar = React.memo(
       Record<string, "VERIFIED" | "FAILED">
     >({});
     const [innerLeftTab, setInnerLeftTab] = useState<
-      "STRATEGY" | "LOGISTICS_COCKPIT" | "YIELD" | "SUPPLY_CHAIN"
+      "STRATEGY" | "LOGISTICS_COCKPIT" | "YIELD" | "SUPPLY_CHAIN" | "AI_AGENT"
     >("STRATEGY");
+    const [chatHistory, setChatHistory] = useState<Array<{
+      role: 'user' | 'assistant';
+      text: string;
+      coordinates?: [number, number];
+      locationName?: string;
+      ticker?: string;
+      facts?: string[];
+    }>>([
+      {
+        role: 'assistant',
+        text: "SECURE COGNITIVE UPLINK ESTABLISHED. I am your AI Market Intelligence Assistant. Ask me about custom supply chains, logistics chokepoints, upcoming IPOs, lithography key corridors, or sovereign trade lanes."
+      }
+    ]);
+    const [aiInput, setAiInput] = useState("");
     const [strategySubTab, setStrategySubTab] = useState<
       "detailed" | "filtered"
     >("filtered");
@@ -302,58 +327,28 @@ export const IntelligenceSidebar = React.memo(
     const ttsCooldownRef = useRef<number>(0);
     const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
-    // --- Neural Intelligence Pulse Feed State ---
-    const [pulseFeed, setPulseFeed] = useState([
-      { tag: "IMTC", msg: "Immersive Logistics Telemetry Controller initiated", time: "Just now", color: "text-purple-400" },
-      { tag: "SIGNAL", msg: "Whale alert: $42M USDT move detected in SOL ecosystem", time: "1m ago", color: "text-amber-500" },
-      { tag: "MACRO", msg: "ECB indicates flexible rate path despite inflation sticky", time: "4m ago", color: "text-zinc-500" },
-      { tag: "TRADE", msg: "High convergence detected on Semi-cap yield spreads", time: "8m ago", color: "text-emerald-500" },
-      { tag: "ALERT", msg: "Unusual options activity detected in TSLA put chain", time: "12m ago", color: "text-rose-500" },
-      { tag: "FLOW", msg: "Darkpool buy imbalance detected in energy sector ETFs", time: "15m ago", color: "text-blue-500" },
-    ]);
 
-    useEffect(() => {
-      const scenarios = [
-        { tag: "SIGNAL", msg: "Massive liquidation event triggered in BTC perps: -$12M", color: "text-rose-500" },
-        { tag: "MACRO", msg: "BOJ Governor hints at yield curve control flexibility", color: "text-zinc-500" },
-        { tag: "TRADE", msg: "Arbitrage opportunity: Cross-exchange spread on ETH/USDT > 0.4%", color: "text-emerald-500" },
-        { tag: "ALERT", msg: "Systemic risk spike detected in EU sovereign debt spreads", color: "text-amber-500" },
-        { tag: "INTEL", msg: "Geographic cluster of freight delays emerging in Southeast Asia", color: "text-blue-500" },
-        { tag: "FLOW", msg: "Unusual institutional accumulation in mid-cap biotechs", color: "text-emerald-400" },
-      ];
-
-      const interval = setInterval(() => {
-        const next = scenarios[Math.floor(Math.random() * scenarios.length)];
-        setPulseFeed(prev => [
-          { ...next, time: "Just now" },
-          ...prev.map(p => ({ ...p, time: p.time === "Just now" ? "1m ago" : p.time.includes("m") ? (parseInt(p.time) + 1) + "m ago" : p.time })),
-        ].slice(0, 6));
-      }, 10000);
-
-      return () => clearInterval(interval);
-    }, []);
-    // ---------------------------------------------
 
     const stopAllAudio = () => {
+      // 1. Stop HTMLAudioElement
       if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-        } catch (err) {}
+        try { audioRef.current.pause(); audioRef.current.currentTime = 0; } catch (err) {}
         audioRef.current = null;
       }
+      
+      // 2. Stop AudioContext Sources
       if ((window as any)._activeTtsSource) {
-        try {
-          (window as any)._activeTtsSource.stop();
-        } catch (e) {}
+        try { (window as any)._activeTtsSource.stop(); } catch (e) {}
         (window as any)._activeTtsSource = null;
       }
       if ((window as any)._activeTtsSourceMap) {
-        try {
-          (window as any)._activeTtsSourceMap.stop();
-        } catch (e) {}
+        try { (window as any)._activeTtsSourceMap.stop(); } catch (e) {}
         (window as any)._activeTtsSourceMap = null;
       }
+      
+      // 3. Stop SpeechSynthesis
       if (window.speechSynthesis) window.speechSynthesis.cancel();
+      
       setIsSpeaking(false);
     };
 
@@ -857,6 +852,12 @@ export const IntelligenceSidebar = React.memo(
 
     const filteredNews = useMemo(() => {
       return news.filter((item) => {
+        // Filter by the selected ticker under Data Tel Stream in the left sidebar
+        if (selectedStock?.symbol) {
+          const compSym = (item.symbol || item.ticker || item.related || "").toUpperCase();
+          if (compSym !== selectedStock.symbol.toUpperCase()) return false;
+        }
+
         const titleSafe = String(item.title || "");
         const summarySafe = String(item.summary || item.description || "");
         const matchesSearch =
@@ -887,13 +888,86 @@ export const IntelligenceSidebar = React.memo(
 
         return true;
       });
-    }, [news, newsSearch, sentimentFilter, impactFilter, selectedSourceFilter, selectedSectorFilter]);
+    }, [news, newsSearch, sentimentFilter, impactFilter, selectedSourceFilter, selectedSectorFilter, selectedStock?.symbol]);
+
+    // Synchronize local isSpeaking state to global app level via custom events
+    useEffect(() => {
+      if (isSpeaking) {
+        window.dispatchEvent(new CustomEvent("app-speech-start"));
+      } else {
+        window.dispatchEvent(new CustomEvent("app-speech-end"));
+      }
+    }, [isSpeaking]);
+
+    // Read down the filtered news list for the selected ticker on VOCALIZER button push (app-vocalize-news event)
+    useEffect(() => {
+      const handleTriggerVocalizer = () => {
+        const symbol = selectedStock?.symbol || "";
+        const targetLabel = symbol ? `selected ticker ${symbol}` : "filtered assets";
+        
+        // Filter by selectedStock just to be absolutely sure we read the selected ticker
+        const relevantNews = filteredNews.filter(item => {
+          if (!symbol) return true;
+          const sym = (item.symbol || item.ticker || "").toUpperCase();
+          return sym === symbol.toUpperCase();
+        });
+
+        if (relevantNews.length > 0) {
+          // Separate the newest headline from the list of reports
+          const currentLatest = relevantNews[0];
+          const priorReports = relevantNews.slice(1, 4);
+
+          let speechText = "";
+          if (priorReports.length > 0) {
+            const reportsText = priorReports
+              .map((r, i) => `Report ${i + 1}: ${r.headline || r.title}`)
+              .join(". ");
+            
+            speechText = `Intelligence briefing for ${targetLabel}. Curated reports are: ${reportsText}. Finally, newly arrived news headline: ${currentLatest.headline || currentLatest.title}.`;
+          } else {
+            speechText = `Intelligence briefing for ${targetLabel}. Curated report is: ${currentLatest.headline || currentLatest.title}.`;
+          }
+          handleSpeak(speechText);
+        } else {
+          handleSpeak(`No curated intelligence reports found for ${targetLabel}.`);
+        }
+      };
+
+      window.addEventListener("app-vocalize-news", handleTriggerVocalizer);
+      return () => {
+        window.removeEventListener("app-vocalize-news", handleTriggerVocalizer);
+      };
+    }, [filteredNews, selectedStock?.symbol]);
+
+    // Keep chat history synchronized with global agentFocus updates
+    useEffect(() => {
+      if (agentFocus && (agentFocus.briefing || agentFocus.explanation)) {
+        const text = agentFocus.briefing || agentFocus.explanation;
+        setChatHistory(prev => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.text === text && lastMsg.role === "assistant") {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              role: "assistant",
+              text: text,
+              coordinates: [agentFocus.lat, agentFocus.lng],
+              locationName: agentFocus.locationName || "GROUNDED TARGET",
+              ticker: agentFocus.ticker,
+              facts: agentFocus.facts,
+            }
+          ];
+        });
+      }
+    }, [agentFocus]);
 
     // --- Cognitive Synthesis Agent Logic REMOVED (Moved to Deck) ---
 
-    const hasIntelData = !!selectedStock || !!briefing || (agentFocus && !!agentFocus.briefing);
+    const hasIntelData = true;
 
-    if (!hasIntelData) {
+    if (false) {
       return (
         <aside className="w-52 border-l border-zinc-800 flex flex-col bg-black z-20 shrink-0 select-none overflow-hidden font-mono">
           <div className="p-3 border-b border-zinc-900 bg-black flex flex-col mb-1 shrink-0 font-mono">
@@ -999,6 +1073,11 @@ export const IntelligenceSidebar = React.memo(
                     label: selectedStock ? "NEWS_FEED" : "TACTICAL_FEED",
                     icon: <MapPin className="w-3 h-3" />,
                   },
+                  {
+                    id: "YIELD",
+                    label: "SOVEREIGN_YIELDS",
+                    icon: <TrendingUp className="w-3 h-3" />,
+                  },
                   ...(selectedStock ? [
                     {
                       id: "LOGISTICS_COCKPIT",
@@ -1031,10 +1110,19 @@ export const IntelligenceSidebar = React.memo(
 
               {/* PERMANENT YIELD STRUCTURE MONITOR REMOVED */}
 
-              <div className="p-3.5 flex-1 overflow-y-auto custom-scrollbar min-h-0">
+              <div className="p-3.5 flex-1 h-full overflow-y-auto custom-scrollbar min-h-0">
                 {/* STRATEGY TAB CONTENT */}
                 {innerLeftTab === "STRATEGY" && (
                    <div className="space-y-4">
+                     {!selectedStock && (
+                       <div className="p-4 border border-zinc-900 bg-zinc-950/20 text-center rounded-sm">
+                         <MapPin className="w-6 h-6 text-zinc-700 mx-auto mb-2" />
+                         <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">TACTICAL STREAM INACTIVE</div>
+                         <div className="text-[7.5px] text-zinc-650 mt-1 uppercase font-mono tracking-wide leading-relaxed">
+                           SELECT ANY INTEL NODE FROM THE MAP OR SEARCH INTERFACE TO POPULATE GEOGRAPHIC SIGNAL STREAM
+                         </div>
+                       </div>
+                     )}
 
                      {/* LABOR INTELLIGENCE ASSESSMENT - Requested to highlight hiring likelihood */}
                      {selectedStock && (selectedStock.turnover || selectedStock.hiringLikelihood) && (
@@ -1133,53 +1221,7 @@ export const IntelligenceSidebar = React.memo(
                         ))}
                       </div>
 
-                      {/* Source filter quick buttons */}
-                      <div className="flex flex-col gap-1.5 border-t border-zinc-900/60 pt-2 mt-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[6.5px] font-bold text-zinc-600 font-mono tracking-wider uppercase">SOURCE:</span>
-                          {selectedSourceFilter === "YAHOO" && (
-                            <span className="text-[5.5px] text-purple-400 font-bold tracking-widest uppercase animate-pulse">
-                              YAHOO FINANCE RSS ACTIVE
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {[
-                            { id: "ALL", label: "ALL SIGNAL" },
-                            { id: "YAHOO", label: "YAHOO NEWS" },
-                            { id: "FINNHUB", label: "FINNHUB/OTHER" }
-                          ].map((tab) => {
-                            const count = news.filter((item) => {
-                              const s = (item.source || "").toLowerCase();
-                              if (tab.id === "ALL") return true;
-                              if (tab.id === "YAHOO") return s.includes("yahoo");
-                              if (tab.id === "FINNHUB") return s.includes("finnhub") || (!s.includes("yahoo") && s !== "");
-                              return true;
-                            }).length;
 
-                            return (
-                              <button
-                                key={tab.id}
-                                onClick={() => setSelectedSourceFilter(tab.id as any)}
-                                className={cn(
-                                  "text-[6px] font-mono px-1.5 py-0.5 border cursor-pointer uppercase transition-all rounded-2xs flex items-center gap-1",
-                                  selectedSourceFilter === tab.id
-                                    ? "bg-purple-950/35 border-purple-500/50 text-purple-400 font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.15)]"
-                                    : "border-zinc-900 text-zinc-650 hover:text-zinc-400"
-                                )}
-                              >
-                                {tab.label}
-                                <span className={cn(
-                                  "text-[5px] font-mono font-black border rounded-xs px-0.5",
-                                  selectedSourceFilter === tab.id ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-black text-zinc-600 border-zinc-900"
-                                )}>
-                                  {count}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
 
                       {/* Sector filter quick buttons */}
                       <div className="flex flex-col gap-1.5 border-t border-zinc-900/60 pt-2 mt-1">
@@ -1254,14 +1296,6 @@ export const IntelligenceSidebar = React.memo(
                                     <span className="text-[6.5px] text-zinc-500 font-bold tracking-widest uppercase flex items-center gap-1.5">
                                       <span className="w-1 h-1 bg-zinc-600 rounded-full" />
                                       PKT_{idx.toString().padStart(3, '0')}
-                                    </span>
-                                    <span className={cn(
-                                      "text-[5.5px] px-1 py-0.2 rounded-xs border uppercase font-black tracking-wider leading-none py-0.5 shrink-0 select-none",
-                                      (item.source || "").toLowerCase().includes("yahoo")
-                                        ? "bg-purple-950/30 border-purple-500/35 text-purple-400"
-                                        : "bg-emerald-950/20 border-emerald-500/25 text-emerald-400"
-                                    )}>
-                                      {item.source ? item.source.toUpperCase() : "GLOBAL SIGNAL"}
                                     </span>
                                   </div>
                                   <div className="flex gap-2 shrink-0 items-center">
@@ -1339,6 +1373,13 @@ export const IntelligenceSidebar = React.memo(
                       )}
                     </div>
                     )}
+                  </div>
+                )}
+
+                {/* YIELD TAB CONTENT */}
+                {innerLeftTab === "YIELD" && (
+                  <div className="space-y-4">
+                    <YieldCurveMonitor yields={yields} />
                   </div>
                 )}
 
@@ -1430,17 +1471,6 @@ export const IntelligenceSidebar = React.memo(
                           <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
                             <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Malacca Demurrage</span>
                             <div className="flex gap-1.5 mt-1">
-                              <button
-                                onClick={() => setMalaccaStraitBlocked?.(true)}
-                                className={cn(
-                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
-                                  malaccaStraitBlocked
-                                    ? "bg-red-950/40 text-red-400 border-red-500/35 shadow-[0_0_8px_rgba(239,68,68,0.25)]"
-                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
-                                )}
-                              >
-                                BLOCK
-                              </button>
                               <button
                                 onClick={() => setMalaccaStraitBlocked?.(false)}
                                 className={cn(
@@ -1695,30 +1725,7 @@ export const IntelligenceSidebar = React.memo(
               </div>
             </div>
 
-            {/* Neural Pulse Feed Segment */}
-            <div className="h-10 border-t border-zinc-900 bg-black flex items-center px-3 overflow-hidden select-none whitespace-nowrap gap-6">
-              <div className="flex items-center gap-1.5 shrink-0 border-r border-zinc-900 pr-3">
-                <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
-                <span className="text-[8px] font-mono font-black text-emerald-500 uppercase tracking-widest">LIVE_FLOW</span>
-              </div>
-              <div className="flex-1 flex gap-8 items-center animate-[marquee_60s_linear_infinite]">
-                 {pulseFeed.map((pulse, i) => (
-                   <div key={i} className="flex items-center gap-2 text-[7.5px] font-mono">
-                     <span className={cn("font-black px-1 border border-current rounded-xs", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
-                     <span className="text-zinc-400 font-medium">{pulse.msg}</span>
-                     <span className="text-zinc-600 font-bold">{pulse.time}</span>
-                   </div>
-                 ))}
-                 {/* Duplicated for smooth loop */}
-                 {pulseFeed.map((pulse, i) => (
-                   <div key={`${i}-dup`} className="flex items-center gap-2 text-[7.5px] font-mono">
-                     <span className={cn("font-black px-1 border border-current rounded-xs", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
-                     <span className="text-zinc-400 font-medium">{pulse.msg}</span>
-                     <span className="text-zinc-600 font-bold">{pulse.time}</span>
-                   </div>
-                 ))}
-              </div>
-            </div>
+
         </aside>
     );
   },

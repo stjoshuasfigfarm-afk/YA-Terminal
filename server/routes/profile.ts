@@ -12,6 +12,21 @@ router.get("/:symbol?", async (req, res) => {
     const symbol = (req.params.symbol || req.query.symbol as string || "").toUpperCase();
     if (!symbol) return res.status(400).json({ error: "Missing symbol" });
     
+    if (symbol === "WTI") {
+      return res.json({
+        mktCap: 3100000000000, // $3.1T Estimated Global Crude Oil Market
+        companyName: "WTI Crude Oil (Spot/Futures)",
+        industry: "Commodities / Energy",
+        website: "https://www.eia.gov",
+        logo: "https://www.eia.gov/favicon.ico",
+        currency: "USD",
+        peRatio: 0,
+        divYield: 0,
+        beta: 1.42,
+        debtToEquity: 0
+      });
+    }
+    
     // Generate deterministic properties based on symbol charcodes so they are stable
     let hash = 0;
     for (let i = 0; i < symbol.length; i++) {

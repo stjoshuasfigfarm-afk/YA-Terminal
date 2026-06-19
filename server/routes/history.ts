@@ -39,6 +39,7 @@ router.get("/:symbol?", async (req, res) => {
     else if (symbol === "9988" || symbol === "BABA") yahooSymbol = "9988.HK";
     else if (symbol === "005930") yahooSymbol = "005930.KS";
     else if (symbol === "SMC") yahooSymbol = "SMCI";
+    else if (symbol === "WTI") yahooSymbol = "CL=F";
 
     // Standard timeframe configuration mapping
     let yahooRange = "1mo";
@@ -78,7 +79,7 @@ router.get("/:symbol?", async (req, res) => {
     // 1. Try Finnhub (if key present and ready)
     if (source === "NONE" && isKeyReady(FINNHUB_KEY)) {
       try {
-        const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${finnhubResolution}&from=${finnhubFrom}&to=${to}&token=${FINNHUB_KEY}`;
+        const url = `https://finnhub.io/api/v1/stock/candle?symbol=${yahooSymbol}&resolution=${finnhubResolution}&from=${finnhubFrom}&to=${to}&token=${FINNHUB_KEY}`;
         const response = await axios.get(url, { timeout: 3500 });
         const data = response.data;
         if (data && data.s === 'ok' && Array.isArray(data.t)) {
@@ -131,12 +132,18 @@ router.get("/:symbol?", async (req, res) => {
         baseHash = symbol.charCodeAt(i) + ((baseHash << 5) - baseHash);
       }
       const seed = Math.abs(baseHash);
-      const basePrice = 50 + (seed % 280);
+      
+      const customParams: Record<string, { price: number, drift: number, vol: number }> = {
+        "SPCX": { price: 201.80, drift: 0.8, vol: 0.05 }
+      };
+      
+      const cfg = customParams[symbol] || { price: (50 + (seed % 280)), drift: (rand() - 0.48) * 0.4, vol: 0.015 };
+      const basePrice = cfg.price;
       
       let pointsCount = 30;
       let intervalMs = 24 * 60 * 60 * 1000;
-      let driftFactor = (rand() - 0.48) * 0.4;
-      let volFactor = 0.015;
+      let driftFactor = cfg.drift;
+      let volFactor = cfg.vol;
 
       if (timeframe === "1D") {
         pointsCount = 78;

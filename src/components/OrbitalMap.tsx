@@ -42,6 +42,7 @@ interface OrbitalMapProps {
     from: any;
     to: any;
   }[];
+  mapLayers?: { hq: boolean; arcs: boolean; satellite: boolean; borders: boolean };
 }
 
 export const OrbitalMap: React.FC<OrbitalMapProps> = ({
@@ -60,7 +61,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   toggleLiveNewsZoom,
   toggleFocusMode,
   resetOrientationTrigger = 0,
-  partnerLines = []
+  partnerLines = [],
+  mapLayers = { hq: true, arcs: true, satellite: false, borders: true }
 }) => {
   // Trigger orientation reset
   useEffect(() => {
@@ -83,6 +85,29 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isStyleLoaded) return;
+    
+    if (mapLayers?.satellite) {
+        if (!map.getSource('satellite-source')) {
+            map.addSource('satellite-source', {
+                type: 'raster',
+                tiles: [
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                ],
+                tileSize: 256
+            });
+            map.addLayer({
+                id: 'satellite-layer',
+                type: 'raster',
+                source: 'satellite-source',
+                paint: { 'raster-opacity': 1 }
+            }, 'background');
+        }
+    } else {
+        if (map.getLayer('satellite-layer')) {
+            map.removeLayer('satellite-layer');
+            map.removeSource('satellite-source');
+        }
+    }
 
     const retailLayerId = "poi-retail-layer";
     const civicLayerId = "poi-civic-layer";
@@ -322,7 +347,7 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
     };
 
     updatePoiLayers();
-  }, [isStyleLoaded]);
+  }, [mapLayers?.satellite, isStyleLoaded]);
 
   // Initialize Map
   useEffect(() => {
@@ -435,7 +460,7 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         // Use inline style & tailwind-like HTML for optimized, static visual details
         el.innerHTML = `
           <div class="relative flex items-center justify-center pointer-events-none group transform hover:scale-125 transition-transform duration-300">
-            <svg width="24" height="24" viewBox="0 0 24 24" class="${isSelected ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-amber-500'} transition-colors duration-300">
+            <svg width="24" height="24" viewBox="0 0 24 24" class="${isSelected ? 'text-emerald-400' : 'text-zinc-500'} transition-colors duration-300">
               <circle cx="12" cy="12" r="3" fill="currentColor" />
               <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="none" class="opacity-60" />
               <path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="currentColor" stroke-width="1.5" class="opacity-80" />
@@ -489,8 +514,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         zoom: agentFocus.zoomLevel || 12,
         duration: 3000,
         essential: true,
-        pitch: 0,
-        bearing: 0
+        pitch: mapRef.current.getPitch(),
+        bearing: mapRef.current.getBearing()
       });
     } else if (selectedStock) {
       if (isAutopilot && !isLiveNewsZoomEnabled) {
@@ -502,8 +527,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         zoom: 14, // Zoom in deeper for "street view" feel on selection
         duration: 2500,
         essential: true,
-        pitch: 0,
-        bearing: 0
+        pitch: mapRef.current.getPitch(),
+        bearing: mapRef.current.getBearing()
       });
     }
   }, [selectedStock, agentFocus, isStyleLoaded, isLiveNewsZoomEnabled, isAutopilot, isFocusMode]);

@@ -146,6 +146,24 @@ export const COMPANIES: Company[] = [
     "domain": "db.com"
   },
   {
+    "symbol": "WTI",
+    "name": "WTI Crude Oil (Spot/Futures)",
+    "sector": "Energy",
+    "lat": 35.9850,
+    "lng": -96.7663,
+    "country": "USA",
+    "partners": [
+      "XOM",
+      "CVX",
+      "SHEL",
+      "ARAMCO",
+      "USO"
+    ],
+    "workforce": "Strategic Hub",
+    "headquarters": "Cushing, OK",
+    "domain": "eia.gov"
+  },
+  {
     "symbol": "TSLA",
     "name": "Tesla Inc.",
     "sector": "Automotive",

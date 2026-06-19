@@ -48,13 +48,23 @@ export const AgentNavigator: React.FC<AgentNavigatorProps> = ({
       }
 
       const data = await response.json();
-      if (data && data.coordinates && Array.isArray(data.coordinates)) {
+      if (data) {
+        const rawLat = data.lat !== undefined ? data.lat : data.latitude;
+        const rawLng = data.lng !== undefined ? data.lng : (data.longitude !== undefined ? data.longitude : data.lng);
+
+        const parsedLat = typeof rawLat === "number" ? rawLat : Number(rawLat);
+        const parsedLng = typeof rawLng === "number" ? rawLng : Number(rawLng);
+
+        const hasCoords = !isNaN(parsedLat) && !isNaN(parsedLng);
+        const latVal = hasCoords ? parsedLat : 37.3349;
+        const lngVal = hasCoords ? parsedLng : -122.0091;
+
         onNavigationComplete({
           locationName: data.locationName || "Analyzed Location",
-          coordinates: [Number(data.coordinates[0]), Number(data.coordinates[1])],
+          coordinates: [latVal, lngVal],
           zoomLevel: typeof data.zoomLevel === "number" ? data.zoomLevel : 6,
-          briefing: data.briefing || "Market intelligence report generated for this location.",
-          facts: data.facts,
+          briefing: data.briefing || data.explanation || "Market intelligence report generated for this location.",
+          facts: data.facts || [],
           ticker: data.ticker
         });
         setQuery(""); // Clear on successful dispatch
