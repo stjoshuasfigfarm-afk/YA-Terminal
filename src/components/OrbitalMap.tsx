@@ -43,6 +43,7 @@ interface OrbitalMapProps {
     to: any;
   }[];
   mapLayers?: { hq: boolean; arcs: boolean; satellite: boolean; borders: boolean };
+  isSidebarMinimized?: boolean;
 }
 
 export const OrbitalMap: React.FC<OrbitalMapProps> = ({
@@ -62,7 +63,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   toggleFocusMode,
   resetOrientationTrigger = 0,
   partnerLines = [],
-  mapLayers = { hq: true, arcs: true, satellite: false, borders: true }
+  mapLayers = { hq: true, arcs: true, satellite: false, borders: true },
+  isSidebarMinimized = false
 }) => {
   // Trigger orientation reset
   useEffect(() => {
@@ -366,6 +368,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
       maxPitch: 60,
       attributionControl: false,
       // @ts-ignore
+      antialias: true,
+      // @ts-ignore
       projection: { type: 'globe' }
     });
 
@@ -492,6 +496,18 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
   useEffect(() => {
     if (!mapRef.current || !isStyleLoaded) return;
 
+    let leftPadding = 0;
+    if (typeof window !== "undefined" && !isSidebarMinimized) {
+      const width = window.innerWidth;
+      if (width >= 1280) {
+        leftPadding = 320;
+      } else if (width >= 1024) {
+        leftPadding = 260;
+      } else if (width >= 768) {
+        leftPadding = 220;
+      }
+    }
+
     if (!isFocusMode) {
       // Zoomed out to see the whole globe
       mapRef.current.flyTo({
@@ -515,7 +531,8 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         duration: 3000,
         essential: true,
         pitch: mapRef.current.getPitch(),
-        bearing: mapRef.current.getBearing()
+        bearing: mapRef.current.getBearing(),
+        padding: { left: leftPadding, right: 0, top: 0, bottom: 0 }
       });
     } else if (selectedStock) {
       if (isAutopilot && !isLiveNewsZoomEnabled) {
@@ -528,10 +545,11 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
         duration: 2500,
         essential: true,
         pitch: mapRef.current.getPitch(),
-        bearing: mapRef.current.getBearing()
+        bearing: mapRef.current.getBearing(),
+        padding: { left: leftPadding, right: 0, top: 0, bottom: 0 }
       });
     }
-  }, [selectedStock, agentFocus, isStyleLoaded, isLiveNewsZoomEnabled, isAutopilot, isFocusMode]);
+  }, [selectedStock, agentFocus, isStyleLoaded, isLiveNewsZoomEnabled, isAutopilot, isFocusMode, isSidebarMinimized]);
 
   useEffect(() => {
     return () => {
@@ -697,9 +715,11 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
     if (!mapContainerRef.current) return;
 
     const resizeObserver = new ResizeObserver(() => {
-      if (mapRef.current) {
-        mapRef.current.resize();
-      }
+      window.requestAnimationFrame(() => {
+        if (mapRef.current) {
+          mapRef.current.resize();
+        }
+      });
     });
 
     resizeObserver.observe(mapContainerRef.current);
@@ -1067,13 +1087,6 @@ export const OrbitalMap: React.FC<OrbitalMapProps> = ({
           </div>
         </button>
 
-        <div className="h-px bg-emerald-500/20 my-1 mx-2" />
-        <NavButton 
-          icon={<Globe size={16} />} 
-          onClick={resetOrientation} 
-          active={zoom < 4}
-          label="reset" 
-        />
         <div className="hidden md:block h-px bg-emerald-500/20 my-1 mx-2" />
         
         {/* Slider scroll bar for Overhead to Angle view */}

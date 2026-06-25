@@ -3,6 +3,7 @@ import axios from "axios";
 
 const router = Router();
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
+const TWELVE_DATA_KEY = process.env.TWELVE_DATA_API_KEY || "";
 
 const isKeyReady = (k: string) => k && k.length > 5 && !k.includes("YOUR_");
 
@@ -94,7 +95,33 @@ router.get("/:symbol?", async (req, res) => {
       }
     }
 
-    // 2. Try Yahoo Finance with timeframe params
+    // 2. Try Twelve Data API
+    if (source === "NONE" && isKeyReady(TWELVE_DATA_KEY)) {
+      try {
+        let tdInterval = "1day";
+        let outputsize = 30;
+        if (timeframe === "1D") { tdInterval = "5min"; outputsize = 78; }
+        else if (timeframe === "1W") { tdInterval = "15min"; outputsize = 100; }
+        else if (timeframe === "1M") { tdInterval = "1day"; outputsize = 30; }
+        else if (timeframe === "1Y") { tdInterval = "1day"; outputsize = 365; }
+        else if (timeframe === "5Y") { tdInterval = "1week"; outputsize = 260; }
+
+        const url = `https://api.twelvedata.com/time_series?symbol=${yahooSymbol}&interval=${tdInterval}&outputsize=${outputsize}&apikey=${TWELVE_DATA_KEY}`;
+        const response = await axios.get(url, { timeout: 4000 });
+        const data = response.data;
+        if (data && data.values && Array.isArray(data.values)) {
+          processed = data.values.map((v: any) => ({
+            timestamp: new Date(v.datetime).getTime(),
+            price: parseFloat(v.close)
+          })).filter((d: any) => d.price > 0).reverse(); // Twelve data is desc by default
+          if (processed.length > 0) source = `TWELVE_${timeframe}`;
+        }
+      } catch (e) {
+        // Silent fallback
+      }
+    }
+
+    // 3. Try Yahoo Finance with timeframe params
     if (source === "NONE") {
       try {
         const url = `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=${yahooRange}&interval=${yahooInterval}`;

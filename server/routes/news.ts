@@ -7,7 +7,6 @@ const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
 const GNEWS_KEY = process.env.GNEWS_API_KEY || "";
 const THENEWS_KEY = process.env.THENEWSAPI_KEY || "";
 const CURRENT_KEY = process.env.CURRENT_API_KEY || "";
-const NEWSDATA_KEY = process.env.NEWSDATA_API_KEY || "";
 const MARKETAUX_KEY = process.env.MARKETAUX_API_KEY || "";
 const TIINGO_KEY = process.env.TIINGO_API_KEY || "";
 const parser = new Parser();
@@ -47,11 +46,11 @@ router.get("/:symbol?", async (req, res) => {
     }
     
     // 1. Fetch from Finnhub (if key present and ready)
-    if (isKeyReady(FINNHUB_KEY) && mappedNews.length === 0) {
+    if (isKeyReady(FINNHUB_KEY)) {
 
       try {
         const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${today}&token=${FINNHUB_KEY}`;
-        const response = await axios.get(url, { timeout: 6000 });
+        const response = await axios.get(url, { timeout: 10000 });
         const data = response.data;
 
         if (Array.isArray(data)) {
@@ -67,79 +66,59 @@ router.get("/:symbol?", async (req, res) => {
           }));
         }
       } catch (err: any) {
-        console.warn("Finnhub news fetch failed, skipping:", err.message);
+        if (err.response?.status !== 403) {
+          console.warn("Finnhub news fetch failed, skipping:", err.message);
+        }
       }
     }
 
     // 2. Fetch from Alternative APIs
     let altNews: any[] = [];
     
+    // Helper for fetching
+    const fetchGeneralNews = async (q: string, category: string, key: string, apiFunc: (query: string, key: string) => Promise<any[]>) => {
+        try {
+            const news = await apiFunc(q, key);
+            altNews.push(...news);
+        } catch (e) { /* silence */ }
+    };
+
     // GNews
     if (isKeyReady(GNEWS_KEY)) {
-        try {
-            const url = `https://gnews.io/api/v4/search?q=${symbol}&token=${GNEWS_KEY}&lang=en`;
-            const response = await axios.get(url, { timeout: 10000 });
-            if (response.data.articles) {
-                altNews.push(...response.data.articles.map((a: any) => ({
-                    title: a.title,
-                    description: a.description,
-                    published_at: a.publishedAt,
-                    url: a.url,
-                    image: a.image,
-                    source: a.source.name,
-                    category: "GNews",
-                    related: symbol
-                })));
-            }
-        } catch (e: any) {
-            // Silence API errors beautifully to prevent console warnings
-        }
+        await fetchGeneralNews(symbol, "GNews", GNEWS_KEY, async (q, k) => {
+            const response = await axios.get(`https://gnews.io/api/v4/search?q=${q}&token=${k}&lang=en`, { timeout: 10000 });
+            const responseGeneral = await axios.get(`https://gnews.io/api/v4/search?q=geopolitical+conflict&token=${k}&lang=en`, { timeout: 10000 });
+            return [...(response.data.articles || []), ...(responseGeneral.data.articles || [])].map((a: any) => ({
+                title: a.title,
+                description: a.description,
+                published_at: a.publishedAt,
+                url: a.url,
+                image: a.image,
+                source: a.source.name,
+                category: "GNews",
+                related: symbol
+            }));
+        });
     }
 
     // TheNewsAPI
     if (isKeyReady(THENEWS_KEY)) {
-        try {
-            const url = `https://api.thenewsapi.com/v1/news/all?search=${symbol}&api_token=${THENEWS_KEY}`;
-            const response = await axios.get(url, { timeout: 10000 });
-            if (response.data.data) {
-                altNews.push(...response.data.data.map((a: any) => ({
-                    title: a.title,
-                    description: a.description,
-                    published_at: a.published_at,
-                    url: a.url,
-                    image: a.image_url,
-                    source: a.source,
-                    category: "TheNewsAPI",
-                    related: symbol
-                })));
-            }
-        } catch (e: any) {
-            // Silence API errors beautifully to prevent console warnings
-        }
+        await fetchGeneralNews(symbol, "TheNewsAPI", THENEWS_KEY, async (q, k) => {
+            const response = await axios.get(`https://api.thenewsapi.com/v1/news/all?search=${q}&api_token=${k}`, { timeout: 10000 });
+            const responseGeneral = await axios.get(`https://api.thenewsapi.com/v1/news/all?search=geopolitical+conflict&api_token=${k}`, { timeout: 10000 });
+            return [...(response.data.data || []), ...(responseGeneral.data.data || [])].map((a: any) => ({
+                title: a.title,
+                description: a.description,
+                published_at: a.published_at,
+                url: a.url,
+                image: a.image_url,
+                source: a.source,
+                category: "TheNewsAPI",
+                related: symbol
+            }));
+        });
     }
     
-    // Newsdata.io
-    if (isKeyReady(NEWSDATA_KEY)) {
-        try {
-            const url = `https://newsdata.io/api/1/news?apikey=${NEWSDATA_KEY}&q=${symbol}&language=en`;
-            const response = await axios.get(url, { timeout: 10000 });
-            if (response.data.results) {
-                altNews.push(...response.data.results.map((a: any) => ({
-                    title: a.title,
-                    description: a.description,
-                    published_at: a.pubDate,
-                    url: a.link,
-                    image: a.image_url,
-                    source: a.source_id,
-                    category: "Newsdata.io",
-                    related: symbol
-                })));
-            }
-        } catch (e: any) {
-            // Silence API errors beautifully to prevent console warnings or validation test flags
-        }
-    }
-
     // Currents News API
     if (isKeyReady(CURRENT_KEY)) {
         try {

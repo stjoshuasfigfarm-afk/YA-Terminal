@@ -7,7 +7,6 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GNEWS_KEY = process.env.GNEWS_API_KEY || "";
 const THENEWS_KEY = process.env.THENEWSAPI_KEY || "";
 const CURRENT_KEY = process.env.CURRENT_API_KEY || "";
-const NEWSDATA_KEY = process.env.NEWSDATA_API_KEY || "";
 const MARKETAUX_KEY = process.env.MARKETAUX_API_KEY || "";
 const TIINGO_KEY = process.env.TIINGO_API_KEY || "";
 
@@ -27,6 +26,36 @@ const getAiClient = () => {
   }
   return aiClient;
 };
+
+// Helper to filter relevant news
+function isRelevant(title: string = "", description: string = ""): boolean {
+    const text = (title + " " + description).toLowerCase();
+
+    // 1. Noise Blacklist (Immediate Hard Block)
+    const excludeKeywords = ["movie", "cinema", "hollywood", "celebrity", "gossip", "album", "music", "tv show", "television", "netflix", "box office", "pop star", "red carpet", "sports", "championship", "hbo", "concert", "film"];
+    if (excludeKeywords.some(ek => text.includes(ek))) {
+        return false;
+    }
+
+    // 2. Critical Vectors (+3 points)
+    const criticalVectors = ['ceasefire', 'bombing', 'strike', 'geopolitical', 'sanctions', 'supply chain', 'bottleneck', 'chokepoint', 'tariffs', 'fed rate', 'yield curve', 'inversion', 'semiconductor', 'lithography', 'liquidity', 'central bank', 'corridor'];
+    
+    // 3. Market & Money Vectors (+1 point)
+    const marketVectors = ['market', 'economy', 'finance', 'trade', 'government', 'policy', 'business', 'stock', 'dividend', 'revenue', 'assets', 'treasury', 'bonds', 'commodity', 'crude'];
+
+    let score = 0;
+    
+    criticalVectors.forEach(cv => {
+        if (text.includes(cv)) score += 3;
+    });
+    
+    marketVectors.forEach(mv => {
+        if (text.includes(mv)) score += 1;
+    });
+
+    // 4. Threshold check
+    return score >= 2;
+}
 
 // Clean raw JSON response from markdown wrappers and any extra non-whitespace leading/trailing characters
 function cleanJSONResponse(text: string): string {
@@ -262,7 +291,7 @@ async function callAI(prompt: string, headers: any, jsonMode = false): Promise<s
 
   // 2. Default to Gemini (most reliable, high rate limits)
   if (ai) {
-    const geminiModels = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview", "gemini-flash-latest"];
+    const geminiModels = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.1-flash-preview", "gemini-flash-latest"];
     let lastGeminiErr: any = null;
     let anyQuotaExhausted = false;
     for (const modelName of geminiModels) {
@@ -488,10 +517,10 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
         "Slight transport premium surcharges matching high-volume logistics congestion in the corridor",
         "Sub-tier capacity boundaries stalling final assembly cycles at downstream sites"
       ],
-      tacticalRecommendations: [
-        `OPERATIONAL DIRECTIVE: Submit immediate telemetry review request for operations near ${symbol} node alpha`,
-        "OPERATIONAL DIRECTIVE: Leverage long-term partner contracts to insulate raw material sourcing and build Resilience",
-        "OPERATIONAL DIRECTIVE: Maintain a minimum 45-day safety buffer for critical assembly parts in high-risk zones"
+      relatedEntities: [
+        "Port of Long Beach / Operations Union Local 56",
+        "Federal Maritime Commission (FMC) - Shipping Act Review",
+        "Maersk Line - Transpacific Eastbound Routes"
       ],
       outlook: (sentiment === "BULLISH" ? "ACCELERATING" : sentiment === "BEARISH" ? "VULNERABLE" : "STABLE") as any,
     };
@@ -510,10 +539,10 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
         "Geopolitical export boundaries compressing software monetization spreads in APAC regions",
         "Air cargo slot congestion during seasonal product refresh cycles causing Logistics Ripples"
       ],
-      tacticalRecommendations: [
-        "OPERATIONAL DIRECTIVE: Accelerate secondary silicon fabrication path validation via TSMC Arizona node",
-        "OPERATIONAL DIRECTIVE: Implement real-time buffer inventory for priority sensors with 60-day runway",
-        "OPERATIONAL DIRECTIVE: Audit air-bridge alternatives for Q4 logistical surges to avoid freight spikes"
+      relatedEntities: [
+        "Hon Hai Precision Industry (Foxconn) - Zhengzhou Factory",
+        "European Commission - Digital Markets Act (DMA) Compliance",
+        "US Department of Commerce - Advanced Chip Export Controls"
       ],
       outlook: "STABLE" as const,
     };
@@ -531,10 +560,10 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
         "Seismic event triggers causing automated equipment calibration lags",
         "Extreme cleanroom chemical raw supply bottleneck sensitivity"
       ],
-      tacticalRecommendations: [
-        "Prioritize water reclamation infrastructure upgrades",
-        "Hedge key chemical raw substrate exposure via long-term contracts",
-        "Accelerate Arizona training lifecycle for faster node parity"
+      relatedEntities: [
+        "Taiwan Power Company (Taipower) - Hsinchu Science Park Substation",
+        "CHIPS and Science Act Program Office (US Department of Commerce)",
+        "ASML Holding N.V. - Veldhoven Logistics Hub"
       ],
       outlook: "ACCELERATING" as const,
     };
@@ -552,10 +581,10 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
         "Vapor chamber cooling thermal element raw material shortages",
         "Export control boundaries restricting high-margin shipments"
       ],
-      tacticalRecommendations: [
-        "Diversify interconnect supplier base to reduce lock-in vulnerability",
-        "Execute strategic stockpile program for thermal interface materials",
-        "On-shore final testing clusters for sensitive H100/B200 variants"
+      relatedEntities: [
+        "TSMC Advanced Packaging Facility (AP6) - Miaoli County",
+        "US Bureau of Industry and Security (BIS) - Entity List Reviews",
+        "SK Hynix - High Bandwidth Memory (HBM) Division"
       ],
       outlook: "STABLE" as const,
     };
@@ -573,10 +602,10 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
         "Regulatory export mandate alterations compressing total addressable markets",
         "Air transport constraints for high-mass systems (180 tonnes per unit)"
       ],
-      tacticalRecommendations: [
-        "Secure long-chain logistics insurance for high-value lens transit",
-        "Lobby for simplified export licensing for maintenance sub-assemblies",
-        "Expand regional logistics hubs in Taiwan and Korea to reduce lead times"
+      relatedEntities: [
+        "Carl Zeiss SMT GmbH - Oberkochen Manufacturing",
+        "Dutch Ministry of Foreign Affairs - Export Control Board",
+        "KLM Cargo - Specialized Tech Logistics Unit"
       ],
       outlook: "STABLE" as const,
     };
@@ -594,10 +623,10 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
       "Localized infrastructure power grid latency or rolling shutdowns",
       "General regulatory reporting compliance friction"
     ],
-    tacticalRecommendations: [
-      "Conduct stress-test on secondary maritime corridor throughput",
-      "Optimize local inventory churn to reduce working capital locks",
-      "Audit energy redundancy protocols for primary operational clusters"
+    relatedEntities: [
+      "International Chamber of Commerce (ICC)",
+      "Local Municipal Zoning Board / Port Authority",
+      "Regional Independent System Operator (ISO)"
     ],
     outlook: "STABLE" as const,
   };
@@ -671,17 +700,6 @@ router.post("/news", async (req, res) => {
         }
     }
     
-    // Newsdata.io
-    if (isKeyReady(NEWSDATA_KEY) && fetchedNews.length < 5) {
-        try {
-            const url = `https://newsdata.io/api/1/news?apikey=${NEWSDATA_KEY}&q=${target}&language=en`;
-            const response = await axios.get(url, { timeout: 3000 });
-            if (response.data.results) fetchedNews.push(...response.data.results.map((a: any) => ({ title: a.title, description: a.description, url: a.link })));
-        } catch (e: any) {
-            // Silence API errors beautifully to prevent console warnings or validation test flags
-        }
-    }
-
     // Currents News API
     if (isKeyReady(CURRENT_KEY) && fetchedNews.length < 5) {
         try {
@@ -721,7 +739,10 @@ router.post("/news", async (req, res) => {
         }
     }
     
-    // 2. AI Summarization based on real news or fallback
+    // 2. Filter fetched news for relevance
+    fetchedNews = fetchedNews.filter(n => isRelevant(n.title, n.description));
+    
+    // 3. AI Summarization based on real news or fallback
     const prompt = fetchedNews.length > 0 ? `
       You are a high-frequency financial intelligence aggregator.
       The following is REAL news for ${target}: ${JSON.stringify(fetchedNews.slice(0, 3))}.
@@ -791,6 +812,12 @@ router.post("/enrich-news", async (req, res) => {
     return res.status(400).json({ error: "Invalid data format" });
   }
 
+  // Filter data for relevance
+  const filteredData = data.filter((n: any) => isRelevant(n.title, n.description));
+  if (filteredData.length === 0) {
+      return res.json([]);
+  }
+
   try {
     const openRouterKey = req.headers['x-openrouter-api-key'] as string || process.env.OPENROUTER_API_KEY || "";
     const hasOpenRouter = isKeyReady(openRouterKey);
@@ -820,7 +847,7 @@ router.post("/enrich-news", async (req, res) => {
         [{ "translatedTitle": string, "sentiment": "BULLISH" | "BEARISH" | "NEUTRAL", "impact": "CRITICAL" | "MODERATE" | "ROUTINE", "relationshipImplications": string }]
         
         News Data:
-        ${data.map((n: any, i: number) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
+        ${filteredData.map((n: any, i: number) => `${i+1}. TITLE: ${n.title} | SUMMARY: ${n.description}`).join("\n")}
       `;
 
       const responseText = await callAI(prompt, { ...req.headers, 'x-openrouter-model': 'anthropic/claude-3.5-sonnet' }, true);
@@ -871,13 +898,13 @@ router.post("/briefing", async (req, res) => {
          - Title of Selected News: "${storyContext.title}"
          - Description of Selected News: "${storyContext.description}"
          
-         Your "summary", "riskFactors", "growthVectors", and "tacticalRecommendations" MUST explicitly analyze the direct micro and macro consequences of this specific event, its location, the involved names, amounts, and partner dependencies. Make your briefing highly cohesive, precise, and targeted directly around this selected news.` : ""}
+         Your "summary", "riskFactors", "growthVectors", and "relatedEntities" MUST explicitly analyze the direct micro and macro consequences of this specific event, its location, the involved names, amounts, and partner dependencies. Make your briefing highly cohesive, precise, and targeted directly around this selected news.` : ""}
          
          Structure your response as follows:
          1. Summary: A high-density, authoritative "Deck Detail Summary" (approx 80-100 words). Be granular.
          2. Growth Vectors: Identify 3 specific catalysts that could de-risk their supply chain or accelerate yield.
          3. Risk Factors: Identify 3 non-obvious structural or systemic risks (e.g., specific tier-3 supplier clusters, maritime choke points, or regulatory shifts).
-         4. Tactical Recommendations: 3 direct, hyper-specific "Operational Directives" for an executive board.
+         4. Related Entities: Provide 3 highly specific details naming related People, Places, Bills, Filings, and Organizations involved in this event.
          5. Outlook: STRETCHED | STABLE | ACCELERATING | VULNERABLE | COMPROMISED
 
          Return JSON object:
@@ -885,7 +912,7 @@ router.post("/briefing", async (req, res) => {
            "summary": string,
            "growthVectors": [string, string, string],
            "riskFactors": [string, string, string],
-           "tacticalRecommendations": [string, string, string],
+           "relatedEntities": [string, string, string],
            "outlook": string
          }
        `;
@@ -1051,22 +1078,27 @@ router.post("/navigate", async (req, res) => {
                  extraContext = `Here are upcoming IPOs to mention (use this real data): ${JSON.stringify(ipoData.ipoCalendar.slice(0, 10))}`;
              }
          }
-       } catch (err) {
-         console.warn("IPO fetch failed for AI context", err);
+       } catch (err: any) {
+         if (err.response?.status !== 403) {
+           console.warn("IPO fetch failed for AI context", err.message);
+         }
        }
     }
 
     const results = await withRetry(async () => {
       const prompt = `
-         You are a professional business, finance, and logistics analyst.
-         The user is asking: "${query}"
+         You are the Globe Agent, a premier geopolitical, financial, and logistics intelligence analyst at high-clearance level.
+         The user is submitting a tactical inquiry: "${query}"
          ${extraContext}
 
-         CRITICAL MANDATE: You MUST write everything strictly in clear, natural English. Avoid all technical jargon, pseudo-code, or foreign language terms. Write in a helpful human voice.
+         CRITICAL MANDATE:
+         1. Authenticity: Speak with absolute authority and professional sophistication. Avoid "AI" fluff.
+         2. Analytical Breadth: Address multi-vector impacts—geopolitical shifts (e.g., Iran-Israel), macro-financial policies (Fed, inflation), energy infrastructure (data centers, cost curves), and logistics chokepoints (Straits, Suez).
+         3. Precision: Use professional terminology: "Strategic Bottleneck", "Logistics Ripple", "Market Resilience", "Operational Vector", "Throughput Sensitivity", "Sovereign Risk".
+         4. Content: If the user asks about IPOs, provide detailed real-world data and expectations. If they ask about geopolitics, analyze the supply chain and market impact.
+         5. Facts Array: The 'facts' array MUST contain specific names, locations, and organizations. Avoid general statements. Provide precise, actionable intelligence entities (e.g., "Taiwan Semiconductor Manufacturing Company (TSMC) - Hsinchu, Taiwan", "Federal Reserve - Washington D.C.", "Strait of Hormuz - Oman/Iran").
 
          Task: 
-         If the user asks about IPOs, provide the IPO information, future IPOs, and expected dates.
-         If the user asks a general question, answer it thoroughly.
          Always choose a geographical location related to the user's question to ground the context. For example, if asked about IPOs, choose New York Wall Street.
 
          Your output MUST be a clean, valid and structured JSON object.
@@ -1076,7 +1108,7 @@ router.post("/navigate", async (req, res) => {
            "lng": number,
            "ticker": "string or null",
            "briefing": "A comprehensive briefing or answer to the user's question. Format with readable paragraphs.",
-           "facts": ["Fact 1", "Fact 2", "Fact 3"]
+           "facts": ["Specific Entity/Org 1", "Specific Location/Name 2", "Specific Company 3"]
          }
        `;
 

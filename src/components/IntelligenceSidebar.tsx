@@ -13,6 +13,8 @@ import {
   Box,
   ShieldAlert,
   MapPin,
+  ChevronLeft,
+  ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Volume2,
@@ -35,6 +37,7 @@ import {
   Send,
   MessageSquare,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import { formatCurrency, cn, getApiBaseUrl } from "../lib/utils";
 import { analyzeSentimentAndImpact } from "../lib/sentiment";
@@ -42,12 +45,14 @@ import { SupplyChainPanel } from "./SupplyChainPanel";
 import { MacroCorridor } from "./yield-terminal/MacroCorridor";
 import { YieldCurveMonitor } from "./YieldCurveMonitor";
 
+import { SectorRotation } from "./SectorRotation";
+
 import { motion, AnimatePresence } from "motion/react";
 
 interface IntelligenceSidebarProps {
   selectedStock: Company | null;
   quote: any;
-  news: any[];
+  accumulatedNews: any[];
   financials: any[];
   profile: any;
   history: any[];
@@ -87,12 +92,14 @@ interface IntelligenceSidebarProps {
     suezCanalBlocked: boolean;
     malaccaStraitBlocked: boolean;
     panamaCanalBlocked: boolean;
+    hormuzStraitBlocked: boolean;
   };
   setShocks?: {
     setTaiwanStraitBlocked: (v: boolean) => void;
     setSuezCanalBlocked: (v: boolean) => void;
     setMalaccaStraitBlocked: (v: boolean) => void;
     setPanamaCanalBlocked: (v: boolean) => void;
+    setHormuzStraitBlocked: (v: boolean) => void;
   };
   mitigations?: {
     airFreightActive: boolean;
@@ -214,7 +221,7 @@ export const IntelligenceSidebar = React.memo(
   ({
     selectedStock,
     quote,
-    news = [],
+    accumulatedNews = [],
     financials = [],
     profile,
     history = [],
@@ -248,6 +255,7 @@ export const IntelligenceSidebar = React.memo(
       suezCanalBlocked: false,
       malaccaStraitBlocked: false,
       panamaCanalBlocked: false,
+      hormuzStraitBlocked: false,
     },
     setShocks,
     mitigations = {
@@ -274,6 +282,7 @@ export const IntelligenceSidebar = React.memo(
       suezCanalBlocked,
       malaccaStraitBlocked,
       panamaCanalBlocked,
+      hormuzStraitBlocked,
     } = shocks;
     const { airFreightActive, strategicStockpileActive, dualSourcingActive } =
       mitigations;
@@ -282,6 +291,7 @@ export const IntelligenceSidebar = React.memo(
       setSuezCanalBlocked,
       setMalaccaStraitBlocked,
       setPanamaCanalBlocked,
+      setHormuzStraitBlocked,
     } = setShocks || {};
     const {
       setAirFreightActive,
@@ -290,6 +300,8 @@ export const IntelligenceSidebar = React.memo(
     } = setMitigations || {};
 
     const [localNewsSearch, setLocalNewsSearch] = useState("");
+    const [isNewsLocked, setIsNewsLocked] = useState(false);
+    
     const newsSearch =
       searchQuery !== undefined ? searchQuery : localNewsSearch;
     const setNewsSearch =
@@ -302,7 +314,7 @@ export const IntelligenceSidebar = React.memo(
       Record<string, "VERIFIED" | "FAILED">
     >({});
     const [innerLeftTab, setInnerLeftTab] = useState<
-      "STRATEGY" | "LOGISTICS_COCKPIT" | "YIELD" | "SUPPLY_CHAIN" | "AI_AGENT"
+      "STRATEGY" | "LOGISTICS_COCKPIT" | "YIELD" | "SUPPLY_CHAIN" | "AI_AGENT" | "MACRO"
     >("STRATEGY");
     const [chatHistory, setChatHistory] = useState<Array<{
       role: 'user' | 'assistant';
@@ -318,6 +330,27 @@ export const IntelligenceSidebar = React.memo(
       }
     ]);
     const [aiInput, setAiInput] = useState("");
+    
+    const [stressors, setStressors] = useState<string[]>([
+      "LIQUIDITY",
+      "GEOPOLITICAL",
+      "SUPPLY_CHAIN",
+      "CURRENCY",
+      "CREDIT",
+    ]);
+
+    const updateStressors = async () => {
+      try {
+        const response = await fetch("/api/ai/stressors", { method: "POST" });
+        if (response.ok) {
+          const data = await response.json();
+          setStressors(data.stressors);
+        }
+      } catch (err) {
+        console.error("Failed to update stressors:", err);
+      }
+    };
+
     const [strategySubTab, setStrategySubTab] = useState<
       "detailed" | "filtered"
     >("filtered");
@@ -719,6 +752,17 @@ export const IntelligenceSidebar = React.memo(
           reason =
             "Taiwan Air-Sea airspace restrictions block high-beta silicon wafer flows.";
         } else if (
+          hormuzStraitBlocked &&
+          (itemSector.includes("energy") ||
+            item.symbol === "ARAMCO" ||
+            item.symbol === "XOM" ||
+            item.symbol === "CVX" ||
+            item.symbol === "SHEL")
+        ) {
+          failed = true;
+          reason =
+            "Strait of Hormuz closure blocks primary global energy transit corridor (21 million bpd risk).";
+        } else if (
           suezCanalBlocked &&
           (itemSector.includes("energy") ||
             item.symbol === "ARAMCO" ||
@@ -779,13 +823,6 @@ export const IntelligenceSidebar = React.memo(
 
     // Dynamic correlation matrix data simulation
     const correlationMatrix = useMemo(() => {
-      const stressors = [
-        "LIQUIDITY",
-        "GEOPOLITICAL",
-        "SUPPLY_CHAIN",
-        "CURRENCY",
-        "CREDIT",
-      ];
       return stressors.map((s1) =>
         stressors.map((s2) => {
           if (s1 === s2) return 1.0;
@@ -809,6 +846,8 @@ export const IntelligenceSidebar = React.memo(
       suezCanalBlocked,
       malaccaStraitBlocked,
       panamaCanalBlocked,
+      hormuzStraitBlocked,
+      stressors,
     ]);
 
     const [sentimentFilter, setSentimentFilter] = useState<
@@ -824,7 +863,7 @@ export const IntelligenceSidebar = React.memo(
 
     const distinctSectors = useMemo(() => {
       const sectors = new Set<string>();
-      news.forEach((item) => {
+      accumulatedNews.forEach((item) => {
         const compSym = item.symbol || item.ticker || "";
         const found = COMPANIES.find((c) => c.symbol === compSym);
         if (found && found.sector) {
@@ -832,7 +871,7 @@ export const IntelligenceSidebar = React.memo(
         }
       });
       return Array.from(sectors);
-    }, [news]);
+    }, [accumulatedNews]);
 
     const runSupplyChainAudit = (symbol: string) => {
       setAuditStatus("running");
@@ -851,9 +890,9 @@ export const IntelligenceSidebar = React.memo(
     };
 
     const filteredNews = useMemo(() => {
-      return news.filter((item) => {
+      return accumulatedNews.filter((item) => {
         // Filter by the selected ticker under Data Tel Stream in the left sidebar
-        if (selectedStock?.symbol) {
+        if (!isNewsLocked && selectedStock?.symbol) {
           const compSym = (item.symbol || item.ticker || item.related || "").toUpperCase();
           if (compSym !== selectedStock.symbol.toUpperCase()) return false;
         }
@@ -888,7 +927,7 @@ export const IntelligenceSidebar = React.memo(
 
         return true;
       });
-    }, [news, newsSearch, sentimentFilter, impactFilter, selectedSourceFilter, selectedSectorFilter, selectedStock?.symbol]);
+    }, [accumulatedNews, newsSearch, sentimentFilter, impactFilter, selectedSourceFilter, selectedSectorFilter, selectedStock?.symbol, isNewsLocked]);
 
     // Synchronize local isSpeaking state to global app level via custom events
     useEffect(() => {
@@ -1005,7 +1044,13 @@ export const IntelligenceSidebar = React.memo(
         )}
       >
         {isFocusMode && <div className="scanline-overlay" />}
-      <div className="h-11 border-b border-zinc-800 bg-zinc-950/95 flex items-center justify-between px-3 shrink-0 relative overflow-hidden group">
+      <div 
+        className={cn(
+          "h-11 border-b border-zinc-900 bg-zinc-950/95 flex items-center shrink-0 relative overflow-hidden group cursor-pointer hover:bg-zinc-900/40 transition-colors",
+          isMinimized ? "justify-center px-0" : "justify-between px-3"
+        )}
+        onClick={isMinimized ? onToggleMinimize : undefined}
+      >
         {/* Hardware Markers */}
         <div className="absolute top-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
         <div className="absolute top-0 right-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
@@ -1018,66 +1063,65 @@ export const IntelligenceSidebar = React.memo(
         <div className="absolute top-0 right-0 w-8 h-[1px] bg-emerald-500/10" />
         <div className="absolute top-0 right-0 w-[1px] h-8 bg-emerald-500/10" />
         
-        {!isMinimized && (
-          <div className="flex items-center gap-2.5">
-            <div className="relative flex items-center justify-center">
-              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]" />
-              <div className="absolute w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-40" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white font-mono truncate leading-none">
-                INTEL_COCKPIT_V4
-              </span>
-              {!isFocusMode && (
-                <span className="text-[6px] text-emerald-400 font-mono font-black tracking-widest mt-0.5 animate-pulse">
-                  [SYSTEM_ENHANCED_MODE]
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5 z-10">
+        <div className={cn("flex items-center z-10 w-full", isMinimized ? "justify-center" : "gap-2.5")}>
           <button
-            onClick={toggleFocusMode}
-            className={cn(
-              "text-[8px] font-mono px-2 py-0.5 border rounded-xs transition-all active:scale-95",
-              isFocusMode 
-                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400" 
-                : "bg-black border-zinc-800 text-zinc-600 hover:text-zinc-500"
-            )}
-            title={isFocusMode ? "Disable Focus Mode" : "Enable Focus Mode"}
-          >
-            {isFocusMode ? "FOCUS: ON" : "FOCUS: OFF"}
-          </button>
-          <button
-            onClick={onToggleMinimize}
-            className="hidden md:flex text-zinc-500 hover:text-white transition-colors p-1 rounded-sm hover:bg-white/5 active:scale-95"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMinimize();
+            }}
+            className="hidden md:flex relative w-5 h-5 items-center justify-center transition-all duration-200 active:scale-95 group/btn cursor-pointer"
             title={isMinimized ? "Expand Intelligence" : "Minimize Intelligence"}
           >
-            {isMinimized ? (
-              <ChevronsLeft className="w-4 h-4" />
-            ) : (
-              <ChevronsRight className="w-4 h-4" />
-            )}
+            <div className="absolute inset-0 bg-emerald-500/5 rotate-45 border border-emerald-500/30 group-hover/btn:bg-emerald-500/15 group-hover/btn:border-emerald-500/50 transition-all duration-200" />
+            <div className="relative z-10 text-emerald-400 group-hover/btn:text-emerald-300 transition-colors flex items-center justify-center">
+              {isMinimized ? (
+                <ChevronLeft className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5" />
+              )}
+            </div>
           </button>
+
+          {!isMinimized && (
+            <div className="flex items-center gap-2.5">
+              <div className="relative flex items-center justify-center">
+                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]" />
+                <div className="absolute w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-40" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white font-mono truncate leading-none">
+                  INTEL_COCKPIT_V4
+                </span>
+                {!isFocusMode && (
+                  <span className="text-[6px] text-emerald-400 font-mono font-black tracking-widest mt-0.5 animate-pulse">
+                    [SYSTEM_ENHANCED_MODE]
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {!isMinimized && (
+        <div className="px-3.5 pt-3 flex-shrink-0 bg-transparent">
+          <div className="flex gap-1.5 items-center bg-zinc-950 p-1.5 border border-zinc-900 rounded-sm select-none">
+            <Filter className="w-3.5 h-3.5 text-zinc-500 ml-1 shrink-0" />
+            <input
+              type="text"
+              value={newsSearch}
+              onChange={(e) => setNewsSearch(e.target.value)}
+              placeholder="Filter intel signals..."
+              className="bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none font-mono text-[8.5px] text-zinc-300 placeholder-zinc-700 flex-1 min-w-0"
+            />
+          </div>
+        </div>
+      )}
 
              <div className="flex-1 flex flex-col min-h-0">
               {/* Inner Switch Row */}
               <div className="flex bg-black shrink-0 border-b border-zinc-900 h-11 p-1.5 gap-px select-none overflow-x-auto scrollbar-none transition-all duration-150">
                 {[
-                  {
-                    id: "STRATEGY",
-                    label: selectedStock ? "NEWS_FEED" : "TACTICAL_FEED",
-                    icon: <MapPin className="w-3 h-3" />,
-                  },
-                  {
-                    id: "YIELD",
-                    label: "SOVEREIGN_YIELDS",
-                    icon: <TrendingUp className="w-3 h-3" />,
-                  },
                   ...(selectedStock ? [
                     {
                       id: "LOGISTICS_COCKPIT",
@@ -1085,6 +1129,16 @@ export const IntelligenceSidebar = React.memo(
                       icon: <Network className="w-3 h-3" />,
                     }
                   ] : []),
+                  {
+                    id: "STRATEGY",
+                    label: selectedStock ? "NEWS_FEED" : "TACTICAL_FEED",
+                    icon: <MapPin className="w-3 h-3" />,
+                  },
+                  {
+                    id: "MACRO",
+                    label: "MACRO",
+                    icon: <GlobeIcon className="w-3 h-3" />,
+                  },
                 ].map((sub) => (
                   <button
                     key={sub.id}
@@ -1110,20 +1164,10 @@ export const IntelligenceSidebar = React.memo(
 
               {/* PERMANENT YIELD STRUCTURE MONITOR REMOVED */}
 
-              <div className="p-3.5 flex-1 h-full overflow-y-auto custom-scrollbar min-h-0">
+               <div className={cn("p-3.5 flex-1 flex flex-col h-full custom-scrollbar min-h-0", innerLeftTab === "MACRO" ? "overflow-hidden" : "overflow-y-auto")}>
                 {/* STRATEGY TAB CONTENT */}
                 {innerLeftTab === "STRATEGY" && (
                    <div className="space-y-4">
-                     {!selectedStock && (
-                       <div className="p-4 border border-zinc-900 bg-zinc-950/20 text-center rounded-sm">
-                         <MapPin className="w-6 h-6 text-zinc-700 mx-auto mb-2" />
-                         <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">TACTICAL STREAM INACTIVE</div>
-                         <div className="text-[7.5px] text-zinc-650 mt-1 uppercase font-mono tracking-wide leading-relaxed">
-                           SELECT ANY INTEL NODE FROM THE MAP OR SEARCH INTERFACE TO POPULATE GEOGRAPHIC SIGNAL STREAM
-                         </div>
-                       </div>
-                     )}
-
                      {/* LABOR INTELLIGENCE ASSESSMENT - Requested to highlight hiring likelihood */}
                      {selectedStock && (selectedStock.turnover || selectedStock.hiringLikelihood) && (
                        <div className="bg-zinc-950/50 border border-emerald-500/10 rounded-sm p-3 relative overflow-hidden group">
@@ -1161,9 +1205,7 @@ export const IntelligenceSidebar = React.memo(
                        </div>
                      )}
 
-                     {/* 2. LIVE COGNITIVE FEED & NEWS (Only if selectedStock is defined) */}
-                     {selectedStock && (
-                       <div className="space-y-3">
+                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="relative">
@@ -1174,7 +1216,9 @@ export const IntelligenceSidebar = React.memo(
                               className="absolute inset-0 bg-emerald-400 blur-[2px] rounded-full" 
                             />
                           </div>
-                          <span className="text-[9px] text-zinc-400 font-black tracking-[0.15em] uppercase font-mono">LIVE_COGNITIVE_FEED</span>
+                          <span className="text-[9px] text-zinc-400 font-black tracking-[0.15em] uppercase font-mono">
+                            {selectedStock ? `LIVE_COGNITIVE_FEED: ${selectedStock.symbol}` : "GLOBAL_INTELLIGENCE_STREAM"}
+                          </span>
                         </div>
                         <div className="flex items-center gap-3">
                           {isAiProcessing && (
@@ -1191,17 +1235,7 @@ export const IntelligenceSidebar = React.memo(
                         </div>
                       </div>
 
-                      {/* Filter Bar Controls */}
-                      <div className="flex gap-1 items-center bg-black p-1 border border-zinc-900 rounded-sm select-none">
-                        <Filter className="w-3 h-3 text-zinc-600 ml-1 shrink-0" />
-                        <input
-                          type="text"
-                          value={newsSearch}
-                          onChange={(e) => setNewsSearch(e.target.value)}
-                          placeholder="Filter intel signals..."
-                          className="bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none font-mono text-[8.5px] text-zinc-300 placeholder-zinc-750 flex-1 min-w-0"
-                        />
-                      </div>
+                      {/* Filter Bar Controls - Moved to top above Tabs */}
 
                       <div className="flex flex-wrap gap-1">
                         {/* Sentiment filter quick buttons */}
@@ -1228,7 +1262,7 @@ export const IntelligenceSidebar = React.memo(
                         <span className="text-[6.5px] font-bold text-zinc-600 font-mono tracking-wider uppercase">SECTOR:</span>
                         <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto custom-scrollbar">
                           {["ALL", ...distinctSectors].map((sector) => {
-                            const count = news.filter((item) => {
+                            const count = accumulatedNews.filter((item) => {
                               if (sector === "ALL") return true;
                               const compSym = item.symbol || item.ticker || "";
                               const found = COMPANIES.find((c) => c.symbol === compSym);
@@ -1260,6 +1294,16 @@ export const IntelligenceSidebar = React.memo(
                       </div>
 
                       {/* News List */}
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[6.5px] font-bold text-zinc-600 font-mono tracking-wider uppercase">NEWS_FEED:</span>
+                        <button
+                          onClick={() => setIsNewsLocked(!isNewsLocked)}
+                          className={cn("p-0.5 rounded-xs hover:bg-zinc-900 transition-colors", isNewsLocked ? "text-amber-500" : "text-zinc-600")}
+                          title={isNewsLocked ? "Unlock feed" : "Lock feed"}
+                        >
+                          <Lock className={cn("w-3 h-3", isNewsLocked ? "fill-current" : "")} />
+                        </button>
+                      </div>
                       {filteredNews.length > 0 ? (
                         <div className="space-y-3 pr-0.5">
                           {filteredNews.slice(0, 10).map((item: any, idx: number) => {
@@ -1274,13 +1318,17 @@ export const IntelligenceSidebar = React.memo(
                                   if (foundCompany) {
                                     onSelectNode(foundCompany, false, false, item);
                                     setInnerLeftTab("STRATEGY");
+                                    
+                                    if (isVocalizerEnabled) {
+                                      handleSpeak(item.title + (item.summary || item.description ? ". " + (item.summary || item.description) : ""));
+                                    }
                                   }
                                 }}
                                 className={cn(
-                                  "group border bg-zinc-950/20 hover:bg-zinc-900/10 cursor-pointer active:scale-[0.99] hover:scale-[1.01] transition-all rounded-xs font-mono overflow-hidden flex flex-col relative",
+                                  "group border bg-black/40 backdrop-blur-sm cursor-pointer active:scale-[0.99] transition-all rounded-xs font-mono overflow-hidden flex flex-col relative",
                                   (item.source || "").toLowerCase().includes("yahoo")
-                                    ? "border-purple-950 hover:border-purple-500/60"
-                                    : "border-zinc-900 hover:border-emerald-500/60"
+                                    ? "border-zinc-800 hover:border-purple-900/50"
+                                    : "border-zinc-800 hover:border-emerald-900/50"
                                 )}
                               >
                                 {compImpact === "CRITICAL" && (
@@ -1372,34 +1420,92 @@ export const IntelligenceSidebar = React.memo(
                         </div>
                       )}
                     </div>
-                    )}
-                  </div>
-                )}
-
-                {/* YIELD TAB CONTENT */}
-                {innerLeftTab === "YIELD" && (
-                  <div className="space-y-4">
-                    <YieldCurveMonitor yields={yields} />
                   </div>
                 )}
 
                 {/* LOGISTICS COCKPIT TAB CONTENT */}
                 {innerLeftTab === "LOGISTICS_COCKPIT" && selectedStock && (
                   <div className="space-y-4">
+                    {/* Sourced Critical Material Inventory */}
+                    {SOURCED_MATERIALS && SOURCED_MATERIALS.length > 0 && (
+                      <div className="p-3 bg-black border border-zinc-900 rounded-sm space-y-3">
+                        <div className="flex items-center justify-between border-b border-zinc-900 pb-2 select-none font-mono">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
+                            <span className="text-[9px] text-zinc-400 font-black tracking-[0.15em] uppercase">MATERIAL_INVENTORY_ROOT</span>
+                          </div>
+                          <span className="text-[7.5px] bg-emerald-950/30 text-emerald-400 px-1.5 py-0.5 border border-emerald-900/30 font-bold uppercase">
+                            VULN_SCAN_ACTIVE
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                          {SOURCED_MATERIALS.map((mat, idx) => {
+                            const isHighRisk =
+                              (mat.vulnerability || "")
+                                .toLowerCase()
+                                .includes("critical") ||
+                              (mat.vulnerability || "")
+                                .toLowerCase()
+                                .includes("high");
+                            return (
+                              <div
+                                key={idx}
+                                className="p-2 bg-black/60 border border-zinc-900/40 rounded-sm flex flex-col gap-1 hover:border-emerald-500/25 transition-colors"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="font-bold text-zinc-200 text-[9px] leading-tight font-sans">
+                                    {mat.name}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "font-mono text-[7px] font-black px-1 py-0.5 uppercase border shrink-0",
+                                      isHighRisk
+                                        ? "bg-red-950/30 border-red-900/30 text-red-400"
+                                        : "bg-zinc-900 border-zinc-800 text-zinc-500",
+                                    )}
+                                  >
+                                    {mat.quantity}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-1 mt-0.5 text-[7.5px]">
+                                  <span className="text-zinc-500 font-mono italic">
+                                    {mat.type}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "font-mono font-bold uppercase flex items-center gap-0.5",
+                                      isHighRisk
+                                        ? "text-amber-500"
+                                        : "text-zinc-500",
+                                    )}
+                                  >
+                                    ⚠️ {mat.vulnerability}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     {/* Stress Monitor HUD */}
                     <div id="stress-chokepoint-mitigation-hud" className="p-3 border border-red-955/25 bg-red-955/2 rounded-sm space-y-3.5">
                       <div className="flex items-center justify-between border-b border-red-955/15 pb-2">
                         <div className="flex items-center gap-2">
                           <Sliders className="w-3 h-3 text-red-500 animate-pulse" />
                           <span className="text-[9px] text-red-400 font-mono font-black uppercase tracking-[0.15em]">STRESS_CHOKEPOINT_VECTORS</span>
+                          <button onClick={updateStressors} className="text-zinc-600 hover:text-emerald-500 transition-colors">
+                            <RefreshCcw className="w-3 h-3" />
+                          </button>
                         </div>
                         <span className={cn(
                           "text-[7px] border px-1.5 py-0.5 rounded-2xs font-extrabold font-mono",
-                          (taiwanStraitBlocked || suezCanalBlocked || malaccaStraitBlocked || panamaCanalBlocked)
+                          (taiwanStraitBlocked || suezCanalBlocked || malaccaStraitBlocked || panamaCanalBlocked || hormuzStraitBlocked)
                             ? "bg-red-500/10 border-red-500/30 text-red-400 animate-pulse"
                             : "bg-emerald-500/10 border-emerald-500/30 text-emerald-450"
                         )}>
-                          {(taiwanStraitBlocked || suezCanalBlocked || malaccaStraitBlocked || panamaCanalBlocked) ? "SHOCK_LIVE" : "OPTIMAL_FLOW"}
+                          {(taiwanStraitBlocked || suezCanalBlocked || malaccaStraitBlocked || panamaCanalBlocked || hormuzStraitBlocked) ? "SHOCK_LIVE" : "OPTIMAL_FLOW"}
                         </span>
                       </div>
 
@@ -1438,7 +1544,7 @@ export const IntelligenceSidebar = React.memo(
                             </div>
                           </div>
 
-                          {/* Suez Canal */}
+                           {/* Suez Canal */}
                           <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
                             <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Suez Maritime Transit</span>
                             <div className="flex gap-1.5 mt-1">
@@ -1467,10 +1573,50 @@ export const IntelligenceSidebar = React.memo(
                             </div>
                           </div>
 
+                          {/* Hormuz Strait */}
+                          <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
+                            <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Hormuz Energy Gate</span>
+                            <div className="flex gap-1.5 mt-1">
+                              <button
+                                onClick={() => setHormuzStraitBlocked?.(true)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  hormuzStraitBlocked
+                                    ? "bg-red-950/40 text-red-400 border-red-500/35 shadow-[0_0_8px_rgba(239,68,68,0.25)]"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                BLOCK
+                              </button>
+                              <button
+                                onClick={() => setHormuzStraitBlocked?.(false)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  !hormuzStraitBlocked
+                                    ? "bg-emerald-950/30 text-emerald-450 border-emerald-500/35"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                CLEAR
+                              </button>
+                            </div>
+                          </div>
+
                           {/* Malacca Strait */}
                           <div className="p-1.5 bg-black/40 border border-zinc-900 rounded-sm flex flex-col justify-between gap-1.5">
                             <span className="text-zinc-400 text-[6.5px] uppercase tracking-wide truncate">Malacca Demurrage</span>
                             <div className="flex gap-1.5 mt-1">
+                              <button
+                                onClick={() => setMalaccaStraitBlocked?.(true)}
+                                className={cn(
+                                  "flex-1 py-1 text-[7px] font-bold border transition-all cursor-pointer rounded-2xs font-mono",
+                                  malaccaStraitBlocked
+                                    ? "bg-red-950/40 text-red-400 border-red-500/35 shadow-[0_0_8px_rgba(239,68,68,0.25)]"
+                                    : "bg-zinc-950 text-zinc-650 border-zinc-900/60 hover:border-zinc-800 hover:text-zinc-400"
+                                )}
+                              >
+                                BLOCK
+                              </button>
                               <button
                                 onClick={() => setMalaccaStraitBlocked?.(false)}
                                 className={cn(
@@ -1646,71 +1792,6 @@ export const IntelligenceSidebar = React.memo(
                       )}
                     </div>
 
-                    <div className="pt-2 border-t border-zinc-900"></div>
-
-                    {/* Sourced Critical Material Inventory */}
-                    {SOURCED_MATERIALS && SOURCED_MATERIALS.length > 0 && (
-                      <div className="p-3 bg-black border border-zinc-900 rounded-sm space-y-3">
-                        <div className="flex items-center justify-between border-b border-zinc-900 pb-2 select-none font-mono">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1 h-3 bg-emerald-500/50 rounded-full" />
-                            <span className="text-[9px] text-zinc-400 font-black tracking-[0.15em] uppercase">MATERIAL_INVENTORY_ROOT</span>
-                          </div>
-                          <span className="text-[7.5px] bg-emerald-950/30 text-emerald-400 px-1.5 py-0.5 border border-emerald-900/30 font-bold uppercase">
-                            VULN_SCAN_ACTIVE
-                          </span>
-                        </div>
-
-                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                          {SOURCED_MATERIALS.map((mat, idx) => {
-                            const isHighRisk =
-                              (mat.vulnerability || "")
-                                .toLowerCase()
-                                .includes("critical") ||
-                              (mat.vulnerability || "")
-                                .toLowerCase()
-                                .includes("high");
-                            return (
-                              <div
-                                key={idx}
-                                className="p-2 bg-black/60 border border-zinc-900/40 rounded-sm flex flex-col gap-1 hover:border-emerald-500/25 transition-colors"
-                              >
-                                <div className="flex items-start justify-between gap-2">
-                                  <span className="font-bold text-zinc-200 text-[9px] leading-tight font-sans">
-                                    {mat.name}
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      "font-mono text-[7px] font-black px-1 py-0.5 uppercase border shrink-0",
-                                      isHighRisk
-                                        ? "bg-red-950/30 border-red-900/30 text-red-400"
-                                        : "bg-zinc-900 border-zinc-800 text-zinc-500",
-                                    )}
-                                  >
-                                    {mat.quantity}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between gap-1 mt-0.5 text-[7.5px]">
-                                  <span className="text-zinc-500 font-mono italic">
-                                    {mat.type}
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      "font-mono font-bold uppercase flex items-center gap-0.5",
-                                      isHighRisk
-                                        ? "text-amber-500"
-                                        : "text-zinc-500",
-                                    )}
-                                  >
-                                    ⚠️ {mat.vulnerability}
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
 
                     <MacroCorridor
                       activeCorridorId={activeCorridorId}
@@ -1720,6 +1801,28 @@ export const IntelligenceSidebar = React.memo(
                         if (comp) onSelectNode(comp);
                       }}
                     />
+                  </div>
+                )}
+
+                {/* MACRO TAB CONTENT */}
+                {innerLeftTab === "MACRO" && (
+                  <div className="space-y-4 flex-1 flex flex-col h-full min-h-0">
+                    {/* Yield Curve Monitor Section */}
+                    <div className="p-3 bg-zinc-950 border border-zinc-900 rounded-sm flex-1 flex flex-col min-h-[350px]">
+                       <YieldCurveMonitor yields={yields} />
+                    </div>
+
+                    <div className="p-3 bg-zinc-950 border border-zinc-900 rounded-sm flex-1 flex flex-col min-h-[350px]">
+                      <div className="flex items-center gap-2 mb-3 border-b border-zinc-900/60 pb-2 shrink-0">
+                        <GlobeIcon className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-[9px] font-black tracking-widest uppercase font-mono text-emerald-500">
+                          Sector Rotation Alpha
+                        </span>
+                      </div>
+                      <div className="flex-1 relative min-h-0">
+                        <SectorRotation />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

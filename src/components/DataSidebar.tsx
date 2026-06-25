@@ -3,6 +3,8 @@ import { Company, COMPANIES } from "../data/companies";
 import { 
   Activity, 
   TrendingUp, 
+  ChevronLeft,
+  ChevronRight,
   ChevronsLeft, 
   ChevronsRight, 
   Trash2,
@@ -27,6 +29,7 @@ interface DataSidebarProps {
   isFocusMode?: boolean;
   pinnedTickers?: string[];
   onTogglePin?: (symbol: string, e: React.MouseEvent) => void;
+  searchBarNode?: React.ReactNode;
 }
 
 const Sparkline = ({ data }: { data?: any[] }) => {
@@ -282,6 +285,7 @@ export const DataSidebar = React.memo(({
   isFocusMode = true,
   pinnedTickers = [],
   onTogglePin,
+  searchBarNode,
 }: DataSidebarProps) => {
   const [logs, setLogs] = useState([
     "[ SYSTEM ]: QUANT PORT DISPATCHER RE-ROUTED",
@@ -442,18 +446,22 @@ export const DataSidebar = React.memo(({
 
   return (
     <aside className={cn(
-      "h-full border-r border-zinc-800 flex flex-col bg-black bg-cyber-grid z-25 shrink-0 select-none overflow-hidden relative transition-all duration-150",
+      "h-full border-r border-zinc-800 flex flex-col bg-black z-25 shrink-0 select-none overflow-hidden relative transition-all duration-150",
       "w-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] border-l border-zinc-900"
     )}>
-      {isFocusMode && <div className="scanline-overlay" />}
-      
-      {/* Top Header */}
-      <div className="h-11 border-b border-zinc-800 bg-zinc-950/95 flex items-center justify-between px-3 shrink-0 relative overflow-hidden group">
+      {/* Top Header - THE BRIEFING */}
+      <div 
+        className={cn(
+          "h-11 border-b border-zinc-800 bg-zinc-950/95 flex items-center shrink-0 relative overflow-hidden group cursor-pointer hover:bg-zinc-900/40 transition-colors",
+          isMinimized ? "justify-center px-0" : "justify-between px-3"
+        )}
+        onClick={onToggleMinimize}
+      >
         {/* Hardware Markers */}
         <div className="absolute top-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
         <div className="absolute top-0 right-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
         <div className="absolute bottom-0 left-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
-        <div className="absolute bottom-0 right-0 w-[2px] h-[2px] bg-zinc-700 m-1 rounded-full opacity-60" />
+        <div className="absolute bottom-0 right-0 w-[2px] h-[2px] bg-[zinc-700] m-1 rounded-full opacity-60" />
         
         {/* Bezel Accents */}
         <div className="absolute top-0 left-0 w-8 h-[1px] bg-emerald-500/10" />
@@ -475,24 +483,40 @@ export const DataSidebar = React.memo(({
              </div>
           </div>
         )}
-        <div className="flex items-center gap-1.5 z-10">
+
+        <div className={cn("flex items-center font-mono z-10", isMinimized ? "w-full justify-center" : "ml-auto")}>
             <button 
-              onClick={onToggleMinimize} 
-              className="hidden md:flex text-zinc-500 hover:text-white transition-colors p-1 rounded-sm hover:bg-white/5 active:scale-95"
+              className="hidden md:flex relative w-5 h-5 items-center justify-center transition-all duration-200 active:scale-95 group/btn cursor-pointer"
               title={isMinimized ? "Expand Sidebar" : "Minimize Sidebar"}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMinimize();
+              }}
             >
-              {isMinimized ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+              <div className="absolute inset-0 bg-emerald-500/5 rotate-45 border border-emerald-500/30 group-hover/btn:bg-emerald-500/15 group-hover/btn:border-emerald-500/50 transition-all duration-200" />
+              <div className="relative z-10 text-emerald-400 group-hover/btn:text-emerald-300 transition-colors flex items-center justify-center">
+                {isMinimized ? (
+                  <ChevronRight className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                )}
+              </div>
             </button>
         </div>
       </div>
 
+      {!isMinimized && searchBarNode && (
+        <div className="px-3 pt-3 flex-shrink-0">
+          {searchBarNode}
+        </div>
+      )}
+
       {!isMinimized && (
-        <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
+        <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden custom-scrollbar">
           {/* Target Title & Spot price */}
           {selectedStock ? (
             <>
               <div className="p-3 border-b border-zinc-900 bg-black shrink-0 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-8 h-8 bg-emerald-500/5 rotate-45 translate-x-4 -translate-y-4 border border-emerald-500/20" />
                 
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-3">
@@ -549,7 +573,7 @@ export const DataSidebar = React.memo(({
                   </div>
                   <span className="text-[8px] font-mono text-zinc-600 font-bold tracking-tighter">30D_SPAN</span>
                 </div>
-                <div className="h-[145px] w-full">
+                <div className="h-[250px] md:h-[145px] w-full">
                   <TelemetryChart 
                     data={history} 
                     aiForecast={sentiment?.forecast} 

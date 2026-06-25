@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Network, ArrowDown, Activity, Map, Box } from 'lucide-react';
+import { Network, ArrowDown, Activity, Map as MapIcon, Box } from 'lucide-react';
 import { COMPANIES, Company } from '../data/companies';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
@@ -18,15 +18,19 @@ export const SupplyChainPanel = ({ company, onSelectNode }: { company: Company, 
 
   const suppliersT2 = useMemo(() => {
     const symbolsT1 = suppliersT1.map(s => s.symbol);
-    return COMPANIES.filter(c => c.partners?.some(p => symbolsT1.includes(p)) && c.symbol !== company.symbol && !symbolsT1.includes(c.symbol));
+    const rawT2 = COMPANIES.filter(c => c.partners?.some(p => symbolsT1.includes(p)) && c.symbol !== company.symbol && !symbolsT1.includes(c.symbol));
+    // Deduplicate by symbol to prevent duplicate keys if COMPANIES has issues
+    return Array.from(new Map(rawT2.map(c => [c.symbol, c])).values());
   }, [suppliersT1, company]);
 
   const customersT2 = useMemo(() => {
     const symbolsT1 = customersT1.map(c => c.symbol);
-    return COMPANIES.filter(c => symbolsT1.some(sT1 => {
+    const rawT2 = COMPANIES.filter(c => symbolsT1.some(sT1 => {
       const src = COMPANIES.find(x => x.symbol === sT1);
       return src?.partners?.includes(c.symbol);
     }) && c.symbol !== company.symbol && !symbolsT1.includes(c.symbol));
+    // Deduplicate by symbol to prevent duplicate keys if COMPANIES has issues
+    return Array.from(new Map(rawT2.map(c => [c.symbol, c])).values());
   }, [customersT1, company]);
 
   // Determine active commodity theme
@@ -115,8 +119,8 @@ export const SupplyChainPanel = ({ company, onSelectNode }: { company: Company, 
             </div>
             {suppliersT2.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
-                {suppliersT2.slice(0, 4).map(c => (
-                  <SupplyChainNode key={`t2-sup-${c.symbol}`} data={c} type="supplier" onClick={() => onSelectNode(c)} />
+                {suppliersT2.slice(0, 4).map((c, idx) => (
+                  <SupplyChainNode key={`t2-sup-${c.symbol}-${idx}`} data={c} type="supplier" onClick={() => onSelectNode(c)} />
                 ))}
               </div>
             ) : (
@@ -135,8 +139,8 @@ export const SupplyChainPanel = ({ company, onSelectNode }: { company: Company, 
             </div>
             {suppliersT1.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
-                {suppliersT1.slice(0, 4).map(c => (
-                  <SupplyChainNode key={`t1-sup-${c.symbol}`} data={c} type="supplier" highlight onClick={() => onSelectNode(c)} />
+                {suppliersT1.slice(0, 4).map((c, idx) => (
+                  <SupplyChainNode key={`t1-sup-${c.symbol}-${idx}`} data={c} type="supplier" highlight onClick={() => onSelectNode(c)} />
                 ))}
               </div>
             ) : (
@@ -176,8 +180,8 @@ export const SupplyChainPanel = ({ company, onSelectNode }: { company: Company, 
             </div>
             {customersT1.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
-                {customersT1.slice(0, 4).map(c => (
-                  <SupplyChainNode key={`t1-cust-${c.symbol}`} data={c} type="customer" highlight onClick={() => onSelectNode(c)} />
+                {customersT1.slice(0, 4).map((c, idx) => (
+                  <SupplyChainNode key={`t1-cust-${c.symbol}-${idx}`} data={c} type="customer" highlight onClick={() => onSelectNode(c)} />
                 ))}
               </div>
             ) : (
@@ -196,8 +200,8 @@ export const SupplyChainPanel = ({ company, onSelectNode }: { company: Company, 
             </div>
             {customersT2.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
-                {customersT2.slice(0, 4).map(c => (
-                  <SupplyChainNode key={`t2-cust-${c.symbol}`} data={c} type="customer" onClick={() => onSelectNode(c)} />
+                {customersT2.slice(0, 4).map((c, idx) => (
+                  <SupplyChainNode key={`t2-cust-${c.symbol}-${idx}`} data={c} type="customer" onClick={() => onSelectNode(c)} />
                 ))}
               </div>
             ) : (

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from "react";
 import * as echarts from "echarts";
 import { TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
+import { cn } from "../lib/utils";
 
 interface YieldCurveMonitorProps {
   yields: {
@@ -32,66 +33,6 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
     setTimeout(() => setAnalysisStatus("NORMAL"), 3000);
   };
 
-  // Construct the full term structure maturities: 1M, 3M, 6M, 1Y, 2Y, 5Y, 7Y, 10Y, 20Y, 30Y
-  const curveData = useMemo(() => {
-    const cbRate = activeYields.interestRate ?? 5.50;
-    const treasuries = activeYields.treasuries || {};
-    
-    // Explicit anchor points
-    let y2 = treasuries['2Y'] ?? 4.82;
-    let y5 = treasuries['5Y'] ?? 4.45;
-    let y10 = treasuries['10Y'] ?? 4.42;
-    let y30 = treasuries['30Y'] ?? 4.56;
-
-    if (analysisStatus === "STRESSING") {
-      y2 += 0.5;
-      y5 += 0.1;
-      y10 -= 0.2;
-      y30 -= 0.3;
-    }
-
-    // Derived values for other maturities to form a continuous, realistic term structure
-    const isUSorSimilar = cbRate > y2; 
-
-    let y1M, y3M, y6M, y1Y, y7Y, y20Y;
-
-    if (isUSorSimilar) {
-      // Inverted profile derivation
-      y1M = cbRate - 0.15;
-      y3M = cbRate - 0.20;
-      y6M = cbRate - 0.30;
-      y1Y = (y6M + y2) / 2;
-      y7Y = (y5 + y10) / 2 - 0.02;
-      y20Y = (y10 + y30) / 2 - 0.05;
-    } else {
-      // Normal/Upward sloping profile derivation
-      y1M = cbRate + 0.15;
-      y3M = cbRate + 0.30;
-      y6M = cbRate + 0.45;
-      y1Y = (y6M + y2) / 2;
-      y7Y = (y5 + y10) / 2 + 0.05;
-      y20Y = (y10 + y30) / 2 + 0.10;
-    }
-
-    const maturities = [
-      { term: '1M', yield: y1M },
-      { term: '3M', yield: y3M },
-      { term: '6M', yield: y6M },
-      { term: '1Y', yield: y1Y },
-      { term: '2Y', yield: y2 },
-      { term: '5Y', yield: y5 },
-      { term: '7Y', yield: y7Y },
-      { term: '10Y', yield: y10 },
-      { term: '20Y', yield: y20Y },
-      { term: '30Y', yield: y30 }
-    ];
-
-    return maturities.map(m => ({
-      term: m.term,
-      yieldVal: parseFloat(m.yield.toFixed(3))
-    }));
-  }, [activeYields, analysisStatus]);
-
   // Spread Check validation (2-Year vs 10-Year yield)
   const spreadDetails = useMemo(() => {
     const treasuries = activeYields.treasuries || {};
@@ -113,250 +54,186 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
     };
   }, [activeYields, analysisStatus]);
 
+  const historicalData = useMemo(() => {
+    // Generate mock time series data for the past 5 Years (~1825 days)
+    const output = [];
+    const now = new Date();
+    
+    // Generate data, stepping by 2 days to optimize chart rendering (~900 points)
+    for (let i = 1825; i >= 0; i -= 2) {
+       const date = new Date(now);
+       date.setDate(date.getDate() - i);
+       
+       const portion = 1 - (i / 1825); // 0 to 1 (0 = 5 years ago, 1 = today)
+       
+       let target2Y = 2;
+       let target10Y = 2;
+       
+       // Macro rate environment phases over last 5 years:
+       if (portion < 0.2) { 
+         // Pre-COVID to COVID drop
+         target2Y = 2.0 - (portion / 0.2) * 1.8;
+         if (target2Y < 0.1) target2Y = 0.1;
+         target10Y = target2Y + 0.8 + (Math.sin(portion * 10) * 0.2);
+       } else if (portion < 0.5) { 
+         // Post-COVID ZIRP era
+         target2Y = 0.15;
+         target10Y = 1.2 + (portion - 0.2) * 1.5;
+       } else if (portion < 0.8) { 
+         // Aggressive Rate Hikes (Inflation)
+         const hikeProgress = (portion - 0.5) / 0.3;
+         target2Y = 0.15 + (hikeProgress * 4.8);
+         target10Y = 1.6 + (hikeProgress * 2.6); 
+       } else { 
+         // Higher for longer, Yield Curve Inversion
+         target2Y = 4.95 + Math.sin(portion * 20) * 0.2;
+         target10Y = 4.2 + Math.cos(portion * 15) * 0.2;
+       }
+
+       // High-frequency noise overlay
+       const noise2Y = Math.sin(i * 0.1) * 0.08 + Math.cos(i * 0.05) * 0.05;
+       const noise10Y = Math.cos(i * 0.12) * 0.08 + Math.sin(i * 0.04) * 0.05;
+
+       let final2Y = target2Y + noise2Y;
+       let final10Y = target10Y + noise10Y;
+
+       // Snap exactly to today's data for the current period
+       if (i <= 2) {
+         final2Y = spreadDetails.y2;
+         final10Y = spreadDetails.y10;
+       }
+       
+       output.push({
+         date: date.toISOString().split('T')[0],
+         y2: parseFloat(final2Y.toFixed(2)),
+         y10: parseFloat(final10Y.toFixed(2))
+       });
+    }
+    return output;
+  }, [spreadDetails]);
+
+  const statusColor = spreadDetails.isInverted ? 'text-red-500' : 'text-emerald-500';
+  const statusBg = spreadDetails.isInverted ? 'bg-red-950/20' : 'bg-emerald-950/20';
+  const statusBorder = spreadDetails.isInverted ? 'border-red-900/50' : 'border-emerald-900/50';
+
   useEffect(() => {
     if (!chartRef.current) return;
 
-    // Wait slightly to ensure containment layout bounds are ready
-    const timer = setTimeout(() => {
-      if (!chartRef.current) return;
-      if (!chartInstance.current) {
-        chartInstance.current = echarts.init(chartRef.current, 'dark');
-      }
+    if (!chartInstance.current) {
+      chartInstance.current = echarts.init(chartRef.current, 'dark');
+    }
 
-      const isInverted = spreadDetails.isInverted;
-      
-      // Cyber Terminal Theme (Emerald/Green as default to match App)
-      const themeColor = '#10b981';
-      const glowIntensity = 'rgba(16, 185, 129, 0.4)';
-      const gradientStart = 'rgba(16, 185, 129, 0.18)';
+    const dates = historicalData.map(d => d.date);
+    const y2Data = historicalData.map(d => d.y2);
+    const y10Data = historicalData.map(d => d.y10);
 
-      const categories = curveData.map(d => d.term);
-      const values = curveData.map(d => d.yieldVal);
+    const option = {
+      backgroundColor: 'transparent',
+      animation: false,
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          let html = `<div style="font-family: monospace; font-size: 8px;">`;
+          html += `<span style="color:#a1a1aa">${params[0].name}</span><br/>`;
+          params.forEach((p: any) => {
+            html += `<span style="color:${p.color}">${p.seriesName}: </span>`;
+            html += `<strong style="color:${p.color}">${p.value.toFixed(2)}%</strong><br/>`;
+          });
+          html += `</div>`;
+          return html;
+        },
+        backgroundColor: '#000000',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+      },
+      grid: {
+        top: 20,
+        bottom: 25,
+        left: 25,
+        right: 15,
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          show: true,
+          color: '#71717a',
+          fontFamily: 'monospace',
+          fontSize: 7,
+          formatter: (value: string) => {
+            const d = new Date(value);
+            return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+          }
+        }
+      },
+      yAxis: {
+        type: 'value',
+        scale: true,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: {
+          lineStyle: { color: 'rgba(255,255,255,0.03)', type: 'dashed' }
+        },
+        axisLabel: {
+          color: '#71717a',
+          fontFamily: 'monospace',
+          fontSize: 7,
+          formatter: '{value}%'
+        }
+      },
+      color: ['#10b981', '#60a5fa'],
+      legend: {
+        data: ['2 Year', '10 Year'],
+        textStyle: { color: '#a1a1aa', fontSize: 8, fontFamily: 'monospace' },
+        icon: 'circle',
+        itemWidth: 6,
+        top: 0
+      },
+      series: [
+        {
+          name: '2 Year',
+          type: 'line',
+          showSymbol: false,
+          data: y2Data,
+          lineStyle: { width: 1.5 }
+        },
+        {
+          name: '10 Year',
+          type: 'line',
+          showSymbol: false,
+          data: y10Data,
+          lineStyle: { width: 1.5 }
+        }
+      ]
+    };
 
-      const option = compact ? {
-        backgroundColor: 'transparent',
-        animation: false,
-        tooltip: {
-          trigger: 'axis',
-          confine: true,
-          axisPointer: {
-            type: 'line',
-            lineStyle: {
-              color: 'rgba(255, 255, 255, 0.08)',
-              width: 1,
-              type: 'dashed'
-            }
-          },
-          formatter: (params: any) => {
-            const item = params[0];
-            return `<div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 7px; padding: 3px; background: #000; border: 1px solid ${themeColor}80; min-width: 90px; border-radius: 2px;">
-              <div style="display: flex; justify-between; align-items: center;">
-                <span style="color: #666; font-size: 6px; text-transform: uppercase;">Maturity:</span>
-                <span style="color: #fff; margin-left: auto; font-weight: bold;">${item.name}</span>
-              </div>
-              <div style="display: flex; justify-between; align-items: center; margin-top: 2px;">
-                <span style="color: #666; font-size: 6px; text-transform: uppercase;">Yield:</span>
-                <span style="color: ${themeColor}; font-weight: bold; margin-left: auto;">${parseFloat(item.data).toFixed(2)}%</span>
-              </div>
-            </div>`;
-          },
-          backgroundColor: '#000000',
-          borderColor: 'rgba(255, 255, 255, 0.1)',
-          borderWidth: 1,
-          textStyle: {
-            color: '#ffffff',
-            fontSize: 7
-          }
-        },
-        grid: {
-          top: 3,
-          bottom: 3,
-          left: 2,
-          right: 2,
-          containLabel: false
-        },
-        xAxis: {
-          type: 'category',
-          data: categories,
-          axisLine: { show: false },
-          axisTick: { show: false },
-          axisLabel: { show: false }
-        },
-        yAxis: {
-          type: 'value',
-          scale: true,
-          axisLine: { show: false },
-          axisTick: { show: false },
-          splitLine: { show: false },
-          axisLabel: { show: false }
-        },
-        series: [
-          {
-            name: 'Yield',
-            type: 'line',
-            smooth: true,
-            showSymbol: false,
-            itemStyle: {
-              color: themeColor
-            },
-            data: values,
-            lineStyle: {
-              color: themeColor,
-              width: 1.5,
-              shadowBlur: 4,
-              shadowColor: glowIntensity
-            },
-            areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: gradientStart },
-                { offset: 1, color: 'rgba(0, 0, 0, 0)' }
-              ])
-            }
-          }
-        ]
-      } : {
-        backgroundColor: 'transparent',
-        animation: false,
-        animationDuration: 600,
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'line',
-            lineStyle: {
-              color: 'rgba(255, 255, 255, 0.1)',
-              width: 1,
-              type: 'dashed'
-            }
-          },
-          formatter: (params: any) => {
-            const item = params[0];
-            return `<div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 8px; padding: 4px; background: #000; border: 1px solid ${themeColor}80; min-width: 120px;">
-              <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px; margin-bottom: 4px; color: ${themeColor}; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase;">[ TERM_POINT ]</div>
-              <div style="display: flex; justify-between; align-items: center; margin-bottom: 2px;">
-                <span style="color: #555; font-size: 7px; text-transform: uppercase;">Maturity:</span>
-                <span style="color: #fff; margin-left: auto;">${item.name}</span>
-              </div>
-              <div style="display: flex; justify-between; align-items: center;">
-                <span style="color: #555; font-size: 7px; text-transform: uppercase;">Yield_VAL:</span>
-                <span style="color: ${themeColor}; font-weight: bold; margin-left: auto;">${parseFloat(item.data).toFixed(3)}%</span>
-              </div>
-              <div style="margin-top: 4px; height: 1px; background: rgba(16, 185, 129, 0.2); overflow: hidden; position: relative;">
-                 <div style="position: absolute; inset: 0; background: ${themeColor}; opacity: 0.3; animation: loading-bar 2s ease-in-out infinite;"></div>
-              </div>
-            </div>`;
-          },
-          backgroundColor: '#000000',
-          borderColor: 'rgba(255, 255, 255, 0.12)',
-          borderWidth: 1,
-          textStyle: {
-            color: '#ffffff',
-            fontSize: 8
-          }
-        },
-        grid: {
-          top: 20,
-          bottom: 25,
-          left: 30,
-          right: 15,
-          containLabel: false
-        },
-        xAxis: {
-          type: 'category',
-          data: categories,
-          axisLine: {
-            lineStyle: {
-              color: '#3f3f46' // zinc-700
-            }
-          },
-          axisTick: {
-            show: false
-          },
-          axisLabel: {
-            color: '#a1a1aa', // zinc-405
-            fontFamily: 'monospace',
-            fontSize: 8,
-            margin: 6
-          }
-        },
-        yAxis: {
-          type: 'value',
-          scale: true,
-          axisLine: {
-            show: false
-          },
-          axisTick: {
-            show: false
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#1e293b', // slate-800
-              type: 'dashed'
-            }
-          },
-          axisLabel: {
-            color: '#71717a', // zinc-500
-            fontFamily: 'monospace',
-            fontSize: 8,
-            formatter: '{value}%'
-          }
-        },
-        series: [
-          {
-            name: 'Yield',
-            type: 'line',
-            smooth: false, // sharper lines
-            showSymbol: true,
-            symbol: 'circle',
-            symbolSize: 5,
-            itemStyle: {
-              color: themeColor,
-              borderWidth: 1,
-              borderColor: '#000'
-            },
-            data: values,
-            lineStyle: {
-              color: themeColor,
-              width: 2,
-              shadowBlur: 10,
-              shadowColor: glowIntensity
-            },
-            areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: gradientStart },
-                { offset: 1, color: 'rgba(0, 0, 0, 0)' }
-              ])
-            }
-          }
-        ]
-      };
+    chartInstance.current.setOption(option, true);
 
-      chartInstance.current.setOption(option, true);
-      chartInstance.current.resize();
-    }, 100);
-
-    const resizeObserver = new ResizeObserver(() => {
-      chartInstance.current?.resize();
-    });
-
+    const handleResize = () => chartInstance.current?.resize();
+    window.addEventListener('resize', handleResize);
+    
+    let resizeObserver: ResizeObserver | null = null;
     if (chartRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        window.requestAnimationFrame(() => handleResize());
+      });
       resizeObserver.observe(chartRef.current);
     }
 
     return () => {
-      clearTimeout(timer);
-      resizeObserver.disconnect();
-      if (chartInstance.current) {
-        chartInstance.current.dispose();
-        chartInstance.current = null;
-      }
+      window.removeEventListener('resize', handleResize);
+      if (resizeObserver) resizeObserver.disconnect();
     };
-  }, [curveData, spreadDetails, compact]);
+  }, [historicalData, spreadDetails, compact]);
 
   if (compact) {
     return (
       <div 
         id="yield-curve-monitor-compact" 
-        className="flex items-center gap-2 border border-zinc-900 bg-zinc-950/60 p-1 px-2 rounded-sm h-7 select-none shrink-0 font-mono text-zinc-300"
+        className="flex items-center gap-2 border border-neutral-900 bg-black p-1 px-2 rounded-sm h-7 select-none shrink-0 font-mono text-neutral-300"
       >
         <div className="flex items-center gap-1 shrink-0">
           <TrendingUp className="w-3 h-3 text-emerald-400 animate-pulse" />
@@ -376,15 +253,18 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
 
         {/* Vector Metrics (10Y-2Y and CORE CB Rate) */}
         <div className="flex items-center gap-1.5 text-[7px] shrink-0">
-          <div className="flex items-center gap-1 px-1 py-0.5 bg-black/40 border border-zinc-900 rounded-2xs">
-            <span className="text-zinc-650 block text-[6px]">10Y-2Y</span>
-            <span className="font-black text-emerald-500">
+          <div className="flex items-center gap-1 px-1 py-0.5 bg-black border border-neutral-800 rounded-2xs">
+            <span className="text-neutral-500 block text-[6px]">10Y-2Y</span>
+            <span className={cn("font-black", statusColor)}>
               {spreadDetails.spread > 0 ? "+" : ""}{spreadDetails.spread.toFixed(2)}%
             </span>
           </div>
-          <div className="flex items-center gap-1 px-1 py-0.5 bg-black/40 border border-zinc-900 rounded-2xs">
-            <span className="text-zinc-650 block text-[6px]">CB_RATE</span>
-            <span className="text-emerald-400 font-black">
+          <div className="flex items-center gap-1 px-1 py-0.5 bg-black border border-neutral-800 rounded-2xs">
+            <span className="text-zinc-400 font-black text-[6px] py-0.5">{activeYields.country}</span>
+            <span className="text-neutral-500 block text-[6px]">
+              {activeYields.country === "USA" ? "FED_RATE" : "CB_RATE"}
+            </span>
+            <span className={cn("font-black", statusColor)}>
               {(activeYields.interestRate ?? 5.50).toFixed(2)}%
             </span>
           </div>
@@ -426,72 +306,38 @@ export const YieldCurveMonitor: React.FC<YieldCurveMonitorProps> = ({ yields, co
   }
 
   return (
-    <div id="yield-curve-monitor" className="p-2 border-b border-zinc-900 bg-zinc-950/40 font-mono text-[9px] select-none text-zinc-300">
-      <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-zinc-900">
-        <div className="text-[8px] text-emerald-500 font-extrabold uppercase tracking-[0.2em] flex items-center gap-1.5">
-          <TrendingUp className="w-2.5 h-2.5 text-emerald-400" /> Treasury Term Structure
-        </div>
-        
-        {/* Inversion Status Badge Indicator in Terminal Colors */}
-        <div className="flex items-center gap-1">
-          {spreadDetails.isInverted ? (
-            <div className="flex items-center gap-1 bg-emerald-500/10 text-emerald-450 px-1.5 py-0.5 border border-emerald-500/20 text-[7px] font-black uppercase tracking-tighter rounded-sm shadow-[0_0_8px_rgba(16,185,129,0.2)] animate-pulse">
-              <AlertTriangle className="w-1.5 h-1.5 text-emerald-400" /> [Inverted]
+    <div id="yield-curve-monitor" className="font-mono text-[9px] select-none text-neutral-300 w-full h-full min-h-0 flex flex-col">
+      {/* Col 1: Yield Chart */}
+      <div className="flex flex-col flex-1 w-full min-h-0">
+        <div className="flex items-center justify-between mb-2 pb-1 border-b border-zinc-900/60 shrink-0">
+            <div className={cn("text-[8px] font-extrabold uppercase tracking-[0.2em] flex items-center gap-1.5", statusColor)}>
+              <TrendingUp className="w-2.5 h-2.5" /> YIELD_CHART: Yield Curve Tracking
             </div>
-          ) : (
-            <div className="flex items-center gap-1 bg-emerald-950/40 text-emerald-400 px-1.5 py-0.5 border border-emerald-500/20 text-[7px] font-black uppercase tracking-tighter rounded-sm shadow-[0_0_8px_rgba(16,185,129,0.15)]">
-              <CheckCircle className="w-1.5 h-1.5" /> [Normal]
+            
+            <div className="flex items-center gap-1">
+              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 border text-[7px] font-black uppercase tracking-tighter rounded-sm", statusColor, statusBg, statusBorder)}>
+                {spreadDetails.isInverted ? <AlertTriangle className="w-1.5 h-1.5" /> : <CheckCircle className="w-1.5 h-1.5" />}
+                <span className="hidden sm:inline">[{spreadDetails.isInverted ? "Inverted" : "Normal"}]</span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* Yield Curve Chart Rendering Stage */}
-      <div className="relative w-full h-32 bg-zinc-950/30 rounded-sm overflow-hidden border border-zinc-900/60 shadow-inner">
-         <div ref={chartRef} className="w-full h-full relative z-10" />
-         {analysisStatus !== "NORMAL" && (
-           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-[1px]">
-             <div className="flex flex-col items-center gap-2">
-               <div className="w-12 h-1 bg-zinc-900 overflow-hidden relative">
-                 <div className="absolute inset-y-0 left-0 bg-emerald-500 w-1/2" />
+          <div className="relative w-full flex-1 min-h-0 bg-zinc-950/30 rounded-sm overflow-hidden border border-zinc-900/60 shadow-inner">
+             <div ref={chartRef} className="w-full h-full relative z-10" />
+             {analysisStatus !== "NORMAL" && (
+               <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-[1px]">
+                 <div className="flex flex-col items-center gap-2">
+                   <div className="w-12 h-1 bg-zinc-900 overflow-hidden relative">
+                     <div className="absolute inset-y-0 left-0 bg-emerald-500 w-1/2" />
+                   </div>
+                   <span className="text-[6px] text-emerald-500 font-mono font-black tracking-[0.2em] uppercase">
+                     {analysisStatus === "RECALIBRATING" ? "Recalibrating..." : "Stress Script..."}
+                   </span>
+                 </div>
                </div>
-               <span className="text-[6px] text-emerald-500 font-mono font-black tracking-[0.2em] uppercase">
-                 {analysisStatus === "RECALIBRATING" ? "Recalibrating Term Structure..." : "Running Stress Script: HI_VOL_SIM..."}
-               </span>
-             </div>
-           </div>
-         )}
-      </div>
-
-      <div className="mt-1.5 flex justify-between gap-1.5">
-        <button 
-          onClick={() => runAnalysis("RECALIBRATING")}
-          disabled={analysisStatus !== "NORMAL"}
-          className="flex-1 py-1 text-[7px] font-mono text-zinc-500 bg-zinc-950/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
-        >
-          Recalibrate
-        </button>
-        <button 
-          onClick={() => runAnalysis("STRESSING")}
-          disabled={analysisStatus !== "NORMAL"}
-          className="flex-1 py-1 text-[7px] font-mono text-zinc-500 bg-zinc-950/50 border border-zinc-900 hover:border-emerald-500/30 hover:text-emerald-400 font-bold tracking-widest uppercase transition-all disabled:opacity-30 cursor-pointer"
-        >
-          Stress Test
-        </button>
-      </div>
-
-      <div className="mt-1.5 grid grid-cols-2 gap-1.5 text-[7px] text-zinc-500 tracking-wider">
-        <div className="flex justify-between bg-zinc-900/40 px-1.5 py-1 border border-zinc-800/80">
-          <span className="uppercase text-[6px] text-zinc-600 font-black tracking-widest pt-0.5">Vector (10Y-2Y)</span>
-          <span className="font-black text-emerald-400">
-            {spreadDetails.spread > 0 ? "+" : ""}{spreadDetails.spread.toFixed(2)}%
-          </span>
+             )}
+          </div>
         </div>
-        <div className="flex justify-between bg-zinc-900/40 px-1.5 py-1 border border-zinc-800/80">
-          <span className="uppercase text-[6px] text-zinc-600 font-black tracking-widest pt-0.5">Core CB Rate</span>
-          <span className="text-emerald-450 font-black">{(activeYields.interestRate ?? 5.50).toFixed(2)}%</span>
-        </div>
-      </div>
     </div>
   );
 };

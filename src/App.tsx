@@ -24,6 +24,9 @@ import {
   Zap,
   Target,
   Activity,
+  Bot,
+  Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import { analyzeSentimentAndImpact } from "./lib/sentiment";
 import { cn } from "./lib/utils";
@@ -32,7 +35,8 @@ import { Header } from "./components/Header";
 import { isWebGLSupported } from "./utils/webgl";
 import { SettingsModal } from "./components/SettingsModal";
 import { DataSidebar } from "./components/DataSidebar";
-import { IntelligenceSidebar } from "./components/IntelligenceSidebar";
+import { IntelligenceSidebar } from './components/IntelligenceSidebar';
+import { LiveFlowMarquee } from './components/LiveFlowMarquee';
 import { CommandPalette } from "./components/CommandPalette";
 import { Company, COMPANIES } from "./data/companies";
 import { motion, AnimatePresence } from "motion/react";
@@ -230,12 +234,57 @@ export default function App() {
   const [resetOrientationTrigger, setResetOrientationTrigger] = useState(0);
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(false);
   const [activeStoryIdx, setActiveStoryIdx] = useState(0);
+  const [whaleNews, setWhaleNews] = useState<any[]>([]);
+  const [accumulatedNews, setAccumulatedNews] = useState<any[]>([]);
+
+  // Accumulate and deduplicate news
+  useEffect(() => {
+    if (!marketData?.news || marketData.news.length === 0) return;
+    setAccumulatedNews((prev) => {
+      const forbidden = ["wwe", "television", "tv show", "wrestling"];
+      const filtered = marketData?.news?.filter(item => {
+          const title = (item.title || "").toLowerCase();
+          const desc = (item.description || "").toLowerCase();
+          return !forbidden.some(word => title.includes(word) || desc.includes(word));
+      });
+      const combined = [...filtered, ...prev];
+      const uniqueNews = Array.from(new Map(combined.map(item => [item.title, item])).values());
+      return uniqueNews.slice(0, 500);
+    });
+  }, [marketData.news]);
+
+  // Fetch WTI news on mount
+  useEffect(() => {
+    fetchData("WTI");
+  }, []);
+
+  useEffect(() => {
+    const fetchWhale = async () => {
+      try {
+        const response = await fetch('/api/partners/whale-alert');
+        const data = await response.json();
+        if (data && data.transactions) {
+          setWhaleNews(data.transactions.map((t: any) => ({
+            id: Math.random().toString(),
+            title: `Whale Alert: ${t.amount.toLocaleString()} ${t.symbol} moved`,
+            published_at: new Date().toISOString()
+          })));
+        }
+      } catch (err) {
+        console.warn("Whale alert fetch failed", err);
+      }
+    };
+    fetchWhale();
+    const interval = setInterval(fetchWhale, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // System-wide Global Risk Matrix (World Shocks)
   const [taiwanStraitBlocked, setTaiwanStraitBlocked] = useState(false);
   const [suezCanalBlocked, setSuezCanalBlocked] = useState(false);
   const [malaccaStraitBlocked, setMalaccaStraitBlocked] = useState(false);
   const [panamaCanalBlocked, setPanamaCanalBlocked] = useState(false);
+  const [hormuzStraitBlocked, setHormuzStraitBlocked] = useState(false);
 
   const [airFreightActive, setAirFreightActive] = useState(false);
   const [strategicStockpileActive, setStrategicStockpileActive] =
@@ -249,6 +298,8 @@ export default function App() {
       score += sector.includes("semi") || sector.includes("tech") ? 45 : 15;
     if (suezCanalBlocked)
       score += sector.includes("energy") || sector.includes("oil") ? 50 : 20;
+    if (hormuzStraitBlocked)
+      score += sector.includes("energy") || sector.includes("oil") ? 65 : 25;
     if (malaccaStraitBlocked) score += 30;
     if (panamaCanalBlocked) score += sector.includes("retail") ? 25 : 10;
     if (airFreightActive) score -= 12;
@@ -261,6 +312,7 @@ export default function App() {
     suezCanalBlocked,
     malaccaStraitBlocked,
     panamaCanalBlocked,
+    hormuzStraitBlocked,
     airFreightActive,
     strategicStockpileActive,
     dualSourcingActive,
@@ -288,9 +340,14 @@ export default function App() {
 
   useEffect(() => {
     if (siloPrice) {
+      // Strict sanitation guard for WTI: block price updates < $10
+      if (selectedStock?.symbol === 'WTI' && siloPrice.price !== null && siloPrice.price < 10) {
+        console.warn("[WTI SANITATION] Blocked low-price update:", siloPrice.price);
+        return;
+      }
       setMarketData({ quote: siloPrice });
     }
-  }, [siloPrice, setMarketData]);
+  }, [siloPrice, setMarketData, selectedStock?.symbol]);
 
   const [allMarketData, setAllMarketData] = useState<Record<string, any>>({});
   const [quotaExhausted, setQuotaExhausted] = useState(false);
@@ -299,6 +356,17 @@ export default function App() {
   const [searchCategory, setSearchCategory] = useState<
     "STOCKS" | "ETFS" | "AGENT"
   >("AGENT");
+
+  const agentSuggestions = useMemo(() => [
+    "Analyze Middle East energy corridors and data centers",
+    "Trace multi-node supply connections for Apple Inc.",
+    "What straits are at risk of being blocked currently?",
+    "Identify high-risk logistics hubs in Southeast Asia",
+    "U.S. Home energy cost predictions and Fed policy",
+    "Strategic impact of political news in Israel",
+    "Show critical shipping lane blockades in the Red Sea",
+    "Locate major semiconductor factory clusters worldwide"
+  ], []);
   const [filterSector, setFilterSector] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"SYMBOL" | "SECTOR">("SYMBOL");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -328,18 +396,18 @@ export default function App() {
 
   // --- Cognitive Synthesis Agent Logic (Transplanted from Sidebar) ---
   const cognitiveSynthesis = useMemo(() => {
-    if (marketData.news.length === 0) return null;
+    if (marketData?.news?.length === 0) return null;
     
     const sentimentCounts = { BULLISH: 0, BEARISH: 0, NEUTRAL: 0 };
     let criticalImpactCount = 0;
     
-    marketData.news.slice(0, 10).forEach(item => {
+    marketData?.news?.slice(0, 10).forEach(item => {
       const { sentiment: s, impact: i } = analyzeSentimentAndImpact(item);
       sentimentCounts[s]++;
       if (i === "CRITICAL") criticalImpactCount++;
     });
 
-    const total = marketData.news.length;
+    const total = marketData?.news?.length || 0;
     const primarySentiment = Object.entries(sentimentCounts).sort((a, b) => b[1] - (a[1] as any))[0][0];
     
     let synthesis = "";
@@ -678,14 +746,21 @@ export default function App() {
                 company?.sector || "Technology",
               );
 
-        setMarketData({
-          quote: q,
-          news: finalNews,
-          profile: p,
-          financials: f,
-          history: h?.processed || [],
-          relationships: r.relationships || { suppliers: [], customers: [] },
-          yields: y,
+        setMarketData((prev) => {
+          // Merge company news into global news instead of replacing
+          const combined = [...finalNews, ...(prev.news || [])];
+          // Deduplicate by title to avoid growing indefinitely with same stories
+          const unique = Array.from(new Map(combined.map(item => [item.title, item])).values());
+          
+          return {
+            quote: q,
+            news: unique.slice(0, 75), // Increase capacity slightly for better history
+            profile: p,
+            financials: f,
+            history: h?.processed || [],
+            relationships: r.relationships || { suppliers: [], customers: [] },
+            yields: y,
+          };
         });
       } catch (err) {
         console.error("Critical telemetry synchronization failure:", err);
@@ -732,6 +807,7 @@ export default function App() {
             briefing: data.briefing || data.aiStrategyAnalysis || data.explanation || "Location mapped.",
             facts: data.facts || [],
             ticker: data.ticker,
+            queryText: query,
           };
 
           setAgentFocus(result);
@@ -952,8 +1028,8 @@ export default function App() {
       fetchData,
       setSelectedStock,
       generateBriefing,
-      marketData.quote,
-      marketData.yields,
+      marketData?.quote,
+      marketData?.yields,
     ],
   );
 
@@ -989,6 +1065,8 @@ export default function App() {
         "unveils hydrogen-fueled grid buffer array to combat transmission leaks.",
         "starts dynamic grid-tier supply synchronization for corporate nodes.",
         "re-routes deep-sea active undersea conduits following safety review.",
+        "reports critical maritime security escalation near Strait of Hormuz.",
+        "detects systematic tanker delays at primary energy gate bottleneck.",
       ],
       "Consumer Cyclical": [
         "streamlines next-gen real-time logistical tracking across central nodes.",
@@ -1051,11 +1129,14 @@ export default function App() {
         zoomLevel: 5,
       });
 
-      // Reset center focus after 8 seconds to resume normal operation
+      // Reset center focus after 8 seconds to resume ONLY IF not in live news zoom mode
       setTimeout(() => {
-        setAgentFocus((prev) =>
-          prev?.locationName === randomCompany.name ? null : prev,
-        );
+        setAgentFocus((prev) => {
+          // If we're not in live news zoom, or if the focus we're clearing is specifically the news location, clear it.
+          // The request implies NOT returning to the previously selected ticker location.
+          // Just set focus to null to stop focusing on this headline, but don't force returning to the previous selection.
+          return prev?.locationName === randomCompany.name ? null : prev;
+        });
         setViewportLock(false);
       }, 8000);
     }
@@ -1157,11 +1238,105 @@ export default function App() {
         if (!document.hidden && !isAiProcessing) {
           injectLiveNews();
         }
-      }, 60000); // Increased frequency: Every 60 seconds for a more dynamic "intelligence stream"
+      }, 30000); // Increased frequency: Every 30 seconds for a more dynamic "intelligence stream"
       return () => clearInterval(interval);
     }, 10000); // Shorter initial delay (10s)
     return () => clearTimeout(timer);
   }, [injectLiveNews, isAiProcessing]);
+
+  // Automatically update shock states based on incoming intelligence
+  const straitStates = useRef({
+    hormuzStraitBlocked,
+    taiwanStraitBlocked,
+    malaccaStraitBlocked,
+    suezCanalBlocked,
+    panamaCanalBlocked,
+  });
+
+  const straitBlockTimers = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    straitStates.current = {
+      hormuzStraitBlocked,
+      taiwanStraitBlocked,
+      malaccaStraitBlocked,
+      suezCanalBlocked,
+      panamaCanalBlocked,
+    };
+  }, [hormuzStraitBlocked, taiwanStraitBlocked, malaccaStraitBlocked, suezCanalBlocked, panamaCanalBlocked]);
+
+  useEffect(() => {
+    if (!marketData) return;
+    const newsFeed = marketData.news || [];
+    if (newsFeed.length === 0) return;
+
+    const checkSignal = (keywords: string[]) => newsFeed.some(item => {
+      if (!item) return false;
+      const text = `${item.title || ""} ${item.description || ""} ${item.summary || ""}`.toLowerCase();
+      return keywords.some(k => text.includes(k)) && (text.includes("closed") || text.includes("blocked") || text.includes("incident") || text.includes("attack") || text.includes("tension"));
+    });
+
+    const checkNormalization = (keywords: string[]) => newsFeed.some(item => {
+      if (!item) return false;
+      const text = `${item.title || ""} ${item.description || ""} ${item.summary || ""}`.toLowerCase();
+      return keywords.some(k => text.includes(k)) && (text.includes("resolved") || text.includes("clear") || text.includes("open") || text.includes("normal") || text.includes("safe"));
+    });
+
+    // Strait of Hormuz
+    if (checkSignal(["hormuz"]) && !straitStates.current.hormuzStraitBlocked) {
+      setHormuzStraitBlocked(true);
+      straitBlockTimers.current["hormuz"] = Date.now();
+      addLog("DETECTIONS_SYNC: Signal detected regarding Strait of Hormuz. AUTO_BLOCK enabled.");
+    } else if (straitStates.current.hormuzStraitBlocked && (checkNormalization(["hormuz"]) || Date.now() - (straitBlockTimers.current["hormuz"] || 0) > 1800000)) {
+        setHormuzStraitBlocked(false);
+        delete straitBlockTimers.current["hormuz"];
+        addLog("DETECTIONS_SYNC: Normalization signal or timeout detected for Strait of Hormuz. AUTO_UNBLOCK.");
+    }
+    
+    // Taiwan Strait
+    if (checkSignal(["taiwan"]) && !straitStates.current.taiwanStraitBlocked) {
+      setTaiwanStraitBlocked(true);
+      straitBlockTimers.current["taiwan"] = Date.now();
+      addLog("DETECTIONS_SYNC: Signal detected regarding Taiwan Strait. AUTO_BLOCK enabled.");
+    } else if (straitStates.current.taiwanStraitBlocked && (checkNormalization(["taiwan"]) || Date.now() - (straitBlockTimers.current["taiwan"] || 0) > 1800000)) {
+        setTaiwanStraitBlocked(false);
+        delete straitBlockTimers.current["taiwan"];
+        addLog("DETECTIONS_SYNC: Normalization signal or timeout detected for Taiwan Strait. AUTO_UNBLOCK.");
+    }
+
+    // Malacca Strait
+    if (checkSignal(["malacca"]) && !straitStates.current.malaccaStraitBlocked) {
+      setMalaccaStraitBlocked(true);
+      straitBlockTimers.current["malacca"] = Date.now();
+      addLog("DETECTIONS_SYNC: Signal detected regarding Malacca Strait. AUTO_BLOCK enabled.");
+    } else if (straitStates.current.malaccaStraitBlocked && (checkNormalization(["malacca"]) || Date.now() - (straitBlockTimers.current["malacca"] || 0) > 1800000)) {
+        setMalaccaStraitBlocked(false);
+        delete straitBlockTimers.current["malacca"];
+        addLog("DETECTIONS_SYNC: Normalization signal or timeout detected for Malacca Strait. AUTO_UNBLOCK.");
+    }
+
+    // Suez Canal
+    if (checkSignal(["suez"]) && !straitStates.current.suezCanalBlocked) {
+      setSuezCanalBlocked(true);
+      straitBlockTimers.current["suez"] = Date.now();
+      addLog("DETECTIONS_SYNC: Signal detected regarding Suez Canal. AUTO_BLOCK enabled.");
+    } else if (straitStates.current.suezCanalBlocked && (checkNormalization(["suez"]) || Date.now() - (straitBlockTimers.current["suez"] || 0) > 1800000)) {
+        setSuezCanalBlocked(false);
+        delete straitBlockTimers.current["suez"];
+        addLog("DETECTIONS_SYNC: Normalization signal or timeout detected for Suez Canal. AUTO_UNBLOCK.");
+    }
+
+    // Panama Canal
+    if (checkSignal(["panama"]) && !straitStates.current.panamaCanalBlocked) {
+      setPanamaCanalBlocked(true);
+      straitBlockTimers.current["panama"] = Date.now();
+      addLog("DETECTIONS_SYNC: Signal detected regarding Panama Canal. AUTO_BLOCK enabled.");
+    } else if (straitStates.current.panamaCanalBlocked && (checkNormalization(["panama"]) || Date.now() - (straitBlockTimers.current["panama"] || 0) > 1800000)) {
+        setPanamaCanalBlocked(false);
+        delete straitBlockTimers.current["panama"];
+        addLog("DETECTIONS_SYNC: Normalization signal or timeout detected for Panama Canal. AUTO_UNBLOCK.");
+    }
+  }, [marketData.news, addLog]);
 
   // Intelligence Stream Cycle (Neural Stream)
   const latestNewsRef = useRef(marketData.news);
@@ -1244,6 +1419,202 @@ export default function App() {
     // Dynamically adjust root document scale to scale the entire terminal UI cleanly
   }, [terminalScale]);
 
+  const appSearchBarNode = (
+    <div className={cn(
+      "relative w-full flex items-center overflow-visible transition-all duration-300",
+      searchCategory === "AGENT" ? "ring-1 ring-emerald-500/20 rounded-xs" : ""
+    )}>
+      <input
+        ref={searchInputRef}
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onFocus={() => setIsSearchFocused(true)}
+        onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            const listLen = searchCategory === "AGENT" && !searchQuery.trim() ? agentSuggestions.length : finalFilteredMatches.length;
+            setSearchCursor((prev) =>
+              prev < listLen - 1 ? prev + 1 : 0
+            );
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            const listLen = searchCategory === "AGENT" && !searchQuery.trim() ? agentSuggestions.length : finalFilteredMatches.length;
+            setSearchCursor((prev) =>
+              prev > 0 ? prev - 1 : listLen - 1
+            );
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            setIsSearchFocused(false);
+            searchInputRef.current?.blur();
+          } else if (e.key === "Enter" && searchQuery) {
+            e.preventDefault();
+            if (searchCategory === "AGENT" && !searchQuery.includes(":") && finalFilteredMatches.length === 0) {
+              handleAgentSearch(searchQuery);
+              setSearchQuery("");
+              setIsSearchFocused(false);
+              searchInputRef.current?.blur();
+            } else {
+              const activeIdx = searchCursor >= 0 && searchCursor < finalFilteredMatches.length ? searchCursor : 0;
+              if (finalFilteredMatches.length > activeIdx) {
+                const matched = finalFilteredMatches[activeIdx].company;
+                handleSelectNode(matched, false, true);
+                setSearchQuery("");
+                setIsSearchFocused(false);
+                searchInputRef.current?.blur();
+              } else if (handleAgentSearch) {
+                handleAgentSearch(searchQuery);
+                setSearchQuery("");
+                setIsSearchFocused(false);
+                searchInputRef.current?.blur();
+              }
+            }
+          }
+        }}
+        placeholder={searchCategory === "AGENT" ? "ASK GLOBE AGENT ANYTHING..." : "ENTER TICKER SYMBOL..."}
+        className={cn(
+          "w-full bg-zinc-950 text-emerald-400 border border-zinc-900 pl-7 pr-8 py-1.5 text-[9px] font-mono outline-none rounded-xs transition-all placeholder-zinc-800 uppercase tracking-widest focus:bg-black",
+          searchCategory === "AGENT" ? "border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)]" : "focus:border-emerald-500/40"
+        )}
+      />
+      {searchCategory === "AGENT" ? (
+        <Bot className={cn("w-3 h-3 absolute left-2 transition-colors", isAgentSearching ? "text-emerald-400 animate-pulse" : "text-zinc-600")} />
+      ) : (
+        <Search className="w-2.5 h-2.5 text-zinc-700 absolute left-2" />
+      )}
+
+      {isAgentSearching && (
+        <RefreshCcw className="w-2.5 h-2.5 text-emerald-500 absolute right-10 animate-spin" />
+      )}
+      
+      <AnimatePresence>
+        {isSearchFocused && (
+          <motion.div
+            initial={{ opacity: 0, y: -2 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -2 }}
+            transition={{ duration: 0.1 }}
+            className="absolute top-full left-0 right-0 z-[1000] mt-1 max-h-60 overflow-y-auto custom-scrollbar border border-emerald-500/40 bg-black/95 backdrop-blur-md rounded-xs shadow-[0_10px_30px_rgba(0,0,0,0.9)] p-px"
+          >
+            {searchCategory === "AGENT" && !searchQuery.trim() && (
+              <div className="p-1">
+                <div className="px-2 py-1.5 text-[6.5px] font-mono text-zinc-600 uppercase tracking-[0.2em] border-b border-zinc-900/50 mb-1 flex items-center gap-2">
+                  <Sparkles className="w-2 h-2" />
+                  Suggested AI Queries
+                </div>
+                {agentSuggestions.map((suggestion, idx) => (
+                  <div
+                    key={suggestion}
+                    onClick={() => {
+                      setSearchQuery(suggestion);
+                      handleAgentSearch(suggestion);
+                      setSearchQuery("");
+                      setIsSearchFocused(false);
+                      searchInputRef.current?.blur();
+                    }}
+                    className={cn(
+                      "group flex items-center gap-2 p-1.5 text-[8.5px] cursor-pointer transition-all hover:bg-emerald-500/10 rounded-xs font-mono",
+                      searchCursor === idx ? "bg-emerald-500/15 text-emerald-400" : "text-zinc-500"
+                    )}
+                  >
+                    <MessageSquare className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100 group-hover:text-emerald-500 transition-all" />
+                    {suggestion.toUpperCase()}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {finalFilteredMatches.length > 0 ? (
+              finalFilteredMatches.map(({ company, matchedFields }, idx) => {
+                const isSelected = selectedStock?.symbol === company.symbol;
+                const isPinned = pinnedTickers.includes(company.symbol);
+                const isHoveredByCursor = searchCursor === idx;
+                
+                // Get the most relevant match reason
+                const matchReason = matchedFields && matchedFields.length > 0 ? matchedFields[0].field : "";
+
+                return (
+                  <div
+                    key={`${company.symbol}-${idx}`}
+                    onClick={() => {
+                      handleSelectNode(company, false, true);
+                      setSearchQuery(company.symbol);
+                      setIsSearchFocused(false);
+                      searchInputRef.current?.blur();
+                    }}
+                    className={cn(
+                      "group flex flex-col p-2 gap-1 cursor-pointer transition-all border-b border-white/[0.03] last:border-0",
+                      isSelected ? "bg-emerald-500/5 border-l-2 border-emerald-500" : "hover:bg-emerald-500/10",
+                      isHoveredByCursor ? "bg-emerald-500/15 text-emerald-400 border-l-2 border-emerald-400" : ""
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-mono font-bold tracking-wider text-zinc-300 group-hover:text-emerald-400 transition-colors uppercase">
+                          {company.symbol}
+                        </span>
+                        <span className="text-zinc-500 truncate text-[9px] font-sans group-hover:text-zinc-300">
+                          {company.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[7.5px] font-mono text-zinc-650 group-hover:text-zinc-500 uppercase">
+                            {company.sector}
+                          </span>
+                          <MapPin 
+                            className={cn("w-2.5 h-2.5", isPinned ? "text-emerald-500" : "text-zinc-700")} 
+                          />
+                      </div>
+                    </div>
+                    
+                    {matchReason && matchReason !== "Ticker" && matchReason !== "Name" && (
+                      <div className="flex items-center gap-1 text-[6.5px] font-mono text-zinc-650 italic uppercase tracking-widest pl-0.5">
+                        <Search className="w-2 h-2 opacity-30" />
+                        Matched via {matchReason}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : searchQuery.trim() ? (
+              <div className="flex flex-col items-center justify-center p-6 text-center gap-2">
+                {searchCategory === "AGENT" ? (
+                  <Sparkles className="w-5 h-5 text-emerald-500/40" />
+                ) : (
+                  <Search className="w-5 h-5 text-zinc-800" />
+                )}
+                <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+                  [ {searchCategory === "AGENT" ? "AGENT QUERY READY" : "0 RADAR MATCHES"} ]
+                </div>
+                <p className="text-[8px] text-zinc-700 max-w-[160px] font-mono uppercase leading-relaxed">
+                  {searchCategory === "AGENT" 
+                    ? `TAP ENTER TO SUBMIT "${searchQuery}" TO GLOBE AGENT.`
+                    : 'System scan found no direct matches. Try ticker (AAPL) or location (c:USA).'}
+                </p>
+                {searchCategory !== "AGENT" && (
+                  <button 
+                    onClick={() => {
+                      setSearchCategory("AGENT");
+                      handleAgentSearch(searchQuery);
+                    }}
+                    className="mt-2 px-3 py-1 border border-emerald-500/30 text-emerald-500 text-[8px] font-mono hover:bg-emerald-500/10 rounded-xs uppercase tracking-tighter"
+                  >
+                    SUBMIT TO GLOBE AGENT
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="text-center p-3 text-[8px] font-mono text-zinc-700 uppercase">
+                [ 0 SEARCH RESULTS ]
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
   return (
     <div className="w-screen h-screen overflow-hidden bg-black relative">
       <div 
@@ -1294,17 +1665,18 @@ export default function App() {
 
       {/* Secondary Command Header */}
       <div className="border-b border-zinc-900 bg-black/60 p-2 md:p-4">
-        <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 w-full">
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-col xl:flex-row items-start justify-between gap-4 w-full">
+          <div className="flex flex-col w-full xl:w-full">
             {/* Macro Risk Dashboard */}
-              <div className="flex items-center space-x-4 px-3 py-1 bg-zinc-950 border border-zinc-900 rounded text-xs tracking-wider font-mono flex-wrap md:flex-nowrap shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+            <div className="flex flex-col xl:flex-row items-stretch xl:items-start gap-4 w-full justify-end">
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-zinc-950 border border-zinc-900 rounded text-xs tracking-wider font-mono flex-wrap xl:flex-nowrap shadow-[0_0_10px_rgba(0,0,0,0.5)] h-fit mt-0">
                 {/* SEGMENT A (VOLATILITY) */}
                 <div className="flex items-center gap-1.5 whitespace-nowrap">
                   <span className="text-zinc-500 uppercase tracking-tight text-[10px]">VIX:</span>
                   <span className="text-amber-500 font-extrabold text-[10px]">21.37</span>
                 </div>
                 {/* SEGMENT B (YIELDS MATRIX) */}
-                <div className="flex items-center gap-3 border-l border-zinc-900 pl-3 whitespace-nowrap">
+                <div className="flex items-center gap-2 border-l border-zinc-900 pl-2 whitespace-nowrap">
                   <div className="flex gap-1 items-center">
                     <span className="text-zinc-500 uppercase tracking-tight text-[10px]">US2Y:</span>
                     <span className="text-emerald-400 font-extrabold text-[10px]">
@@ -1319,8 +1691,8 @@ export default function App() {
                   </div>
                 </div>
                 {/* SEGMENT C (THE YIELD CURVE SPREAD) */}
-                <div className="flex items-center gap-1.5 border-l border-zinc-900 pl-3 whitespace-nowrap">
-                  <span className="text-zinc-500 uppercase tracking-tight text-[10px]">SPREAD (10Y-2Y):</span>
+                <div className="flex items-center gap-1.5 border-l border-zinc-900 pl-2 whitespace-nowrap">
+                  <span className="text-zinc-500 uppercase tracking-tight text-[10px]">SPREAD(10Y-2Y):</span>
                   {(() => {
                     const y2 = marketData.yields?.treasuries?.['2Y'] ?? 4.82;
                     const y10 = marketData.yields?.treasuries?.['10Y'] ?? 4.44;
@@ -1347,29 +1719,6 @@ export default function App() {
                   })()}
                 </div>
               </div>
-            </div>
-          {/* Live Flow replacing Real-time Status Stream */}
-          <div className="flex-1 overflow-hidden h-8 bg-zinc-950/45 border border-zinc-900 rounded flex items-center select-none whitespace-nowrap relative min-w-0">
-            <div className="relative z-10 flex items-center gap-1.5 shrink-0 border-r border-zinc-900 px-2.5 h-full bg-zinc-950/80 backdrop-blur-xs">
-              <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
-              <span className="text-[7.5px] font-mono font-black text-emerald-500 uppercase tracking-widest">LIVE_FLOW</span>
-            </div>
-            <div className="flex-1 flex gap-8 items-center animate-[marquee_150s_linear_infinite] pl-4 min-w-0">
-               {pulseFeed.map((pulse, i) => (
-                 <div key={i} className="flex items-center gap-2 text-[7.5px] font-mono shrink-0">
-                   <span className={cn("font-black px-1 border border-current rounded-xs text-[6px]", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
-                   <span className="text-zinc-400 font-medium">{pulse.msg}</span>
-                   <span className="text-zinc-600 font-bold">{pulse.time}</span>
-                 </div>
-               ))}
-               {/* Duplicated for smooth loop */}
-               {pulseFeed.map((pulse, i) => (
-                 <div key={`${i}-dup`} className="flex items-center gap-2 text-[7.5px] font-mono shrink-0">
-                   <span className={cn("font-black px-1 border border-current rounded-xs text-[6px]", pulse.color.replace('text', 'bg').replace('-500', '-500/10').replace('-400', '-400/10'))}>{pulse.tag}</span>
-                   <span className="text-zinc-400 font-medium">{pulse.msg}</span>
-                   <span className="text-zinc-650 font-bold">{pulse.time}</span>
-                 </div>
-               ))}
             </div>
           </div>
         </div>
@@ -1400,130 +1749,8 @@ export default function App() {
 
         {/* PANEL G: DATA_FLOW (ACROSS THE TOP) */}
         <div className="border-t border-zinc-900 bg-black py-2 px-4 flex flex-col md:flex-row items-stretch md:items-center gap-2.5 md:gap-4 select-none shrink-0 relative z-[500] w-full">
-          {/* Row 1: Search Bar Container */}
-          <div className="flex items-center gap-4 w-full md:w-auto">
-
-            {/* Ticker Search Bar */}
-            <div className="relative flex-1 md:flex-[0_0_240px] flex items-center overflow-visible">
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown") {
-                    e.preventDefault();
-                    setSearchCursor((prev) =>
-                      prev < finalFilteredMatches.length - 1 ? prev + 1 : 0
-                    );
-                  } else if (e.key === "ArrowUp") {
-                    e.preventDefault();
-                    setSearchCursor((prev) =>
-                      prev > 0 ? prev - 1 : finalFilteredMatches.length - 1
-                    );
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    setIsSearchFocused(false);
-                    searchInputRef.current?.blur();
-                  } else if (e.key === "Enter" && searchQuery) {
-                    e.preventDefault();
-                    const activeIdx = searchCursor >= 0 && searchCursor < finalFilteredMatches.length ? searchCursor : 0;
-                    if (finalFilteredMatches.length > activeIdx) {
-                      const matched = finalFilteredMatches[activeIdx].company;
-                      handleSelectNode(matched, false, true);
-                      setSearchQuery("");
-                      setIsSearchFocused(false);
-                      searchInputRef.current?.blur();
-                    } else if (handleAgentSearch) {
-                      handleAgentSearch(searchQuery);
-                      setSearchQuery("");
-                    }
-                  }
-                }}
-                placeholder="PROBE TICKER / SEARCH..."
-                className="w-full bg-zinc-950 text-emerald-400 border border-zinc-900 pl-6 pr-3 py-0.5 text-[8.5px] font-mono outline-none rounded-xs focus:border-emerald-500/40 transition-all placeholder-zinc-800 uppercase tracking-widest focus:bg-black"
-              />
-              <Search className="w-2.5 h-2.5 text-zinc-700 absolute left-2" />
-              
-              <AnimatePresence>
-                {isSearchFocused && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -2 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -2 }}
-                    transition={{ duration: 0.1 }}
-                    className="absolute top-full left-0 right-0 z-[1000] mt-1 max-h-60 overflow-y-auto custom-scrollbar border border-emerald-500/40 bg-black/95 backdrop-blur-md rounded-xs shadow-[0_10px_30px_rgba(0,0,0,0.9)] p-px"
-                  >
-                    {finalFilteredMatches.length > 0 ? (
-                      finalFilteredMatches.map(({ company }, idx) => {
-                        const isSelected = selectedStock?.symbol === company.symbol;
-                        const isPinned = pinnedTickers.includes(company.symbol);
-                        const isHoveredByCursor = searchCursor === idx;
-                        return (
-                          <div
-                            key={`${company.symbol}-${idx}`}
-                            onClick={() => {
-                              handleSelectNode(company, false, true);
-                              setSearchQuery(company.symbol);
-                              setIsSearchFocused(false);
-                              searchInputRef.current?.blur();
-                            }}
-                            className={cn(
-                              "group flex items-center justify-between p-1.5 text-[10px] cursor-pointer transition-all hover:bg-emerald-500/10",
-                              isSelected ? "bg-emerald-500/5 border-l-2 border-emerald-500" : "",
-                              isHoveredByCursor ? "bg-emerald-500/15 text-emerald-400 border-l-2 border-emerald-400" : ""
-                            )}
-                          >
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="font-mono font-bold tracking-wider text-zinc-300 group-hover:text-emerald-400 transition-colors uppercase">
-                                {company.symbol}
-                              </span>
-                              <span className="text-zinc-650 truncate text-[9px] max-w-[120px] font-sans group-hover:text-zinc-400">
-                                {company.name}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[7.5px] font-mono text-zinc-650 group-hover:text-zinc-400 uppercase">
-                                  {company.sector}
-                                </span>
-                                <MapPin 
-                                  className={cn("w-2.5 h-2.5", isPinned ? "text-emerald-500" : "text-zinc-700")} 
-                                />
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center p-3 text-[8px] font-mono text-zinc-700 uppercase">
-                        [ 0 RADAR MATCHES ]
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
           {/* Row 2: Control Strip (Focus, Buttons, Filters, yield compact monitor, sorting) */}
-          <div className="flex items-center gap-4 overflow-x-auto md:overflow-visible scrollbar-none w-full md:flex-1 min-w-0 py-1 md:py-0">
-            {/* Focus Toggle */}
-            <button
-              onClick={() => setIsFocusMode(!isFocusMode)}
-              className={cn(
-                "px-2 py-0.5 text-[7px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1.5 cursor-pointer rounded-xs h-5 border shrink-0 active:scale-95",
-                isFocusMode 
-                  ? "bg-emerald-500/15 border-emerald-500/60 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)]" 
-                  : "bg-transparent border-zinc-900 text-zinc-650 hover:border-zinc-800"
-              )}
-              title={isFocusMode ? "Disable Global Focus" : "Enable Global Focus"}
-            >
-              <Target className="w-2.5 h-2.5" />
-              <span className="hidden sm:inline">{isFocusMode ? "FOCUS: ENABLED" : "FOCUS: DISABLED"}</span>
-              <span className="sm:hidden">{isFocusMode ? "FOCUS: ON" : "FOCUS: OFF"}</span>
-            </button>
-
+          <div className="flex items-center gap-4 overflow-x-auto md:overflow-visible scrollbar-none w-full min-w-0 py-1 md:py-0">
             {/* Scrollable Interaction Strip */}
             <div className="flex items-center gap-1.5 shrink-0">
               <button
@@ -1571,7 +1798,7 @@ export default function App() {
                 }}
                 className={cn(
                   "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase h-5 flex items-center transition-all rounded-xs gap-1 cursor-pointer border",
-                  networkAnchor ? "bg-emerald-500/10 border-emerald-500 text-emerald-450" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                  networkAnchor ? "bg-emerald-500/10 border-emerald-500 text-emerald-450 hover:bg-emerald-500/20" : "border-zinc-900 text-zinc-650 hover:border-zinc-800 hover:bg-zinc-900"
                 )}
               >
                 <Network className="w-2.5 h-2.5" />
@@ -1589,9 +1816,16 @@ export default function App() {
                 <span className="hidden xl:inline">LIVE_FETCH</span>
               </button>
 
-
-
-
+              <button
+                onClick={() => setIsFocusMode(!isFocusMode)}
+                className={cn(
+                  "px-1.5 py-0.5 text-[6px] font-mono font-black tracking-widest uppercase transition-all flex items-center gap-1 cursor-pointer rounded-xs h-5 border",
+                  isFocusMode ? "bg-emerald-500/10 border-emerald-500 text-emerald-400" : "border-zinc-900 text-zinc-650 hover:border-zinc-800"
+                )}
+              >
+                <Target className="w-2.5 h-2.5" />
+                <span className="hidden xl:inline">FOCUS</span>
+              </button>
 
             </div>
 
@@ -1689,8 +1923,8 @@ export default function App() {
           ) : (
             <div
               className={cn(
-                "flex-1 min-h-0 flex flex-col relative overflow-hidden border border-zinc-900 m-1 rounded-xs bg-black transition-all duration-150",
-                "flex md:h-full",
+                "flex-1 flex flex-col items-center justify-center relative w-full h-full min-h-0 overflow-hidden border border-zinc-900 m-1 rounded-xs bg-black transition-all duration-150",
+                "md:h-full"
               )}
             >
               {/* Collapse Map Button (Visible only on Mobile) */}
@@ -1756,7 +1990,7 @@ export default function App() {
                   }}
                   activeTab={activeTab}
                   marketData={allMarketData}
-                  allNewsData={marketData.news || []}
+                  allNewsData={marketData?.news || []}
                   sentiment={sentiment}
                   onInjectLiveNews={injectLiveNews}
                   mapLayers={mapLayers}
@@ -1784,7 +2018,8 @@ export default function App() {
                   setSearchQuery={setSearchQuery}
                   onAgentSearch={handleAgentSearch}
                   riskScore={systemRiskScore}
-                  relationships={marketData.relationships}
+                  relationships={marketData?.relationships}
+                  isSidebarMinimized={isDataSidebarMinimized}
                 />
               </Suspense>
             </div>
@@ -1795,9 +2030,10 @@ export default function App() {
         <aside
           id="mobile-sec-data"
           className={cn(
-            "border-b md:border-b-0 md:border-r border-zinc-800 transition-all duration-150 shrink-0 order-2 md:order-1 flex",
+            "border-b md:border-b-0 md:border-r md:border-zinc-800/80 transition-all duration-300 shrink-0 order-2 md:order-none flex overflow-hidden",
             mobileView === "DATA" ? "flex" : "hidden md:flex",
             !isFocusMode && "shadow-[0_0_30px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/10",
+            "md:absolute md:top-0 md:left-0 md:z-40 md:bg-black/90 md:backdrop-blur-md",
             isDataSidebarMinimized
               ? "h-12 md:w-8"
               : "w-full h-auto md:h-full md:w-[220px] lg:w-[260px] xl:w-[320px]"
@@ -1805,11 +2041,11 @@ export default function App() {
         >
           <DataSidebar
             selectedStock={selectedStock}
-            quote={marketData.quote}
+            quote={marketData?.quote}
             sentiment={sentiment}
-            history={marketData.history}
-            financials={marketData.financials}
-            profile={marketData.profile}
+            history={marketData?.history}
+            financials={marketData?.financials}
+            profile={marketData?.profile}
             isMinimized={isDataSidebarMinimized}
             onToggleMinimize={() =>
               setIsDataSidebarMinimized(!isDataSidebarMinimized)
@@ -1817,6 +2053,7 @@ export default function App() {
             isFocusMode={isFocusMode}
             pinnedTickers={pinnedTickers}
             onTogglePin={togglePin}
+            searchBarNode={appSearchBarNode}
           />
         </aside>
 
@@ -1834,30 +2071,30 @@ export default function App() {
         >
           <IntelligenceSidebar
             selectedStock={selectedStock}
-            quote={marketData.quote}
-            news={marketData.news || []}
-            financials={marketData.financials}
-            profile={marketData.profile}
-            history={marketData.history}
+            quote={marketData?.quote}
+            accumulatedNews={accumulatedNews}
+            financials={marketData?.financials}
+            profile={marketData?.profile}
+            history={marketData?.history}
             isAiProcessing={isAiProcessing || isAgentSearching}
             onAgentSearch={handleAgentSearch}
             isAgentSearching={isAgentSearching}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             onSelectNode={handleSelectNode}
-            relationships={marketData.relationships}
+            relationships={marketData?.relationships}
             briefing={briefing}
             sentiment={sentiment}
-            yields={marketData.yields}
+            yields={marketData?.yields}
             logs={logs}
             quotaExhausted={quotaExhausted}
-            onEnrichNews={() => enrichNews(marketData.news)}
+            onEnrichNews={() => enrichNews(marketData?.news)}
             onGenerateBriefing={() => {
               if (selectedStock?.symbol) {
                 generateBriefing(selectedStock.symbol, {
-                  news: marketData.news?.slice(0, 3),
-                  quote: marketData.quote,
-                  yields: marketData.yields,
+                  news: marketData?.news?.slice(0, 3),
+                  quote: marketData?.quote,
+                  yields: marketData?.yields,
                 });
               }
             }}
@@ -1878,14 +2115,12 @@ export default function App() {
                 setActiveCorridorId(null);
               }
             }}
-            recentNewsContent={(marketData.news || [])
+            recentNewsContent={(marketData?.news || [])
               .slice(0, 5)
               .map((n) => n.title)
               .join("\n")}
             agentFocus={agentFocus}
             setAgentFocus={setAgentFocus}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
             // System Risks Integration
             systemRiskScore={systemRiskScore}
             threatLevelText={threatLevelText}
@@ -1894,12 +2129,14 @@ export default function App() {
               suezCanalBlocked,
               malaccaStraitBlocked,
               panamaCanalBlocked,
+              hormuzStraitBlocked,
             }}
             setShocks={{
               setTaiwanStraitBlocked,
               setSuezCanalBlocked,
               setMalaccaStraitBlocked,
               setPanamaCanalBlocked,
+              setHormuzStraitBlocked,
             }}
             mitigations={{
               airFreightActive,
@@ -1933,6 +2170,7 @@ export default function App() {
             <button
               key={view}
               onClick={() => {
+                if (isActive) return;
                 setMobileView(view);
                 const el = document.getElementById(
                   `mobile-sec-${(view || "").toLowerCase()}`,
@@ -2102,6 +2340,14 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+ 
+      {/* Live Flow relocated to bottom above Ticker Tape */}
+      <LiveFlowMarquee incomingNews={[...(marketData?.news || []), ...whaleNews].map(news => ({
+        id: news.id || Math.random().toString(),
+        title: news.title || news.headline || news.msg || "News Item",
+        timestamp: ""
+      }))} />
+ 
       <TickerTape onSelectStock={handleSelectNode} />
       </div>
     </div>

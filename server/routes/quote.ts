@@ -5,6 +5,7 @@ const router = Router();
 const FMP_KEY = process.env.FMP_API_KEY || "";
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "";
 const ITIC_KEY = process.env.ITIC_API_KEY || "";
+const TWELVE_DATA_KEY = process.env.TWELVE_DATA_API_KEY || "";
 
 const isKeyReady = (k: string) => k && k.length > 5 && !k.includes("YOUR_");
 
@@ -59,6 +60,28 @@ async function fetchQuoteDetail(symbol: string) {
           previousClose: fhData.pc
         };
         source = "FINNHUB";
+      }
+    } catch (e: any) {
+      // suppress
+    }
+  }
+
+  // Try Twelve Data
+  if (source === "NONE" && isKeyReady(TWELVE_DATA_KEY)) {
+    try {
+      const response = await axios.get(`https://api.twelvedata.com/quote?symbol=${querySymbol}&apikey=${TWELVE_DATA_KEY}`, { timeout: 3000 });
+      const tdData = response.data;
+      if (tdData && tdData.close) {
+        data = {
+          price: parseFloat(tdData.close),
+          change: parseFloat(tdData.change),
+          changesPercentage: parseFloat(tdData.percent_change),
+          dayHigh: parseFloat(tdData.high),
+          dayLow: parseFloat(tdData.low),
+          open: parseFloat(tdData.open),
+          previousClose: parseFloat(tdData.previous_close)
+        };
+        source = "TWELVE_DATA";
       }
     } catch (e: any) {
       // suppress

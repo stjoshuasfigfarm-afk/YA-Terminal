@@ -38,6 +38,8 @@ import {
   Minus,
   ChevronUp,
   ChevronDown,
+  X,
+  Loader2,
 } from "lucide-react";
 import Markdown from "react-markdown";
 import { cn, getApiBaseUrl } from "../lib/utils";
@@ -46,6 +48,7 @@ import {
   getCorridorHeadquartersLinks,
 } from "./yield-terminal/TopologyMap";
 import { analyzeSentimentAndImpact } from "../lib/sentiment";
+import { searchAndScoreCompanies } from "../lib/searchEngine";
 import { AnimatePresence, motion } from "motion/react";
 
 // Utility to validate coordinates
@@ -113,6 +116,7 @@ interface MapLayerProps {
   toggleFocusMode?: () => void;
   resetOrientationTrigger?: number;
   onHeadlineClick?: (news: any) => void;
+  isSidebarMinimized?: boolean;
 }
 
 export const MapLayer: React.FC<MapLayerProps> = ({
@@ -159,13 +163,66 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   toggleFocusMode,
   resetOrientationTrigger = 0,
   onHeadlineClick,
+  isSidebarMinimized = false,
 }) => {
   const setIsVocalizerEnabled = onToggleVocalizer;
   const [isSwapped, setIsSwapped] = useState(false);
   const { companies: contextCompanies } = useCompanies();
+
+  // State and logic for broad center globe search
+  const [broadSearchQuery, setBroadSearchQuery] = useState("");
+  const [isBroadSearchFocused, setIsBroadSearchFocused] = useState(false);
+  const [broadSearchCursor, setBroadSearchCursor] = useState(-1);
+  const broadSearchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus broad search bar with / or Ctrl+K / Cmd+K shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is already typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === "/" || (e.key === "k" && (e.ctrlKey || e.metaKey))) {
+        e.preventDefault();
+        broadSearchInputRef.current?.focus();
+        setIsBroadSearchFocused(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const companies = useMemo(() => {
     return contextCompanies && contextCompanies.length > 0 ? contextCompanies : COMPANIES;
   }, [contextCompanies]);
+
+  const finalBroadMatches = useMemo(() => {
+    if (!broadSearchQuery.trim()) return [];
+    
+    // Use enhanced search engine instead of basic filtering
+    return searchAndScoreCompanies(companies, broadSearchQuery).map(match => ({
+      company: match.company,
+      matchedFields: match.matchedFields
+    })).slice(0, 8);
+  }, [broadSearchQuery, companies]);
+
+  const agentSuggestions = useMemo(() => [
+    "Analyze Middle East energy corridors and data centers",
+    "Trace multi-node supply connections for Apple Inc.",
+    "What straits are at risk of being blocked currently?",
+    "Identify high-risk logistics hubs in Southeast Asia",
+    "U.S. Home energy cost predictions and Fed policy",
+    "Strategic impact of political news in Israel",
+    "Show critical shipping lane blockades in the Red Sea",
+    "Locate major semiconductor factory clusters worldwide"
+  ], []);
 
   const companiesToRender = useMemo(() => {
     const set = new Set<string>();
@@ -227,7 +284,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     return list;
   }, [companies, selectedStock, focusStock, relationships, searchQuery, networkAnchor, showGlobalNetwork, isTransitioning]);
 
-  const [showNewsSummary, setShowNewsSummary] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsCooldownRef = useRef<number>(0);
   const ttsRequestIdRef = useRef<number>(0);
@@ -333,8 +389,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
   }, []);
 
-  const [newsActiveTab, setNewsActiveTab] = useState("YAHOO_FINANCE");
-  const [eiaData, setEiaData] = useState<any>(null);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
@@ -351,21 +405,6 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
   }, []);
 
-  useEffect(() => {
-    if (newsActiveTab === "02 // LOGISTICS_FEED" && !eiaData) {
-      const baseUrl = getApiBaseUrl();
-      fetch(`${baseUrl}/api/eia/stocks`)
-        .then(async (res) => {
-          const contentType = res.headers.get("content-type");
-          if (contentType && contentType.includes("text/html")) return null;
-          return res.json();
-        })
-        .then((data) => {
-          if (data) setEiaData(data);
-        })
-        .catch((err) => console.error("EIA Fetch Error", err));
-    }
-  }, [newsActiveTab, eiaData]);
   const [activeNewsIdx, setActiveNewsIdx] = useState(0);
   
   // Sync local activeNewsIdx with prop if provided
@@ -682,6 +721,13 @@ export const MapLayer: React.FC<MapLayerProps> = ({
     }
   }, [briefing, selectedStock]);
 
+  // Auto-expand tactical briefing when AI search becomes active
+  useEffect(() => {
+    if (isAgentSearching) {
+      setIsBriefingMinimized(false);
+    }
+  }, [isAgentSearching]);
+
   // Sync state: capture agentFocus updates when they happen
   useEffect(() => {
     if (agentFocus && agentFocus.briefing) {
@@ -699,8 +745,9 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       setPreservedBriefing({
         type: "agentFocus",
         text: extractedText,
-        title: "BRIEFING",
-        subTitle: agentFocus.locationName ? agentFocus.locationName.toUpperCase() : "TARGET REGION"
+        title: "AI AGENT REPORT",
+        subTitle: agentFocus.locationName ? agentFocus.locationName.toUpperCase() : "TARGET REGION",
+        queryText: agentFocus.queryText || ""
       });
       setIsBriefingMinimized(false);
     }
@@ -728,6 +775,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
       setTypedBriefing(chars.slice(0, index).join(""));
       if (index >= chars.length) {
         clearInterval(interval);
+        setIsNavAnimationFinished(true);
       }
     }, 15);
 
@@ -1195,7 +1243,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   }, [selectedStock, activeTab, hoveredCompany, showGlobalNetwork, networkAnchor, relationships]);
 
   return (
-    <div className="flex-1 relative bg-[#050505] overflow-hidden map-green-hued tactical-grid">
+    <div className="w-full h-full absolute inset-0 m-auto flex-1 bg-[#050505] overflow-hidden map-green-hued tactical-grid">
       <div className="absolute top-1 right-1 z-[1002] flex flex-col gap-1 pointer-events-auto items-end">
         {/* GlobeMinimap is handled via separate component */}
       </div>
@@ -1232,8 +1280,221 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             resetOrientationTrigger={resetOrientationTrigger}
             partnerLines={partnerLines}
             mapLayers={mapLayers}
+            isSidebarMinimized={isSidebarMinimized}
           />
         </Suspense>
+      </div>
+
+      {/* Broad Center Globe Search Bar */}
+      <div className={cn(
+        "absolute z-[1001] w-[20rem] md:w-[220px] lg:w-[260px] xl:w-[320px] max-w-[calc(100vw-2rem)] select-none pointer-events-auto transition-all duration-300 top-4",
+        isSidebarMinimized
+          ? "left-4 md:left-[48px]"
+          : "left-4 md:left-[236px] lg:left-[276px] xl:left-[336px]"
+      )}>
+        <div className="relative flex items-center bg-black/85 backdrop-blur-md border border-emerald-500/30 p-1 px-2.5 rounded-sm shadow-[0_0_20px_rgba(0,0,0,0.8)] focus-within:border-emerald-500/80 transition-all duration-300">
+          <Search className="w-3.5 h-3.5 text-emerald-500/50 mr-2 shrink-0" />
+          <input
+            ref={broadSearchInputRef}
+            type="text"
+            value={broadSearchQuery}
+            onChange={(e) => {
+              setBroadSearchQuery(e.target.value);
+              setBroadSearchCursor(-1);
+            }}
+            onFocus={() => setIsBroadSearchFocused(true)}
+            onBlur={() => setTimeout(() => setIsBroadSearchFocused(false), 200)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setBroadSearchCursor((prev) =>
+                  prev < finalBroadMatches.length - 1 ? prev + 1 : 0
+                );
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setBroadSearchCursor((prev) =>
+                  prev > 0 ? prev - 1 : finalBroadMatches.length - 1
+                );
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setIsBroadSearchFocused(false);
+                broadSearchInputRef.current?.blur();
+              } else if (e.key === "Enter" && broadSearchQuery) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const activeIdx = broadSearchCursor >= 0 && broadSearchCursor < finalBroadMatches.length ? broadSearchCursor : -1;
+                if (activeIdx >= 0) {
+                  const matched = finalBroadMatches[activeIdx].company;
+                  if (onSelectNode) {
+                    onSelectNode(matched, false, true);
+                  }
+                  setBroadSearchQuery("");
+                  setIsBroadSearchFocused(false);
+                  broadSearchInputRef.current?.blur();
+                } else {
+                  const queryTerm = broadSearchQuery.toLowerCase().trim();
+                  // Check if there's an exact case-insensitive match for the symbol or close match
+                  const exactMatch = finalBroadMatches.find(
+                    (m) =>
+                      m.company.symbol.toLowerCase() === queryTerm ||
+                      m.company.name.toLowerCase() === queryTerm
+                  );
+                  
+                  if (exactMatch) {
+                    if (onSelectNode) {
+                      onSelectNode(exactMatch.company, false, true);
+                    }
+                    setBroadSearchQuery("");
+                    setIsBroadSearchFocused(false);
+                    broadSearchInputRef.current?.blur();
+                  } else if (onAgentSearch) {
+                    onAgentSearch(broadSearchQuery);
+                    setBroadSearchQuery("");
+                    setIsBroadSearchFocused(false);
+                    broadSearchInputRef.current?.blur();
+                  } else if (finalBroadMatches.length > 0) {
+                    const matched = finalBroadMatches[0].company;
+                    if (onSelectNode) {
+                      onSelectNode(matched, false, true);
+                    }
+                    setBroadSearchQuery("");
+                    setIsBroadSearchFocused(false);
+                    broadSearchInputRef.current?.blur();
+                  }
+                }
+              }
+            }}
+            placeholder="BROAD ORBITAL ENGINE SEARCH..."
+            className="w-full bg-transparent border-0 ring-0 focus:ring-0 focus:outline-none font-mono text-[9px] text-emerald-400 placeholder-zinc-700 uppercase tracking-widest leading-none py-1.5"
+          />
+          {broadSearchQuery && (
+            <button
+              onClick={() => {
+                setBroadSearchQuery("");
+                setBroadSearchCursor(-1);
+              }}
+              className="text-zinc-650 hover:text-emerald-400 transition-colors p-1 text-[10px]"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {isBroadSearchFocused && (
+            <motion.div
+              initial={{ opacity: 0, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -2 }}
+              transition={{ duration: 0.1 }}
+              className="absolute top-full left-0 right-0 z-[1002] mt-1 max-h-60 overflow-y-auto custom-scrollbar border border-emerald-500/30 bg-black/95 backdrop-blur-md rounded-sm shadow-[0_10px_30px_rgba(0,0,0,0.9)] p-px font-mono"
+            >
+              {!broadSearchQuery.trim() && (
+                <div className="p-1">
+                  <div className="px-2 py-1.5 text-[6.5px] font-mono text-zinc-650 uppercase tracking-[0.2em] border-b border-zinc-900/50 mb-1 flex items-center gap-2">
+                    <Zap className="w-2 h-2 text-emerald-500" />
+                    Globe Agent Intelligence Hub
+                  </div>
+                  {agentSuggestions.map((suggestion, idx) => (
+                    <div
+                      key={`suggest-${idx}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setBroadSearchQuery(suggestion);
+                        if (onAgentSearch) onAgentSearch(suggestion);
+                        setBroadSearchQuery("");
+                        setIsBroadSearchFocused(false);
+                        broadSearchInputRef.current?.blur();
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 p-1.5 text-[8px] cursor-pointer transition-all hover:bg-emerald-500/10 rounded-xs",
+                        broadSearchCursor === idx ? "bg-emerald-500/15 text-emerald-400" : "text-zinc-500"
+                      )}
+                    >
+                      <MessageSquare className="w-2.5 h-2.5 opacity-40" />
+                      {suggestion.toUpperCase()}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {finalBroadMatches.length > 0 ? (
+                finalBroadMatches.map(({ company, matchedFields }, idx) => {
+                  const isSelected = selectedStock?.symbol === company.symbol;
+                  const isHoveredByCursor = broadSearchCursor === idx;
+                  
+                  // Get most relevant match label
+                  const matchTag = matchedFields && matchedFields.length > 0 ? matchedFields[0].field : "";
+
+                  return (
+                    <div
+                      key={`broad-${company.symbol}-${idx}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onClick={() => {
+                        if (onSelectNode) {
+                          onSelectNode(company, false, true);
+                        }
+                        setBroadSearchQuery("");
+                        setIsBroadSearchFocused(false);
+                        broadSearchInputRef.current?.blur();
+                      }}
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-[9px] cursor-pointer border-b border-zinc-900/40 last:border-0 transition-colors duration-150",
+                        isHoveredByCursor || isSelected
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : "text-zinc-400 hover:bg-zinc-900/50 hover:text-white"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white shrink-0 tracking-wider">
+                          {company.symbol}
+                        </span>
+                        <span className="text-zinc-500 truncate max-w-[110px] md:max-w-[130px]">
+                          {company.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 select-none">
+                        {matchTag && matchTag !== "Ticker" && matchTag !== "Name" && (
+                          <span className="text-[7.2px] px-1 bg-emerald-950/40 border border-emerald-900/30 text-emerald-500/80 rounded-xs uppercase tracking-tight scale-90 origin-right italic">
+                            Via {matchTag}
+                          </span>
+                        )}
+                        <span className="text-[7.5px] px-1 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-500 uppercase">
+                          {company.sector}
+                        </span>
+                        <span className="text-[7.5px] text-zinc-650">
+                          {company.country}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : broadSearchQuery.trim() ? (
+                <div className="p-4 text-center">
+                  <div className="text-[9px] font-mono text-zinc-650 uppercase tracking-[0.2em] mb-1">
+                    [ NO_DIRECT_MATCHES ]
+                  </div>
+                  <div className="text-[7.5px] font-mono text-zinc-700 uppercase leading-relaxed max-w-[200px] mx-auto mb-3">
+                    Global registry scan completed. No deterministic matches for "{broadSearchQuery.toUpperCase()}".
+                  </div>
+                  <button 
+                    onClick={() => {
+                        // Submit as agent query
+                        if (onAgentSearch) onAgentSearch(broadSearchQuery);
+                        setBroadSearchQuery("");
+                        setIsBroadSearchFocused(false);
+                    }}
+                    className="px-3 py-1 border border-emerald-500/30 text-emerald-500 text-[8.5px] font-mono hover:bg-emerald-500/10 rounded-xs uppercase tracking-tight"
+                  >
+                    INITIATE AGENT INTELLIGENCE SCAN
+                  </button>
+                </div>
+              ) : null}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
         <AnimatePresence>
@@ -1243,7 +1504,12 @@ export const MapLayer: React.FC<MapLayerProps> = ({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             onClick={() => setIsBriefingMinimized(false)}
-            className="absolute top-4 left-4 z-[1000] flex items-center gap-2 bg-black/95 border border-emerald-500/40 px-3.5 py-2.5 cursor-pointer pointer-events-auto rounded-sm select-none font-mono text-[9px] text-emerald-400 hover:border-emerald-400 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-300 shadow-[0_0_20px_rgba(0,0,0,0.8)]"
+            className={cn(
+              "absolute z-[1000] flex items-center gap-2 bg-black/95 border border-emerald-500/40 px-3.5 py-2.5 cursor-pointer pointer-events-auto rounded-sm select-none font-mono text-[9px] text-emerald-400 hover:border-emerald-400 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-300 shadow-[0_0_20px_rgba(0,0,0,0.8)] top-[52px]",
+              isSidebarMinimized
+                ? "left-4 md:left-[48px]"
+                : "left-4 md:left-[236px] lg:left-[276px] xl:left-[336px]"
+            )}
             title="Click to restore Strategic Briefing"
           >
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
@@ -1254,23 +1520,28 @@ export const MapLayer: React.FC<MapLayerProps> = ({
           </motion.div>
         )}
 
-        {preservedBriefing && !isBriefingMinimized && (
+        {(preservedBriefing || isAgentSearching) && !isBriefingMinimized && (
           <motion.div 
             id="tactical-briefing-panel"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="absolute top-4 left-4 right-4 md:right-auto z-[1000] md:w-[22rem] bg-black/90 backdrop-blur-xl border border-emerald-500/40 p-3.5 pointer-events-auto select-none font-mono shadow-[0_0_30px_rgba(0,0,0,0.8)] hover:border-emerald-500/60 transition-all duration-300 animate-none"
+            className={cn(
+              "absolute z-[1000] w-[20rem] md:w-[220px] lg:w-[260px] xl:w-[320px] max-w-[calc(100vw-2rem)] bg-black/90 backdrop-blur-xl border border-emerald-500/40 p-3.5 pointer-events-auto select-none font-mono shadow-[0_0_30px_rgba(0,0,0,0.8)] hover:border-emerald-500/60 transition-all duration-300 animate-none top-[52px]",
+              isSidebarMinimized
+                ? "left-4 md:left-[48px]"
+                : "left-4 md:left-[236px] lg:left-[276px] xl:left-[336px]"
+            )}
           >
             <div className="flex items-center justify-between mb-2 border-b border-emerald-900/50 pb-1.5 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <div className={cn("w-1.5 h-1.5 rounded-full shadow-[0_0_8px_#10b981]", isSpeaking ? "bg-cyan-400 animate-ping" : "bg-emerald-500 animate-pulse")} />
                 <div className="flex flex-col">
                   <span className="text-[8px] font-black text-emerald-400 tracking-widest uppercase">
-                    {preservedBriefing.title || "TACTICAL_BRIEFING"}
+                    {isAgentSearching ? "AGENT SEARCH RUNNING" : (preservedBriefing?.title || "TACTICAL_BRIEFING")}
                   </span>
                   <span className="text-[7px] font-medium text-emerald-700 tracking-widest uppercase flex items-center gap-1.5">
-                    {preservedBriefing.subTitle || "OPERATIONS STREAM"}
+                    {isAgentSearching ? "COGNITIVE SYNTHESIS" : (preservedBriefing?.subTitle || "OPERATIONS STREAM")}
                   </span>
                 </div>
                 {isSpeechLoading && (
@@ -1302,18 +1573,18 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                       }
                       setIsSpeaking(false);
                     } else {
-                      const textToSpeak = preservedBriefing.type === "briefing"
+                      const textToSpeak = preservedBriefing?.type === "briefing"
                         ? (typeof preservedBriefing.data === "string" ? preservedBriefing.data : (preservedBriefing.data?.summary || preservedBriefing.data?.text || "Analyzing..."))
-                        : (preservedBriefing.text || "Analyzing...");
+                        : (preservedBriefing?.text || "Analyzing...");
                       speakWithEnhancedVoice(textToSpeak, true);
                     }
                   }}
-                  disabled={isSpeechLoading}
+                  disabled={isSpeechLoading || isAgentSearching}
                   className={cn(
                     "flex items-center gap-1.5 px-2 py-0.5 border text-[7px] font-mono tracking-wider font-bold transition-all cursor-pointer rounded-sm shrink-0",
                     isSpeaking 
                       ? "bg-red-950/20 border-red-500/40 text-red-400" 
-                      : "bg-emerald-950/20 border-emerald-500/20 text-emerald-400 hover:border-emerald-500/40"
+                      : "bg-emerald-950/20 border-emerald-500/20 text-emerald-400 hover:border-emerald-500/40 disabled:opacity-40"
                   )}
                 >
                   {isSpeaking ? (
@@ -1332,97 +1603,114 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                 >
                   <Minus className="w-3 h-3" />
                 </button>
-
-                <button
-                  onClick={() => {
-                    const newState = !showNewsSummary;
-                    setShowNewsSummary(newState);
-                    if (newState) {
-                      if (isNewsCyclingActive) {
-                        setIsNewsCyclingActive(false);
-                        setIsCyclingTriggered(false);
-                      }
-                      if (showGlobalNetwork && toggleGlobalNetwork) toggleGlobalNetwork();
-                    }
-                  }}
-                  className={cn(
-                    "p-1 border transition-all duration-200 cursor-pointer",
-                    showNewsSummary
-                      ? "bg-emerald-500 border-emerald-400 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                      : "bg-zinc-900 border-emerald-500/30 text-emerald-500 hover:border-emerald-500"
-                  )}
-                  title="Expand to Full News Panel"
-                >
-                  <Zap className="w-3 h-3" />
-                </button>
               </div>
             </div>
 
-            {preservedBriefing.type === "briefing" ? (
-              <div className="space-y-4">
-                <div className="p-2 bg-zinc-900/50 border border-emerald-500/10 rounded-sm">
-                   <div className="text-[7.5px] font-black text-emerald-400/70 uppercase tracking-[0.2em] mb-1.5 border-b border-emerald-500/10 pb-0.5">
-                     DECK_AGENT_SUMMARY
-                   </div>
-                   <Typewriter
-                     className="text-zinc-300 font-mono text-[9px]"
-                     text={
-                       typeof preservedBriefing.data === "string" ? preservedBriefing.data :
-                       (preservedBriefing.data?.summary ||
-                       preservedBriefing.data?.text ||
-                       "Analyzing current operational strategy...")
-                     }
-                   />
-                </div>
-                
-                {/* ENHANCED: TACTICAL RECOMMENDATIONS */}
-                {preservedBriefing.data && typeof preservedBriefing.data !== "string" && preservedBriefing.data.tacticalRecommendations && (
-                  <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-sm space-y-2">
-                     <div className="flex items-center gap-2 text-[8px] font-black text-emerald-400 uppercase tracking-widest font-mono">
-                       <Shield className="w-3 h-3" />
-                       OPERATIONAL_DIRECTIVES
-                     </div>
-                     <div className="space-y-1.5">
-                       {(preservedBriefing.data.tacticalRecommendations || []).map((rec: string, idx: number) => (
-                          <div key={idx} className="flex gap-2 text-[8.5px] text-zinc-300 font-mono">
-                            <span className="text-emerald-500 shrink-0">[{idx + 1}]</span>
-                            <span>{rec}</span>
-                          </div>
-                       ))}
-                     </div>
+            <div className="max-h-[300px] overflow-y-auto custom-scrollbar pr-1.5 space-y-4">
+              {isAgentSearching ? (
+                <div className="space-y-4 font-mono py-2">
+                  <div className="flex items-center gap-2 text-[10px] text-emerald-400 font-bold tracking-widest animate-pulse">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500" />
+                    <span>AGENT_SYNTHESIS_ACTIVE</span>
                   </div>
-                )}
+                  <div className="text-[9px] text-zinc-400 leading-relaxed bg-zinc-950/60 border border-zinc-900/80 p-2.5 rounded-sm">
+                    Negotiating strategic AI uplink. Querying secure supply chain nodes, macro lithography corridors, and cross-border tech chokepoints...
+                  </div>
+                </div>
+              ) : preservedBriefing?.type === "briefing" ? (
+                <div className="space-y-4">
+                  <div className="p-2 bg-zinc-900/50 border border-emerald-500/10 rounded-sm">
+                     <div className="text-[7.5px] font-black text-emerald-400/70 uppercase tracking-[0.2em] mb-1.5 border-b border-emerald-500/10 pb-0.5">
+                       DECK_AGENT_SUMMARY
+                     </div>
+                     <Typewriter
+                       className="text-zinc-300 font-mono text-[9px]"
+                       text={
+                         typeof preservedBriefing.data === "string" ? preservedBriefing.data :
+                         (preservedBriefing.data?.summary ||
+                         preservedBriefing.data?.text ||
+                         "Analyzing current operational strategy...")
+                       }
+                     />
+                  </div>
+                  
+                  {/* ENHANCED: RELATED ENTITIES */}
+                  {preservedBriefing.data && typeof preservedBriefing.data !== "string" && preservedBriefing.data.relatedEntities && (
+                    <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-sm space-y-2">
+                       <div className="flex items-center gap-2 text-[8px] font-black text-emerald-400 uppercase tracking-widest font-mono">
+                         <Shield className="w-3 h-3" />
+                         RELATED ENTITIES (PEOPLE, PLACES, BILLS, ORGS)
+                       </div>
+                       <div className="space-y-1.5">
+                         {(preservedBriefing.data.relatedEntities || []).map((rec: string, idx: number) => (
+                            <div key={idx} className="flex gap-2 text-[8.5px] text-zinc-300 font-mono">
+                              <span className="text-emerald-500 shrink-0">[{idx + 1}]</span>
+                              <span>{rec}</span>
+                            </div>
+                         ))}
+                       </div>
+                    </div>
+                  )}
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex flex-col bg-black p-2 rounded-sm border border-zinc-900">
-                     <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Vector</div>
-                     <div className={cn(
-                       "text-[9px] font-black font-mono truncate",
-                       preservedBriefing.data?.outlook === "ACCELERATING" ? "text-emerald-400" :
-                       preservedBriefing.data?.outlook === "VULNERABLE" || preservedBriefing.data?.outlook === "COMPROMISED" ? "text-red-500" :
-                       preservedBriefing.data?.outlook === "STRETCHED" ? "text-amber-500" : "text-white"
-                     )}>
-                       {preservedBriefing.data?.outlook || "STABLE"}
-                     </div>
-                  </div>
-                  <div className="flex flex-col bg-black p-2 rounded-sm border border-zinc-900 col-span-2">
-                     <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Primary Threat</div>
-                     <div className="text-[8.5px] font-bold text-red-400 font-mono truncate">
-                       {preservedBriefing.data?.riskFactors?.[0] || "None Detected"}
-                     </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col bg-black p-2 rounded-sm border border-zinc-900">
+                       <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Vector</div>
+                       <div className={cn(
+                         "text-[9px] font-black font-mono truncate",
+                         preservedBriefing.data?.outlook === "ACCELERATING" ? "text-emerald-400" :
+                         preservedBriefing.data?.outlook === "VULNERABLE" || preservedBriefing.data?.outlook === "COMPROMISED" ? "text-red-500" :
+                         preservedBriefing.data?.outlook === "STRETCHED" ? "text-amber-500" : "text-white"
+                       )}>
+                         {preservedBriefing.data?.outlook || "STABLE"}
+                       </div>
+                    </div>
+                    <div className="flex flex-col bg-black p-2 rounded-sm border border-zinc-900 col-span-2">
+                       <div className="text-[7px] text-zinc-600 uppercase font-mono mb-0.5">Primary Threat</div>
+                       <div className="text-[8.5px] font-bold text-red-400 font-mono truncate">
+                         {preservedBriefing.data?.riskFactors?.[0] || "None Detected"}
+                       </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : typedBriefing ? (
-              <div className="text-[9px] text-zinc-300 leading-relaxed min-h-[40px]">
-                {typedBriefing}
-                <span className="inline-block w-1 h-3 bg-emerald-500 ml-1 animate-pulse" />
-              </div>
-            ) : (
-                <div className="text-[9.5px] text-zinc-500 font-mono bg-zinc-900/30 p-2 border border-zinc-800 border-dashed rounded-sm">
-                  No active briefing formulated. Request AI synthesis.
+              ) : typedBriefing ? (
+                <div className="space-y-3.5 font-mono">
+                  {preservedBriefing?.queryText && (
+                    <div className="text-[8px] font-bold text-emerald-400 border border-emerald-900/30 bg-emerald-950/20 px-2 py-1 rounded-sm tracking-wide">
+                      <span className="text-emerald-500/75 mr-1.5">[QUERY]</span>
+                      <span className="text-zinc-350">{preservedBriefing.queryText}</span>
+                    </div>
+                  )}
+
+                  <div className="text-[9px] text-zinc-300 leading-relaxed min-h-[40px] whitespace-pre-line bg-zinc-950/40 p-2 rounded-sm border border-zinc-900/60 font-mono">
+                    {typedBriefing}
+                    {!isNavAnimationFinished && (
+                      <span className="inline-block w-1 h-3.5 bg-emerald-500 ml-0.5 animate-pulse" />
+                    )}
+                  </div>
+
+                  {isNavAnimationFinished && agentFocus && agentFocus.facts && agentFocus.facts.length > 0 && (
+                    <div className="pt-2.5 border-t border-emerald-500/20 space-y-2">
+                      <div className="text-[8.5px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
+                        <span className="w-1 h-2.5 bg-emerald-500 inline-block" />
+                        SPECIFIC NAMES, LOCATIONS & ORGANIZATIONS
+                      </div>
+                      <div className="space-y-1.5 max-h-[140px] overflow-y-auto custom-scrollbar pr-1">
+                        {agentFocus.facts.map((fact: string, idx: number) => (
+                          <div key={idx} className="bg-zinc-950/80 border border-zinc-900 rounded p-2 text-[8.5px] text-zinc-300 flex items-start gap-2 leading-relaxed font-mono">
+                            <span className="text-emerald-500 font-bold shrink-0">·</span>
+                            <span>{fact}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-            )}
+              ) : (
+                  <div className="text-[9.5px] text-zinc-500 font-mono bg-zinc-900/30 p-2 border border-zinc-800 border-dashed rounded-sm">
+                    No active briefing formulated. Request AI synthesis.
+                  </div>
+              )}
+            </div>
 
             <div className="mt-3 flex justify-between items-center text-[7px] text-zinc-600 border-t border-zinc-900/40 pt-2">
                <span>TRANSIT_LOCK: {agentFocus ? `${Number(agentFocus.lat).toFixed(2)} / ${Number(agentFocus.lng).toFixed(2)}` : "STANDBY"}</span>
@@ -1432,201 +1720,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showNewsSummary && (
-          <motion.div
-            id="news-summary-deck"
-            initial={{ y: 200, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 200, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute bottom-0 left-0 right-0 z-[20] h-[180px] bg-black/95 border-t border-emerald-950 font-mono text-[10px] overflow-hidden flex flex-col pointer-events-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)]"
-          >
-            {(() => {
-              const tabs = [
-                "YAHOO_FINANCE",
-                "FLASH_URGENT",
-                "SECTOR_ROTATION",
-                "MACRO_ALERTS",
-                "02 // LOGISTICS_FEED",
-              ];
 
-              const activeCompany = activeCompanyForCache;
-              // Mock random filtering based on tab selection so it doesn't look empty when changing tabs
-              const currentTabFiltered = filteredCompanyCache.filter(
-                (item, idx) => {
-                  if (newsActiveTab === "YAHOO_FINANCE") {
-                    return (item.source || "").toLowerCase().includes("yahoo");
-                  }
-                  if (newsActiveTab === "SECTOR_ROTATION") return idx % 2 === 0;
-                  if (newsActiveTab === "MACRO_ALERTS") return idx % 3 === 0;
-                  return true;
-                },
-              );
-
-              return (
-                <>
-                  {/* Tab Strip */}
-                  <div className="flex border-b border-emerald-950 px-2 pt-2 items-end">
-                    {tabs.map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setNewsActiveTab(tab)}
-                        className={cn(
-                          "text-[9px] border border-emerald-950 px-2 py-0.5 mr-1 bg-black transition-colors border-b-0 rounded-t-sm",
-                          newsActiveTab === tab
-                            ? "bg-emerald-600/20 text-emerald-400 font-black border-emerald-500/50"
-                            : "text-emerald-700 hover:text-emerald-500 hover:bg-emerald-950/20",
-                        )}
-                      >
-                        [ {tab.replace("_", " ")} ]
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => setShowNewsSummary(false)}
-                      className="ml-auto mb-1 text-emerald-800 hover:text-red-500 transition-colors bg-black border border-emerald-950 px-1.5 py-0.5 rounded-sm"
-                    >
-                      [ X CLOSE ]
-                    </button>
-                  </div>
-
-                  {/* Content Area */}
-                  <div className="flex-1 overflow-y-auto mt-2 space-y-2 px-4 pb-4 custom-scrollbar">
-                    {newsActiveTab === "02 // LOGISTICS_FEED" ? (
-                      <div className="p-1">
-                        {!eiaData ? (
-                          <div className="text-emerald-400/50">
-                            QUERYING EIA UPSTREAM NODE...
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-4">
-                            {[
-                              {
-                                label: "CUSHING INVENTORIES",
-                                data: eiaData.cushing?.[0],
-                                prev: eiaData.cushing?.[1],
-                              },
-                              {
-                                label: "GLOBAL PROD (Ths_Bbl)",
-                                data: eiaData.globalProduction?.[0],
-                                prev: eiaData.globalProduction?.[1],
-                              },
-                            ].map((stream, idx) => {
-                              const v = stream.data?.value;
-                              const chg = stream.data?.netChange || 0;
-                              const pct =
-                                stream.prev && stream.prev.value
-                                  ? (chg / stream.prev.value) * 100
-                                  : 0;
-                              return (
-                                <div
-                                  key={idx}
-                                  className="border border-emerald-900/50 p-2 font-mono text-[10px] text-emerald-400 bg-emerald-950/10"
-                                >
-                                  <div className="text-[8px] text-emerald-600 mb-1 tracking-widest">
-                                    {stream.label}
-                                  </div>
-                                  <div className="flex justify-between items-end">
-                                    <div className="text-sm font-black">
-                                      {v?.toLocaleString() || "---"}
-                                    </div>
-                                    <div
-                                      className={cn(
-                                        "text-[9px]",
-                                        chg >= 0
-                                          ? "text-emerald-300"
-                                          : "text-amber-500",
-                                      )}
-                                    >
-                                      {chg > 0 ? "+" : ""}
-                                      {chg.toLocaleString()} (
-                                      {pct > 0 ? "+" : ""}
-                                      {pct.toFixed(2)}%)
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ) : currentTabFiltered.length > 0 ? (
-                      currentTabFiltered.map((item, idx) => (
-                        <motion.div
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          key={idx}
-                          onClick={() => {
-                            const symbol = item.symbol || item.ticker || activeCompany?.symbol;
-                            if (symbol) {
-                              const found = COMPANIES.find(c => c.symbol === symbol);
-                              if (found) {
-                                onSelectNode(found, false, false, item);
-                              }
-                            }
-                          }}
-                          className="flex items-start gap-2 bg-zinc-950/40 p-2 rounded-sm border border-zinc-900 hover:border-emerald-950 transition-colors group cursor-pointer"
-                        >
-                          <span className="text-emerald-500 font-bold group-hover:text-emerald-400 mt-0.5">
-                            »
-                          </span>
-                          <div className="flex-1 flex flex-col gap-1">
-                            <div className="flex justify-between items-center text-[8.5px] text-zinc-500 font-black uppercase tracking-widest">
-                              <span className="flex items-center gap-1.5">
-                                <span>{item.source || activeCompany.symbol}</span>
-                                {item.url && (
-                                  <a
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-emerald-500 hover:text-emerald-300 font-bold transition-all text-[7.5px]"
-                                    title="Open news story in a new tab"
-                                  >
-                                    [ARTICLE ↗]
-                                  </a>
-                                )}
-                              </span>
-                              <span className="text-emerald-800">
-                                {formatSafeTime(
-                                  item.published_at || item.timestamp,
-                                  new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
-                                )}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-emerald-400/90 font-bold group-hover:text-emerald-300 transition-colors">
-                              {item.intelligence?.translatedTitle ||
-                                item.translatedTitle ||
-                                item.headline ||
-                                item.title ||
-                                item.name}
-                            </div>
-                            <div className="text-[9px] text-zinc-500 truncate mt-0.5">
-                              {item.summary ||
-                                item.description ||
-                                "No supplemental details provided for this bulletin."}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))
-                    ) : (
-                      <div className="h-full flex items-center justify-center flex-col gap-2 opacity-50">
-                        <div className="w-8 h-8 rounded-full border border-dashed border-emerald-800 flex items-center justify-center">
-                          <span className="w-1.5 h-1.5 bg-emerald-700 rounded-full" />
-                        </div>
-                        <div className="text-emerald-800 text-[10px] font-black tracking-widest uppercase">
-                          AWAITING {newsActiveTab.replace("_", " ")} SIGNALS
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence mode="popLayout">
         {isNewsCyclingActive && (

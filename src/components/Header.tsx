@@ -169,7 +169,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex flex-col">
             <span className="text-emerald-400 font-mono font-black text-[11px] tracking-[0.25em] uppercase text-glow leading-none flex items-center gap-2">
-              <span className="hidden sm:inline">YIELD ANALYSIS TERMINAL</span>
+              <span className="hidden sm:inline">YIELD ANALYSIS</span>
               <span className="sm:hidden font-black">TERMINAL</span>
             </span>
             <span className="text-[6.5px] text-zinc-650 font-mono font-bold tracking-[0.4em] uppercase leading-none mt-1.5 hidden sm:flex items-center gap-1.5 overflow-hidden">
@@ -214,6 +214,11 @@ export const Header: React.FC<HeaderProps> = ({
         <a href="https://www.youtube.com/@YieldAnalysts" target="_blank" rel="noopener noreferrer" className="bg-zinc-950 border border-zinc-800 p-1 hover:border-red-500 hover:bg-red-500/10 transition-colors">
           <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-zinc-500 hover:text-red-500 transition-colors duration-200 cursor-pointer">
             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
+        </a>
+        <a href="https://x.com/StJoshuaFigFarm" target="_blank" rel="noopener noreferrer" className="bg-zinc-950 border border-zinc-800 p-1 hover:border-zinc-400 hover:bg-zinc-400/10 transition-colors" title="Follow on X">
+          <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-zinc-500 hover:text-white transition-colors duration-200 cursor-pointer">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
           </svg>
         </a>
         <div className="flex items-center gap-1.5 bg-black px-2.5 py-0.5 border border-zinc-900 rounded-2xs font-bold font-mono text-[8.5px] shadow-sm select-none">

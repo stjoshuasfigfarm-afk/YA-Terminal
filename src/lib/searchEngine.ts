@@ -98,6 +98,22 @@ export function parseQuery(queryStr: string): ParsedQuery {
 }
 
 /**
+ * Simple Levenshtein-like fuzzy match or character sequence match.
+ */
+function fuzzyMatch(str: string, pattern: string): boolean {
+  if (pattern.length > str.length) return false;
+  if (pattern.length <= 1) return str.includes(pattern);
+  
+  let patternIdx = 0;
+  for (let strIdx = 0; strIdx < str.length && patternIdx < pattern.length; strIdx++) {
+    if (str[strIdx] === pattern[patternIdx]) {
+      patternIdx++;
+    }
+  }
+  return patternIdx === pattern.length;
+}
+
+/**
  * Searches and scores a company node list based on the parsed query.
  * Excludes non-matches and returns sorted list with matchmaking metadata.
  */
@@ -106,7 +122,8 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
   const results: SearchMatch[] = [];
 
   // If search query is empty, return everything scores = 0
-  if (!queryStr.trim()) {
+  const isQueryEmpty = !queryStr.trim();
+  if (isQueryEmpty) {
     return companies.map(company => ({
       company,
       score: 0,
@@ -119,10 +136,17 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
     let excluded = false;
     const matchedFields: { field: string; value: string }[] = [];
 
+    const symbolRaw = (c.symbol || "").toLowerCase();
+    const nameRaw = (c.name || "").toLowerCase();
+    const sectorRaw = (c.sector || "").toLowerCase();
+    const countryRaw = (c.country || "").toLowerCase();
+    const hqRaw = (c.headquarters || "").toLowerCase();
+    const domainRaw = (c.domain || "").toLowerCase();
+
     // 1. Tag filtering constraints (AND behavior for specific fields if provided)
     if (parsed.countries.length > 0) {
       const match = parsed.countries.some(country => 
-        c.country?.toLowerCase().includes(country)
+        countryRaw.includes(country)
       );
       if (match) {
         score += 200;
@@ -134,7 +158,7 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
 
     if (parsed.sectors.length > 0 && !excluded) {
       const match = parsed.sectors.some(sector => 
-        c.sector?.toLowerCase().includes(sector)
+        sectorRaw.includes(sector)
       );
       if (match) {
         score += 200;
@@ -148,7 +172,7 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
       const match = parsed.partners.some(pSymbol => {
         // Direct checks
         const matchesDirectPartner = c.partners?.some(p => (p || "").toLowerCase().includes(pSymbol));
-        const matchesSelf = (c.symbol || "").toLowerCase() === pSymbol;
+        const matchesSelf = symbolRaw === pSymbol;
         return matchesDirectPartner || matchesSelf;
       });
       if (match) {
@@ -164,7 +188,7 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
 
     if (parsed.headquarters.length > 0 && !excluded) {
       const match = parsed.headquarters.some(hq => 
-        c.headquarters?.toLowerCase().includes(hq)
+        hqRaw.includes(hq)
       );
       if (match) {
         score += 200;
@@ -181,71 +205,77 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
       for (const term of parsed.terms) {
         let currentTermMatched = false;
 
-        // Exactly matches symbol (Highest Match)
-        if ((c.symbol || "").toLowerCase() === term) {
-          score += 1200;
+        // Exact Ticker
+        if (symbolRaw === term) {
+          score += 2000;
           currentTermMatched = true;
-          matchedFields.push({ field: "Ticker Match", value: c.symbol });
+          matchedFields.push({ field: "Ticker", value: c.symbol });
         }
-        // Starts with symbol
-        else if ((c.symbol || "").toLowerCase().startsWith(term)) {
-          score += 600;
+        // Ticker Prefix
+        else if (symbolRaw.startsWith(term)) {
+          score += 1000;
           currentTermMatched = true;
           matchedFields.push({ field: "Ticker Prefix", value: c.symbol });
         }
-        // Contains symbol
-        else if ((c.symbol || "").toLowerCase().includes(term)) {
-          score += 300;
+        // Fuzzy Ticker Match (for small typos or shortcuts)
+        else if (fuzzyMatch(symbolRaw, term)) {
+          score += 400;
           currentTermMatched = true;
-          matchedFields.push({ field: "Ticker Substring", value: c.symbol });
+          matchedFields.push({ field: "Ticker (Approx)", value: c.symbol });
         }
 
-        // Exactly matches or starts with name
-        if ((c.name || "").toLowerCase() === term || (c.name || "").toLowerCase().startsWith(term)) {
-          score += 400;
+        // Name Exact/Prefix
+        if (nameRaw === term || nameRaw.startsWith(term)) {
+          score += 800;
+          currentTermMatched = true;
+          matchedFields.push({ field: "Name", value: c.name });
+        }
+        // Name Substring
+        else if (nameRaw.includes(term)) {
+          score += 300;
           currentTermMatched = true;
           matchedFields.push({ field: "Name Match", value: c.name });
         }
-        // Contains within name
-        else if ((c.name || "").toLowerCase().includes(term)) {
+        // Fuzzy Name Match
+        else if (fuzzyMatch(nameRaw, term)) {
           score += 150;
           currentTermMatched = true;
-          matchedFields.push({ field: "Name Substring", value: c.name });
+          matchedFields.push({ field: "Name (Approx)", value: c.name });
         }
 
-        // Contains within country
-        if (c.country?.toLowerCase().includes(term)) {
-          score += 100;
-          currentTermMatched = true;
-          matchedFields.push({ field: "Country Match", value: c.country || "" });
-        }
-
-        // Contains within sector
-        if (c.sector?.toLowerCase().includes(term)) {
+        // Country Match
+        if (countryRaw.includes(term)) {
           score += 150;
           currentTermMatched = true;
-          matchedFields.push({ field: "Sector Match", value: c.sector || "" });
+          matchedFields.push({ field: "Region", value: c.country || "" });
         }
 
-        // Contains within headquarters
-        if (c.headquarters?.toLowerCase().includes(term)) {
+        // Sector Match
+        if (sectorRaw.includes(term)) {
+          score += 200;
+          currentTermMatched = true;
+          matchedFields.push({ field: "Sector", value: c.sector || "" });
+        }
+
+        // HQ Match
+        if (hqRaw.includes(term)) {
           score += 100;
           currentTermMatched = true;
-          matchedFields.push({ field: "HQ Match", value: c.headquarters || "" });
+          matchedFields.push({ field: "Location", value: c.headquarters || "" });
         }
 
-        // Contains within partner list
+        // Partners
         if (c.partners?.some(p => (p || "").toLowerCase().includes(term))) {
-          score += 150;
+          score += 250;
           currentTermMatched = true;
-          matchedFields.push({ field: "Partner Vector", value: c.partners.join(", ") });
+          matchedFields.push({ field: "Supply Chain Link", value: c.partners.join(", ") });
         }
 
-        // Domain checks
-        if (c.domain?.toLowerCase().includes(term)) {
+        // Domain
+        if (domainRaw.includes(term)) {
           score += 80;
           currentTermMatched = true;
-          matchedFields.push({ field: "Domain Match", value: c.domain || "" });
+          matchedFields.push({ field: "Network Domain", value: c.domain || "" });
         }
 
         if (currentTermMatched) {
@@ -253,7 +283,6 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
         }
       }
 
-      // If text terms are provided but none matched, exclude this node
       if (!termMatched) {
         excluded = true;
       }
@@ -268,11 +297,6 @@ export function searchAndScoreCompanies(companies: Company[], queryStr: string):
     }
   }
 
-  // Sort by score descending, then symbol alphabetically
-  return results.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score;
-    }
-    return a.company.symbol.localeCompare(b.company.symbol);
-  });
+  // Final sort and ranking
+  return results.sort((a, b) => b.score - a.score || a.company.symbol.localeCompare(b.company.symbol));
 }

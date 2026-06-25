@@ -73,6 +73,9 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
       price: Number(quote.price)
     };
 
+    const livePrice = Number(quote.price);
+    if (livePrice > 0 && newTick.price < (livePrice * 0.1)) return;
+
     setLiveTicks(prev => {
       // Prevent duplicate ticks if the heartbeat hasn't progressed or value is identical in tight window
       if (prev.length > 0) {
@@ -90,12 +93,18 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
 
   const chartData = useMemo(() => {
     // Process historical data
-    const historical = [...chartHistory].filter(d => 
+    let historical = [...chartHistory].filter(d => 
       d.timestamp > 0 && 
       typeof d.price === 'number' && 
       !isNaN(d.price) && 
       d.price > 0
     );
+
+    // Dynamic relative boundary filter: drop frames < 10% of active live price
+    const livePrice = marketData.quote?.price ? Number(marketData.quote.price) : 0;
+    if (livePrice > 0) {
+      historical = historical.filter(d => d.price > (livePrice * 0.1));
+    }
     
     // Concatenate historical and live heartbeat telemetry and filter NaN prices
     const merged = [...historical, ...liveTicks]
@@ -105,7 +114,7 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
     if (merged.length === 0) return [];
     
     return merged;
-  }, [chartHistory, liveTicks]);
+  }, [chartHistory, liveTicks, marketData.quote?.price]);
 
   const stats = useMemo(() => {
     if (chartData.length < 2) return { change: 0, isPositive: true };
@@ -159,8 +168,8 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
         <div className="flex flex-col">
           <span className="text-[6px] text-zinc-650 font-mono tracking-widest uppercase font-black">SIG_VAL_DELTA</span>
           <div className="flex items-center gap-1">
-            <TrendingUp className={cn("w-2 h-2", stats.isPositive ? "text-emerald-500" : "text-rose-500")} />
-            <span className={`text-[11px] font-mono font-black ${stats.isPositive ? "text-emerald-400" : "text-rose-400"} tracking-tighter`}>
+            <TrendingUp className={cn("w-2.5 h-2.5", stats.isPositive ? "text-emerald-500" : "text-rose-500")} />
+            <span className={`text-[12px] font-mono font-black ${stats.isPositive ? "text-emerald-400" : "text-rose-400"} tracking-tighter`}>
               {stats.isPositive ? "+" : ""}{stats.change}%
             </span>
             {isFetching && (
@@ -170,13 +179,20 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
         </div>
       </div>
 
-      {/* Timeframe Selector */}
-      <div className="absolute top-2 right-2 z-10 flex gap-1">
+      {/* Timeframe Selector & Status */}
+      <div className="absolute top-2 right-2 z-10 flex gap-2 items-center">
+        {liveTicks.length > 0 && (
+            <div className="flex items-center gap-1 bg-emerald-950/30 border border-emerald-500/30 px-1 py-0.5 animate-pulse">
+                <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                <span className="text-[6px] font-mono font-bold text-emerald-400">LIVE</span>
+            </div>
+        )}
+        <div className="flex gap-1">
         {['1D', '1W', '1M', '1Y', '5Y'].map(tf => (
           <button
             key={tf}
             onClick={() => setTimeframe(tf)}
-            className={`text-[6px] px-1 py-0.5 font-mono font-bold border transition-all ${
+            className={`text-[8px] px-1.5 py-0.5 font-mono font-bold border transition-all ${
               timeframe === tf 
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-extrabold' 
                 : 'bg-black/60 border-zinc-900 text-zinc-600 hover:border-zinc-800 hover:text-zinc-400'
@@ -185,11 +201,12 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
             {tf}
           </button>
         ))}
+        </div>
       </div>
 
       <div className={cn(
-        "flex-1 w-full mt-5 -mb-1 transition-opacity duration-150 relative", 
-        isFetching ? "opacity-30" : "opacity-80 group-hover:opacity-100"
+        "flex-1 w-full mt-6 -mb-1 transition-opacity duration-150 relative", 
+        isFetching ? "opacity-30" : "opacity-90 group-hover:opacity-100"
       )}>
         {isFetching && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20">
@@ -197,10 +214,10 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
           </div>
         )}
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.2}/>
+                <stop offset="5%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0.25}/>
                 <stop offset="95%" stopColor={stats.isPositive ? "#10b981" : "#ef4444"} stopOpacity={0}/>
               </linearGradient>
             </defs>
@@ -212,75 +229,53 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
               domain={['dataMin', 'dataMax']}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#3f3f46', fontSize: 6 }}
+              tick={{ fill: '#52525b', fontSize: 8 }}
               tickFormatter={(t) => new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' })}
             />
             <YAxis 
               hide={isFocusMode} 
               orientation="right"
-              width={isFocusMode ? 0 : 30}
+              width={isFocusMode ? 0 : 40}
               domain={['auto', 'auto']} 
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#3f3f46', fontSize: 6 }}
+              tick={{ fill: '#52525b', fontSize: 8 }}
+              tickFormatter={(v) => `$${v.toFixed(0)}`}
             />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: 'rgba(0, 0, 0, 0.95)', 
-                border: `1px solid ${stats.isPositive ? '#10b98122' : '#ef444422'}`,
+                backgroundColor: '#09090b', 
+                border: `1px solid ${stats.isPositive ? '#10b98133' : '#ef444433'}`,
                 borderRadius: '0px',
-                fontSize: '8px',
+                fontSize: '9px',
                 fontFamily: 'monospace',
-                padding: '4px 6px',
-                boxShadow: `0 0 10px ${stats.isPositive ? '#10b98111' : '#ef444411'}`
+                padding: '6px 8px',
+                boxShadow: `0 0 15px ${stats.isPositive ? '#10b98111' : '#ef444411'}`
               }}
               itemStyle={{ color: stats.isPositive ? '#10b981' : '#ef4444', padding: 0 }}
-              labelStyle={{ color: '#71717a', fontSize: '7px', fontWeight: 'bold', fontFamily: 'monospace', marginBottom: '2px' }}
+              labelStyle={{ color: '#71717a', fontSize: '8px', fontWeight: 'bold', fontFamily: 'monospace', marginBottom: '4px' }}
               labelFormatter={formatTooltipLabel}
-              cursor={{ stroke: '#27272a', strokeWidth: 1 }}
+              cursor={{ stroke: '#3f3f46', strokeWidth: 1, strokeDasharray: '4 4' }}
               formatter={(value: any) => [
                 <span className="font-bold">{`$${parseFloat(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</span>, 
                 'QUOTE'
               ]}
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
-                  const company = COMPANIES.find(c => c.symbol === ticker);
                   const val = parseFloat(payload[0].value as any);
                   const isPos = stats.isPositive;
                   
                   return (
-                    <div className="bg-black/95 border border-zinc-900 p-2 font-mono text-[8px] min-w-[120px] shadow-2xl">
-                      <div className="flex justify-between items-center border-b border-zinc-900 pb-1 mb-2">
-                        <span className="text-zinc-500 font-bold uppercase tracking-widest">{formatTooltipLabel(label)}</span>
-                        <div className="flex items-center gap-1">
-                          <div className={cn("w-1 h-1 rounded-full", isPos ? "bg-emerald-500" : "bg-rose-500")} />
-                          <span className={isPos ? "text-emerald-500" : "text-rose-500"}>SYNCED</span>
-                        </div>
+                    <div className="bg-[#09090b] border border-zinc-800 p-2 font-mono text-[9px] min-w-[140px] shadow-2xl">
+                      <div className="flex justify-between items-center border-b border-zinc-900 pb-1.5 mb-2">
+                        <span className="text-zinc-400 font-bold uppercase tracking-widest">{formatTooltipLabel(label)}</span>
+                        <div className={cn("text-[7px]", isPos ? "text-emerald-500" : "text-rose-500")}>QUOTE_SYNC</div>
                       </div>
                       
-                      <div className="flex justify-between mb-1.5">
+                      <div className="flex justify-between items-center">
                         <span className="text-zinc-600 uppercase">PRICE_NODE</span>
-                        <span className="text-white font-black tracking-tight">${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <span className="text-white font-black text-[11px]">${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
-
-                      {company && (
-                        <div className="mt-2 pt-2 border-t border-zinc-900 space-y-1.5">
-                           <div className="flex justify-between">
-                             <span className="text-zinc-600 uppercase">TURNOVER_RATE</span>
-                             <span className="text-rose-400 font-bold">{company.turnover || "12.4%"}</span>
-                           </div>
-                           <div className="flex justify-between">
-                             <span className="text-zinc-600 uppercase">HIRING_LKL</span>
-                             <span className={cn(
-                               "font-black tracking-tight",
-                               company.hiringLikelihood === "High" ? "text-emerald-400" : 
-                               company.hiringLikelihood === "Moderate" ? "text-blue-400" : "text-zinc-500"
-                             )}>
-                               {(company.hiringLikelihood || "STABLE").toUpperCase()}
-                             </span>
-                           </div>
-                        </div>
-                      )}
                     </div>
                   );
                 }
@@ -288,7 +283,7 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
               }}
             />
             <Area 
-              type="linear" 
+              type="monotone" 
               dataKey="price" 
               stroke={stats.isPositive ? "#10b981" : "#ef4444"} 
               strokeWidth={1.5}
@@ -296,7 +291,7 @@ export const TelemetryChart = React.memo(({ data, ticker, isFocusMode = true }: 
               fill="url(#colorPrice)"
               dot={false}
               connectNulls={true}
-              activeDot={{ r: 2, fill: stats.isPositive ? "#10b981" : "#ef4444", strokeWidth: 0 }}
+              activeDot={{ r: 3, fill: "#fff", stroke: stats.isPositive ? "#10b981" : "#ef4444", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>

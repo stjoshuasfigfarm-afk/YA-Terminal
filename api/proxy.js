@@ -86,7 +86,7 @@ export default async function handler(req, res) {
           source = "FMP";
         }
       } catch (e) {
-        console.warn("FMP quote fetch error in serverless proxy:", e.message);
+        console.warn("FMP quote fetch fail in serverless proxy:", e.message);
       }
     }
 
@@ -108,7 +108,9 @@ export default async function handler(req, res) {
           source = "FINNHUB";
         }
       } catch (e) {
-        console.warn("Finnhub quote fetch error in serverless proxy:", e.message);
+        if (!e.message?.includes("403")) {
+          console.warn("Finnhub quote fetch fail in serverless proxy:", e.message);
+        }
       }
     }
 
@@ -130,7 +132,7 @@ export default async function handler(req, res) {
           source = "ITICK";
         }
       } catch (e) {
-        console.warn("ITICK quote fetch error in serverless proxy:", e.message);
+        console.warn("ITICK quote fetch fail in serverless proxy:", e.message);
       }
     }
 
@@ -218,7 +220,9 @@ export default async function handler(req, res) {
         return res.status(200).json(mappedNews);
       }
     } catch (err) {
-      console.warn("News serverless proxy fetch error (falling back):", err.message);
+      if (!err.message?.includes("403")) {
+        console.warn("News serverless proxy fetch fail (falling back):", err.message);
+      }
     }
     return res.status(200).json([]);
   }
@@ -244,7 +248,9 @@ export default async function handler(req, res) {
           });
         }
       } catch (e) {
-        console.error("Profile serverless proxy error:", e.message);
+        if (!e.message?.includes("403")) {
+          console.warn("Profile serverless proxy fail:", e.message);
+        }
       }
     }
 
@@ -277,7 +283,9 @@ export default async function handler(req, res) {
           return res.status(200).json(mapped);
         }
       } catch (err) {
-        console.error("Financials serverless proxy error:", err.message);
+        if (!err.message?.includes("403")) {
+          console.warn("Financials serverless proxy fail:", err.message);
+        }
       }
     }
 
@@ -456,7 +464,7 @@ export default async function handler(req, res) {
           };
         }
       } catch (e) {
-        console.warn("FMP treasury fetch error in serverless proxy:", e.message);
+        console.warn("FMP treasury fetch fail in serverless proxy:", e.message);
       }
     }
 
@@ -715,7 +723,7 @@ export default async function handler(req, res) {
 
           return res.status(200).json({ audio: base64Audio });
         } catch (err) {
-          console.error("Gemini TTS Error in serverless proxy:", err);
+          console.warn("Gemini TTS Fail in serverless proxy:", err);
           return res.status(500).json({ error: "AI_TTS_ERROR", message: err.message });
         }
       }
@@ -1024,7 +1032,7 @@ export default async function handler(req, res) {
         }
       }
     } catch (err) {
-      console.error("Gemini API Error under serverless execution:", err);
+      console.warn("Gemini API Fail under serverless execution:", err);
       return res.status(500).json({ error: "AI_SERVICE_ERROR", message: err.message });
     }
   }

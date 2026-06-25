@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { X, Network, Box, Map, ArrowRight, ArrowDown, Activity, Zap, Layers, RefreshCw } from 'lucide-react';
+import { X, Network, Box, Map as MapIcon, ArrowRight, ArrowDown, Activity, Zap, Layers, RefreshCw } from 'lucide-react';
 import { COMPANIES, Company } from '../data/companies';
 import { cn } from '../lib/utils';
 import { motion } from "motion/react";
@@ -17,22 +17,29 @@ interface SupplyChainModalProps {
 
 export const SupplyChainModal: React.FC<SupplyChainModalProps> = ({ company, onClose, onSelectNode }) => {
   // Compute Tier 1 and Tier 2 relationships
-  const suppliersT1 = useMemo(() => COMPANIES.filter(c => c.partners?.includes(company.symbol)), [company]);
+  const suppliersT1 = useMemo(() => {
+    const raw = COMPANIES.filter(c => c.partners?.includes(company.symbol));
+    return Array.from(new Map(raw.map(c => [c.symbol, c])).values());
+  }, [company]);
+  
   const customersT1 = useMemo(() => {
-    return company.partners ? COMPANIES.filter(c => company.partners!.includes(c.symbol)) : [];
+    const raw = company.partners ? COMPANIES.filter(c => company.partners!.includes(c.symbol)) : [];
+    return Array.from(new Map(raw.map(c => [c.symbol, c])).values());
   }, [company]);
 
   const suppliersT2 = useMemo(() => {
     const symbolsT1 = suppliersT1.map(s => s.symbol);
-    return COMPANIES.filter(c => c.partners?.some(p => symbolsT1.includes(p)) && c.symbol !== company.symbol && !symbolsT1.includes(c.symbol));
+    const raw = COMPANIES.filter(c => c.partners?.some(p => symbolsT1.includes(p)) && c.symbol !== company.symbol && !symbolsT1.includes(c.symbol));
+    return Array.from(new Map(raw.map(c => [c.symbol, c])).values());
   }, [suppliersT1, company]);
 
   const customersT2 = useMemo(() => {
     const symbolsT1 = customersT1.map(c => c.symbol);
-    return COMPANIES.filter(c => symbolsT1.some(sT1 => {
+    const raw = COMPANIES.filter(c => symbolsT1.some(sT1 => {
       const src = COMPANIES.find(x => x.symbol === sT1);
       return src?.partners?.includes(c.symbol);
     }) && c.symbol !== company.symbol && !symbolsT1.includes(c.symbol));
+    return Array.from(new Map(raw.map(c => [c.symbol, c])).values());
   }, [customersT1, company]);
 
   // Determine active commodity theme
@@ -113,7 +120,6 @@ export const SupplyChainModal: React.FC<SupplyChainModalProps> = ({ company, onC
         className="w-full max-w-7xl h-full max-h-[850px] border border-zinc-800 bg-zinc-950 flex flex-col relative overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.95)]"
       >
         {/* Decorative Grid Line Overlay */}
-        <div className="absolute inset-0 bg-cyber-grid pointer-events-none opacity-5" />
         <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/5 via-transparent to-transparent pointer-events-none" />
 
         {/* ========================================================== */}
@@ -241,7 +247,7 @@ export const SupplyChainModal: React.FC<SupplyChainModalProps> = ({ company, onC
                     </div>
 
                     <div className="w-full flex items-center justify-between text-[8px] text-zinc-500 uppercase border-t border-zinc-900/60 pt-2 font-mono">
-                      <span className="flex items-center gap-1"><Map className="w-2.5 h-2.5" /> {company.country}</span>
+                      <span className="flex items-center gap-1"><MapIcon className="w-2.5 h-2.5" /> {company.country}</span>
                       <span>{company.workforce || "N/A"} EMP</span>
                     </div>
                   </div>

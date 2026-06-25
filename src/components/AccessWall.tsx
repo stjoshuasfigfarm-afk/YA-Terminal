@@ -73,94 +73,74 @@ export const AccessWall: React.FC = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="fixed inset-0 z-[10000] grid grid-cols-1 md:grid-cols-2 h-screen w-screen bg-black font-sans"
+          className="absolute inset-0 z-[10000] flex items-center justify-center h-full w-full bg-black font-sans overflow-hidden"
         >
-      {/* Left Panel: Globe Showcase (Live Recording Style) */}
-      <div className="hidden md:block w-full h-full relative border-r border-zinc-900 bg-zinc-900/10 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 z-0 opacity-100 origin-center">
+      {/* Background: Globe Showcase */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 opacity-70 saturate-150">
           {webglSupported ? (
             <OrbitalMap autoRotate={true} is3D={true} entities={COMPANIES} />
           ) : (
             <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center p-8">
-              <div className="w-10 h-10 border border-zinc-800 rounded-full flex items-center justify-center mb-4">
-                <span className="text-zinc-500 font-mono text-sm animate-pulse">⊕</span>
-              </div>
-              <div className="text-emerald-500/40 font-mono text-[8px] tracking-[0.3em] uppercase text-center max-w-xs leading-relaxed">
+              <span className="text-zinc-500 font-mono text-sm animate-pulse">⊕</span>
+              <div className="text-emerald-500/40 font-mono text-[8px] tracking-[0.3em] uppercase text-center mt-4">
                 TACTICAL NETWORK OFFLINE IN STANDALONE MODE
-              </div>
-              <div className="mt-2 text-zinc-600 font-mono text-[7px] tracking-wider text-center max-w-[220px] leading-relaxed">
-                WebGL context is unavailable or disabled in this browser runtime. The Yield Terminal is optimized to default to a 2D interface.
               </div>
             </div>
           )}
         </div>
-        
-        {/* Subtle scanline overlay to simulate a screen/recording */}
-        <div className="absolute inset-0 z-10 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.02),rgba(0,255,0,0.01),rgba(0,0,255,0.02))] bg-[length:100%_2px,3px_100%]" />
-        
-        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/40 z-10" />
-        
-        <div className="absolute bottom-8 left-8 z-20">
-            <div className="text-[10px] text-emerald-500 font-black tracking-[0.3em] uppercase opacity-70">
-                GLOBAL_YIELD_MAP
-            </div>
-            <div className="text-[12px] text-zinc-400 font-sans tracking-[0.2em] font-light mt-1">
-                Real-Time Macro Vectors & Supply Chain Signals
-            </div>
-            <div className="flex gap-1 mt-4">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className="w-1.5 h-1.5 bg-emerald-500/30 rounded-full" style={{ animationDelay: `${i * 0.2}s` }} />
-                ))}
-            </div>
-        </div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.85)_100%)] z-10" />
+        <div className="absolute inset-0 bg-black/40 z-10" />
       </div>
 
-      {/* Right Panel: Login & Pricing */}
-      <div className="flex items-center justify-center p-8 bg-zinc-950 relative overflow-hidden">
-        {/* Decorative Grid Right */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-3xl rounded-full" />
+      {/* Centered Authorization Terminal */}
+      <div className="relative z-20 w-full max-w-md p-6 sm:p-10 mx-4">
+        <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-2xl border border-zinc-800/80 rounded-xl shadow-2xl shadow-emerald-950/20" />
+        
+        {/* Hardware Corner Accents */}
+        <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-emerald-500/50 rounded-tl-xl m-[1px]" />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-emerald-500/50 rounded-tr-xl m-[1px]" />
+        <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-emerald-500/50 rounded-bl-xl m-[1px]" />
+        <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-emerald-500/50 rounded-br-xl m-[1px]" />
 
-        <div className="w-full max-w-sm p-6 sm:p-8 bg-zinc-950/75 backdrop-blur-md border border-zinc-900 rounded-sm space-y-6 z-10 relative shadow-2xl overflow-hidden">
-          {/* Scanning Line Effect */}
-          <motion.div 
-            animate={{ top: ['-10%', '110%'] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute left-0 right-0 h-[1.5px] bg-emerald-500/30 z-20 pointer-events-none shadow-[0_0_20px_#10b981]" 
-          />
+        <div className="relative flex flex-col items-center z-10">
           
-          <div className="flex flex-col items-center relative group">
-            <h2 className="text-2xl font-black tracking-[0.4em] text-white uppercase text-glow">Yield Analysis Terminal</h2>
-            <div className="text-[9px] text-emerald-500/80 font-black tracking-widest mt-3.5 uppercase text-glow text-center leading-relaxed">
-              No Noise News Agent. Company Vectors for finding Upstream/Downstream Bottlenecks
-            </div>
-            <div className="h-[1px] w-12 bg-emerald-500/50 mt-6" />
-            <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter text-white uppercase text-center leading-[1.1] mb-2">
+            Bigger Data,<br/>For a Smaller World
+          </h1>
+          <div className="text-[9px] text-emerald-500 font-bold tracking-[0.3em] mt-3 uppercase text-center flex items-center justify-center gap-2">
+            <span className="w-1.5 h-1.5 bg-emerald-500 animate-pulse rounded-full" />
+            SECURE ACCESS PORTAL
+          </div>
+          <div className="text-[8.5px] text-zinc-400 font-sans tracking-[0.1em] mt-3 uppercase text-center leading-relaxed px-2 max-w-[280px]">
+            No Noise News Agent. Company Vectors for finding Upstream/Downstream Bottlenecks
           </div>
           
-          <p className="text-[10px] text-zinc-500 font-sans tracking-widest text-center uppercase leading-loose">
-            Accessing neural market topology and real-time geospatial data requires elevated authorization.
-          </p>
+          <div className="w-full h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent my-6" />
           
-          <form className="space-y-4" onSubmit={verifyAccessCode}>
-            <input 
-              type="password" 
-              value={accessCode} 
-              onChange={(e) => setAccessCode(e.target.value)} 
-              placeholder="Enter Access Code" 
-              className="w-full bg-zinc-950 border border-zinc-800 p-3 text-center text-emerald-500 tracking-widest focus:outline-none focus:border-emerald-500 text-xs text-center font-sans"
-            />
-            <div className="grid grid-cols-1 gap-2.5">
+          <form className="w-full space-y-4" onSubmit={verifyAccessCode}>
+            <div className="relative">
+              <input 
+                type="password" 
+                value={accessCode} 
+                onChange={(e) => setAccessCode(e.target.value)} 
+                placeholder="Enter Access Code" 
+                className="w-full bg-black/80 border border-zinc-800 px-4 py-3.5 text-center text-emerald-400 tracking-[0.2em] focus:outline-none focus:border-emerald-500/50 text-xs font-mono rounded-lg transition-all placeholder:text-zinc-700 placeholder:tracking-widest"
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
               <button 
                 type="submit"
-                className="w-full py-3 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 text-xs uppercase tracking-widest transition-all border border-zinc-800 font-bold"
+                className="w-full py-3.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[10px] uppercase tracking-[0.25em] transition-all border border-zinc-800 hover:border-zinc-700 font-bold rounded-lg"
               >
                 Sign In
               </button>
               
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-zinc-900"></div>
-                <span className="flex-shrink mx-4 text-zinc-600 text-[8px] tracking-[0.2em]">OR</span>
-                <div className="flex-grow border-t border-zinc-900"></div>
+              <div className="relative flex items-center py-1">
+                <div className="flex-grow border-t border-zinc-800/80"></div>
+                <span className="flex-shrink mx-4 text-zinc-600/80 text-[8px] tracking-[0.25em]">OR</span>
+                <div className="flex-grow border-t border-zinc-800/80"></div>
               </div>
 
               <button 
@@ -169,28 +149,28 @@ export const AccessWall: React.FC = () => {
                   localStorage.setItem('terminal_auth_token', 'free_trial_token');
                   setIsUnlocked(true);
                 }}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs uppercase tracking-[0.3em] transition-all border border-emerald-400/50 rounded-sm font-black shadow-[0_0_30px_rgba(16,185,129,0.2)]"
+                className="w-full py-3.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-[11px] font-black uppercase tracking-[0.3em] transition-all border border-emerald-400/30 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.15)] relative overflow-hidden group"
               >
-                ENTER TERMINAL
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                <span className="relative">Enter Terminal</span>
               </button>
               
-              <div className="text-center text-[8.5px] text-emerald-400/90 font-mono tracking-[0.25em] uppercase mt-1.5 animate-pulse">
+              <div className="text-center text-[8.5px] text-emerald-400/90 font-mono tracking-[0.25em] uppercase mt-1 animate-pulse">
                 — FREE UNTIL OCTOBER 15 —
               </div>
-              <div className="mt-4 p-4 border border-zinc-900 bg-black/50 rounded-sm">
-                <div className="text-[9px] text-zinc-500 text-center tracking-widest uppercase leading-relaxed">
-                  Donations help us continue to bring you this product <span className="text-emerald-500">Completely Free</span>
+
+              <div className="mt-2 p-3 bg-black/40 border border-zinc-900 rounded-lg text-center">
+                <div className="text-[8px] text-zinc-500 tracking-widest uppercase leading-relaxed mb-2">
+                  Maintain the system <span className="text-emerald-500">Free of charge</span>
                 </div>
-                <div className="text-center mt-2">
-                  <a 
-                    href="https://cash.app/$omiahj" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-[10px] text-emerald-400 font-bold tracking-widest uppercase border-b border-emerald-500/30 pb-0.5 cursor-pointer hover:text-emerald-300 transition-colors inline-block"
-                  >
-                    CashApp: $omiahj
-                  </a>
-                </div>
+                <a 
+                  href="https://cash.app/$omiahj" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[9.5px] text-emerald-400 font-bold tracking-widest uppercase border-b border-emerald-500/30 pb-0.5 cursor-pointer hover:text-emerald-300 transition-colors inline-block"
+                >
+                  CashApp: $omiahj
+                </a>
               </div>
             </div>
           </form>
@@ -199,7 +179,7 @@ export const AccessWall: React.FC = () => {
             <motion.div 
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-[9px] text-red-500 font-black tracking-widest text-center uppercase font-mono bg-red-950/20 border border-red-500/20 py-2 rounded-sm mt-3 animate-pulse"
+              className="w-full text-[9px] text-red-500 font-bold tracking-widest text-center uppercase font-mono bg-red-950/20 border border-red-500/20 py-2.5 rounded-lg mt-4 animate-pulse"
             >
               ⚠ ACCESS_DENIED :: INVALID TERMINAL KEY
             </motion.div>

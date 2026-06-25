@@ -1,9 +1,25 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Global helper: signed in
+    function isSignedIn() { return request.auth != null; }
+    
+    // Global helper: isAdmin (using a trusted collection)
+    function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+
+    // Catch-all: default deny
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    match /silo_prices/{symbol} {
+      // Market data: accessible to signed-in users, writable by anyone for now (server side writes)
+      allow read: if isSignedIn();
+      allow write: if true; 
+    }
+    
+    match /admins/{uid} {
+      allow read, write: if false;
     }
   }
 }

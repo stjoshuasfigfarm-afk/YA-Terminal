@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Company, COMPANIES } from "../data/companies";
 import { cn } from "../lib/utils";
 import { TrendingUp, TrendingDown } from "lucide-react";
@@ -9,6 +9,8 @@ interface TickerTapeProps {
 
 export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
   const [prices, setPrices] = useState<Record<string, { price: number; change: number }>>({});
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [duration, setDuration] = useState(240);
 
   const tickerItems = useMemo(() => {
     // Pick a diverse set of companies for the ticker
@@ -17,6 +19,15 @@ export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
       name: c.name,
     }));
   }, []);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      // The physical width of one cycle is half the scroll width
+      const w = contentRef.current.scrollWidth / 2;
+      // We set a constant speed of 40 pixels per second
+      setDuration(w / 40);
+    }
+  }, [tickerItems, prices]);
 
   useEffect(() => {
     const fetchRealPrices = async () => {
@@ -65,7 +76,11 @@ export const TickerTape: React.FC<TickerTapeProps> = ({ onSelectStock }) => {
       </div>
       
       <div className="flex-1 relative overflow-hidden h-full">
-        <div className="flex items-center whitespace-nowrap animate-[marquee_90s_linear_infinite] md:animate-[marquee_60s_linear_infinite] hover:[animation-play-state:paused] h-full">
+        <div 
+          ref={contentRef}
+          style={{ animationDuration: `${duration}s` }}
+          className="flex items-center whitespace-nowrap animate-[marquee_240s_linear_infinite] hover:[animation-play-state:paused] h-full"
+        >
           {[...tickerItems, ...tickerItems].map((item, idx) => {
             const data = prices[item.symbol];
             if (!data) return null;
