@@ -161,7 +161,8 @@ router.get("/:symbol?", async (req, res) => {
       const seed = Math.abs(baseHash);
       
       const customParams: Record<string, { price: number, drift: number, vol: number }> = {
-        "SPCX": { price: 201.80, drift: 0.8, vol: 0.05 }
+        "SPCX": { price: 201.80, drift: 0.8, vol: 0.05 },
+        "WTI": { price: 74.50, drift: 0.1, vol: 0.01 }
       };
       
       const cfg = customParams[symbol] || { price: (50 + (seed % 280)), drift: (rand() - 0.48) * 0.4, vol: 0.015 };
@@ -208,11 +209,25 @@ router.get("/:symbol?", async (req, res) => {
         
         const changePercent = (rand() - 0.5) * volFactor + driftFactor / pointsCount;
         currentPrice = currentPrice * (1 + changePercent);
-        if (currentPrice < 1.0) currentPrice = 1.0;
+        if (symbol === 'WTI' && currentPrice < 10.0) currentPrice = 10.0;
+        else if (currentPrice < 1.0) currentPrice = 1.0;
       }
       
       processed = points;
       source = `SIMULATION_${timeframe}`;
+    }
+
+    // Ironclad check: If symbol is WTI, filter out any pricing frames below $10.
+    if (symbol === "WTI" && Array.isArray(processed)) {
+      processed = processed.filter((d: any) => d && typeof d.price === "number" && d.price >= 10);
+      if (processed.length === 0) {
+        // Fallback trace for empty processed array
+        processed = [
+          { timestamp: Date.now() - 3600000 * 2, price: 74.10 },
+          { timestamp: Date.now() - 3600000 * 1, price: 74.35 },
+          { timestamp: Date.now(), price: 74.50 }
+        ];
+      }
     }
 
     res.json({ processed, source });

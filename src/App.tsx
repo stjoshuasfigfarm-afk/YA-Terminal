@@ -156,6 +156,65 @@ export default function App() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const rehydrateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // States and interactions for pinned tickers bar scrollability
+  const [showLeftScrollIndicator, setShowLeftScrollIndicator] = useState(false);
+  const [showRightScrollIndicator, setShowRightScrollIndicator] = useState(false);
+  const pinnedScrollRef = useRef<HTMLDivElement>(null);
+  const isDraggingPinnedRef = useRef(false);
+  const startXPinnedRef = useRef(0);
+  const scrollLeftPinnedRef = useRef(0);
+  const hasMovedPinnedRef = useRef(false);
+
+  const checkPinnedScroll = () => {
+    const el = pinnedScrollRef.current;
+    if (!el) return;
+    setShowLeftScrollIndicator(el.scrollLeft > 2);
+    setShowRightScrollIndicator(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+  };
+
+  const handlePinnedMouseDown = (e: React.MouseEvent) => {
+    const el = pinnedScrollRef.current;
+    if (!el) return;
+    isDraggingPinnedRef.current = true;
+    hasMovedPinnedRef.current = false;
+    startXPinnedRef.current = e.pageX - el.offsetLeft;
+    scrollLeftPinnedRef.current = el.scrollLeft;
+  };
+
+  const handlePinnedMouseMove = (e: React.MouseEvent) => {
+    const el = pinnedScrollRef.current;
+    if (!isDraggingPinnedRef.current || !el) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startXPinnedRef.current) * 1.2;
+    if (Math.abs(walk) > 5) {
+      hasMovedPinnedRef.current = true;
+    }
+    el.scrollLeft = scrollLeftPinnedRef.current - walk;
+    checkPinnedScroll();
+  };
+
+  const handlePinnedMouseUpOrLeave = () => {
+    isDraggingPinnedRef.current = false;
+  };
+
+  // Re-check scrollability on tickers list changes or container resize
+  useEffect(() => {
+    const el = pinnedScrollRef.current;
+    if (!el) return;
+
+    checkPinnedScroll();
+
+    const observer = new ResizeObserver(() => {
+      checkPinnedScroll();
+    });
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [pinnedTickers]);
+
   const togglePin = (symbol: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const nextList = pinnedTickers.includes(symbol)
@@ -241,7 +300,15 @@ export default function App() {
   useEffect(() => {
     if (!marketData?.news || marketData.news.length === 0) return;
     setAccumulatedNews((prev) => {
-      const forbidden = ["wwe", "television", "tv show", "wrestling"];
+      const forbidden = [
+        "wwe", "television", "tv show", "wrestling",
+        "movie", "cinema", "hollywood", "celebrity", "gossip", "album", "music",
+        "netflix", "box office", "pop star", "red carpet", "sports", "championship", "hbo",
+        "concert", "film", "actor", "actress", "trailer", "starring", "hulu", "disney+",
+        "streaming", "premiere", "cast", "screenplay", "director", "directed", "co-star",
+        "co-stars", "oscar", "oscars", "golden globe", "golden globes", "theatre", "theater",
+        "showtime", "apple tv", "paramount+", "peacock tv"
+      ];
       const filtered = marketData?.news?.filter(item => {
           const title = (item.title || "").toLowerCase();
           const desc = (item.description || "").toLowerCase();
@@ -1724,25 +1791,46 @@ export default function App() {
         </div>
 
         {/* Pinned Tickers */}
-        <div className="h-6 bg-zinc-950/50 flex items-center px-4 gap-4 border-t border-zinc-900 border-opacity-50">
-          <div className="text-[7px] font-black text-zinc-600 uppercase tracking-widest">
+        <div className="h-7 bg-zinc-950/50 flex items-center px-4 gap-4 border-t border-zinc-900 border-opacity-50 w-full min-w-0 relative">
+          <div className="text-[7px] font-black text-zinc-600 uppercase tracking-widest shrink-0">
             PINNED:
           </div>
-          <div className="flex gap-4">
-            {pinnedTickers.map((ticker) => (
-              <button
-                key={ticker}
-                onClick={() => {
-                  const company =
-                    companies.find((c) => c.symbol === ticker) ||
-                    COMPANIES.find((c) => c.symbol === ticker);
-                  if (company) handleSelectNode(company);
-                }}
-                className="text-[9px] font-mono font-bold text-zinc-400 hover:text-emerald-400 uppercase tracking-wide cursor-pointer transition-colors"
-              >
-                {ticker}
-              </button>
-            ))}
+          <div className="relative flex-1 min-w-0 h-full flex items-center overflow-hidden">
+            {showLeftScrollIndicator && (
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#09090b] to-transparent pointer-events-none z-10" />
+            )}
+            <div
+              ref={pinnedScrollRef}
+              onScroll={checkPinnedScroll}
+              onMouseDown={handlePinnedMouseDown}
+              onMouseMove={handlePinnedMouseMove}
+              onMouseUp={handlePinnedMouseUpOrLeave}
+              onMouseLeave={handlePinnedMouseUpOrLeave}
+              className="w-full flex gap-4 overflow-x-auto overflow-y-hidden custom-scrollbar whitespace-nowrap min-w-0 h-full items-center py-0.5 select-none scroll-smooth cursor-grab active:cursor-grabbing"
+            >
+              {pinnedTickers.length === 0 ? (
+                <span className="text-[8px] font-mono font-bold text-zinc-600 tracking-wider">NO_PINS_ACTIVE</span>
+              ) : (
+                pinnedTickers.map((ticker) => (
+                  <button
+                    key={ticker}
+                    onClick={() => {
+                      if (hasMovedPinnedRef.current) return;
+                      const company =
+                        companies.find((c) => c.symbol === ticker) ||
+                        COMPANIES.find((c) => c.symbol === ticker);
+                      if (company) handleSelectNode(company);
+                    }}
+                    className="text-[9px] font-mono font-bold text-zinc-400 hover:text-emerald-400 uppercase tracking-wide cursor-pointer transition-colors shrink-0"
+                  >
+                    {ticker}
+                  </button>
+                ))
+              )}
+            </div>
+            {showRightScrollIndicator && (
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#09090b] to-transparent pointer-events-none z-10" />
+            )}
           </div>
         </div>
       </div>

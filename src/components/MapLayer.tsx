@@ -169,7 +169,7 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   const [isSwapped, setIsSwapped] = useState(false);
   const { companies: contextCompanies } = useCompanies();
 
-  // State and logic for broad center globe search
+  // State for broad center globe search
   const [broadSearchQuery, setBroadSearchQuery] = useState("");
   const [isBroadSearchFocused, setIsBroadSearchFocused] = useState(false);
   const [broadSearchCursor, setBroadSearchCursor] = useState(-1);
@@ -707,6 +707,72 @@ export const MapLayer: React.FC<MapLayerProps> = ({
   // Persistent briefing states to stay open and support minimize functionality
   const [preservedBriefing, setPreservedBriefing] = useState<any | null>(null);
   const [isBriefingMinimized, setIsBriefingMinimized] = useState(false);
+
+  // State for clickable entities (Detailed Summary)
+  const [expandedEntityIdx, setExpandedEntityIdx] = useState<number | null>(null);
+  const [entityDetails, setEntityDetails] = useState<Record<string, any>>({});
+  const [loadingEntityIdx, setLoadingEntityIdx] = useState<number | null>(null);
+
+  // Reset expanded entity index when the selected stock or briefing changes
+  useEffect(() => {
+    setExpandedEntityIdx(null);
+  }, [preservedBriefing]);
+
+  const handleEntityClick = async (rec: string, idx: number) => {
+    if (expandedEntityIdx === idx) {
+      setExpandedEntityIdx(null);
+      return;
+    }
+
+    setExpandedEntityIdx(idx);
+
+    if (entityDetails[rec]) {
+      const detail = entityDetails[rec];
+      if (setAgentFocus && detail.coordinates) {
+        setAgentFocus({
+          lat: detail.coordinates[0],
+          lng: detail.coordinates[1],
+          locationName: detail.locationName,
+          briefing: detail.briefing,
+          facts: detail.facts,
+          queryText: rec,
+        });
+      }
+      return;
+    }
+
+    setLoadingEntityIdx(idx);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/ai/navigate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: rec }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEntityDetails((prev) => ({ ...prev, [rec]: data }));
+        
+        if (setAgentFocus && data.coordinates) {
+          setAgentFocus({
+            lat: data.coordinates[0],
+            lng: data.coordinates[1],
+            locationName: data.locationName,
+            briefing: data.briefing,
+            facts: data.facts,
+            queryText: rec,
+          });
+        }
+      } else {
+        console.warn("Failed to fetch entity details");
+      }
+    } catch (err) {
+      console.error("Error fetching entity details", err);
+    } finally {
+      setLoadingEntityIdx(null);
+    }
+  };
 
   // Sync state: capture briefing updates when they happen
   useEffect(() => {
@@ -1634,20 +1700,92 @@ export const MapLayer: React.FC<MapLayerProps> = ({
                      />
                   </div>
                   
-                  {/* ENHANCED: RELATED ENTITIES */}
+                  {/* ENHANCED: ASSOCIATED ENTITIES -> ENTITY */}
                   {preservedBriefing.data && typeof preservedBriefing.data !== "string" && preservedBriefing.data.relatedEntities && (
                     <div className="p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-sm space-y-2">
-                       <div className="flex items-center gap-2 text-[8px] font-black text-emerald-400 uppercase tracking-widest font-mono">
-                         <Shield className="w-3 h-3" />
-                         RELATED ENTITIES (PEOPLE, PLACES, BILLS, ORGS)
+                       <div className="flex items-center gap-2 text-[8.5px] font-black text-emerald-400 uppercase tracking-widest font-mono">
+                         <Shield className="w-3 h-3 text-emerald-500" />
+                         ENTITY
                        </div>
-                       <div className="space-y-1.5">
-                         {(preservedBriefing.data.relatedEntities || []).map((rec: string, idx: number) => (
-                            <div key={idx} className="flex gap-2 text-[8.5px] text-zinc-300 font-mono">
-                              <span className="text-emerald-500 shrink-0">[{idx + 1}]</span>
-                              <span>{rec}</span>
-                            </div>
-                         ))}
+                       <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-0.5">
+                         {(preservedBriefing.data.relatedEntities || []).map((rec: string, idx: number) => {
+                            const isExpanded = expandedEntityIdx === idx;
+                            const isLoading = loadingEntityIdx === idx;
+                            const details = entityDetails[rec];
+
+                            return (
+                              <div key={idx} className="border-b border-emerald-500/5 pb-1.5 last:border-0 last:pb-0">
+                                <button
+                                  onClick={() => handleEntityClick(rec, idx)}
+                                  className="w-full text-left flex items-start gap-1.5 text-[8.5px] text-zinc-300 font-mono hover:text-emerald-400 transition-colors duration-150 cursor-pointer group"
+                                >
+                                  <span className="text-emerald-500 shrink-0 group-hover:scale-115 transition-transform">
+                                    [{idx + 1}]
+                                  </span>
+                                  <span className="flex-1 font-bold tracking-tight">{rec}</span>
+                                  {isLoading ? (
+                                    <Loader2 className="w-2.5 h-2.5 animate-spin text-emerald-500 self-center shrink-0" />
+                                  ) : (
+                                    <span className="text-[7px] text-emerald-600/60 uppercase self-center shrink-0 group-hover:text-emerald-400 font-black tracking-widest">
+                                      {isExpanded ? "▲ HIDE" : "▼ INFO"}
+                                    </span>
+                                  )}
+                                </button>
+
+                                {isExpanded && (
+                                  <div className="mt-1.5 pl-2.5 border-l border-emerald-500/30 space-y-1.5 text-[7.5px] font-mono">
+                                    {isLoading ? (
+                                      <div className="text-zinc-500 italic animate-pulse">
+                                        Synthesizing entity telemetry...
+                                      </div>
+                                    ) : details ? (
+                                      <div className="space-y-1.5 animate-none">
+                                        <div className="text-zinc-300 leading-relaxed bg-black/50 p-2 rounded border border-zinc-900">
+                                          {details.briefing || details.aiStrategyAnalysis?.summary || "No active intelligence briefing formulated."}
+                                        </div>
+                                        {details.locationName && (
+                                          <div className="flex items-center gap-1 text-[7px] text-emerald-400 font-black tracking-widest uppercase">
+                                            <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                                            <span>NODE: {details.locationName}</span>
+                                          </div>
+                                        )}
+                                        {details.aiStrategyAnalysis?.outlook && (
+                                          <div className="flex items-center gap-1.5 text-[7px]">
+                                            <span className="text-zinc-500 font-bold uppercase tracking-wider">VECTOR OUTLOOK:</span>
+                                            <span className={cn(
+                                              "font-black uppercase tracking-wider",
+                                              details.aiStrategyAnalysis.outlook === "ACCELERATING" ? "text-emerald-400" :
+                                              details.aiStrategyAnalysis.outlook === "VULNERABLE" || details.aiStrategyAnalysis.outlook === "COMPROMISED" ? "text-red-500" :
+                                              details.aiStrategyAnalysis.outlook === "STRETCHED" ? "text-amber-500" : "text-white"
+                                            )}>
+                                              {details.aiStrategyAnalysis.outlook}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {details.facts && details.facts.length > 0 && (
+                                          <div className="space-y-1 pt-1 border-t border-emerald-500/10">
+                                            <div className="text-[7px] font-black text-emerald-500/80 uppercase tracking-widest">
+                                              INTELLIGENCE DOSSIER:
+                                            </div>
+                                            {details.facts.slice(0, 2).map((fact: string, fIdx: number) => (
+                                              <div key={fIdx} className="flex items-start gap-1 text-zinc-400 leading-relaxed">
+                                                <span className="text-emerald-500 font-bold">•</span>
+                                                <span>{fact}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="text-red-400/80 italic">
+                                        Unable to establish secure telemetry uplink.
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                         })}
                        </div>
                     </div>
                   )}

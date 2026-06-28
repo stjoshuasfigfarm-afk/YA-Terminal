@@ -25,9 +25,14 @@ router.post("/", async (req, res) => {
      }
      const ai = getAiClient();
 
+     let enhancedQuery = query;
+     if (String(query).toUpperCase() === "SPY") {
+       enhancedQuery = "S&P 500 index OR (CIA OR MI6 OR espionage OR international intelligence agency)";
+     }
+
      const response = await ai.models.generateContent({
        model: "gemini-2.5-flash",
-       contents: `Search for the latest news headlines about: ${query}. Return a JSON array of headlines with title and source.`,
+       contents: `Search for the latest news headlines about: ${enhancedQuery}. Return a JSON array of headlines with title and source. CRITICAL: If the query relates to SPY, focus exclusively on the S&P 500 index or international intelligence affairs (CIA, MI6, espionage). Strictly exclude any movie, film, entertainment, pop-culture, or celebrity headlines.`,
        config: {
          responseMimeType: "application/json",
          tools: [{ googleSearch: {} }]

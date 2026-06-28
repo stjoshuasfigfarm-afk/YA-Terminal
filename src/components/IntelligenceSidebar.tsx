@@ -330,6 +330,7 @@ export const IntelligenceSidebar = React.memo(
       }
     ]);
     const [aiInput, setAiInput] = useState("");
+    const [isChatLoading, setIsChatLoading] = useState(false);
     
     const [stressors, setStressors] = useState<string[]>([
       "LIQUIDITY",
@@ -899,6 +900,22 @@ export const IntelligenceSidebar = React.memo(
 
         const titleSafe = String(item.title || "");
         const summarySafe = String(item.summary || item.description || "");
+        
+        // Strict movie and entertainment filter for high-integrity news
+        const textLower = (titleSafe + " " + summarySafe).toLowerCase();
+        const movieKeywords = [
+          "movie", "cinema", "hollywood", "celebrity", "gossip", "album", "music",
+          "tv show", "television", "netflix", "box office", "pop star", "red carpet",
+          "sports", "championship", "hbo", "concert", "film", "actor", "actress",
+          "trailer", "starring", "hulu", "disney+", "streaming", "premiere", "cast",
+          "screenplay", "director", "directed", "co-star", "co-stars", "oscar", "oscars",
+          "golden globe", "golden globes", "theatre", "theater", "showtime", "apple tv",
+          "paramount+", "peacock tv"
+        ];
+        if (movieKeywords.some(kw => textLower.includes(kw))) {
+          return false;
+        }
+
         const matchesSearch =
           titleSafe.toLowerCase().includes((newsSearch || "").toLowerCase()) ||
           summarySafe.toLowerCase().includes((newsSearch || "").toLowerCase());
@@ -1135,6 +1152,11 @@ export const IntelligenceSidebar = React.memo(
                     icon: <MapPin className="w-3 h-3" />,
                   },
                   {
+                    id: "AI_AGENT",
+                    label: "AI_AGENT",
+                    icon: <Bot className="w-3 h-3" />,
+                  },
+                  {
                     id: "MACRO",
                     label: "MACRO",
                     icon: <GlobeIcon className="w-3 h-3" />,
@@ -1164,7 +1186,7 @@ export const IntelligenceSidebar = React.memo(
 
               {/* PERMANENT YIELD STRUCTURE MONITOR REMOVED */}
 
-               <div className={cn("p-3.5 flex-1 flex flex-col h-full custom-scrollbar min-h-0", innerLeftTab === "MACRO" ? "overflow-hidden" : "overflow-y-auto")}>
+               <div className={cn("p-3.5 flex-1 flex flex-col h-full custom-scrollbar min-h-0", (innerLeftTab === "MACRO" || innerLeftTab === "AI_AGENT") ? "overflow-hidden" : "overflow-y-auto")}>
                 {/* STRATEGY TAB CONTENT */}
                 {innerLeftTab === "STRATEGY" && (
                    <div className="space-y-4">
@@ -1801,6 +1823,261 @@ export const IntelligenceSidebar = React.memo(
                         if (comp) onSelectNode(comp);
                       }}
                     />
+                  </div>
+                )}
+
+                {/* AI COGNITIVE AGENT TAB CONTENT */}
+                {innerLeftTab === "AI_AGENT" && (
+                  <div className="flex-grow flex flex-col h-full min-h-0 space-y-3.5 select-none relative overflow-hidden">
+                    {/* Chat Logs Window */}
+                    <div className="flex-1 bg-black/60 border border-zinc-900 rounded-sm p-3 font-mono text-[9px] flex flex-col min-h-[300px] overflow-hidden">
+                      <div className="flex items-center justify-between border-b border-zinc-900/60 pb-2 mb-2 select-none shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                          </span>
+                          <span className="text-[8px] text-zinc-400 font-black tracking-[0.2em] uppercase">COGNITIVE_STREAM_V4</span>
+                        </div>
+                        <button
+                          onClick={() => setChatHistory([{
+                            role: 'assistant',
+                            text: "SECURE COGNITIVE UPLINK ESTABLISHED. I am your AI Market Intelligence Assistant. Ask me about custom supply chains, logistics chokepoints, upcoming IPOs, lithography key corridors, or sovereign trade lanes."
+                          }])}
+                          className="text-[7px] text-zinc-650 hover:text-emerald-400 uppercase tracking-widest bg-transparent border border-zinc-900 hover:border-zinc-800 px-1.5 py-0.5 rounded-sm transition-colors cursor-pointer"
+                        >
+                          [RESET_UPLINK]
+                        </button>
+                      </div>
+
+                      {/* Messages scroll section */}
+                      <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar min-h-0 pb-2">
+                        {chatHistory.map((msg, i) => (
+                          <div
+                            key={i}
+                            className={cn(
+                              "p-2.5 rounded-sm border transition-all duration-150",
+                              msg.role === 'assistant'
+                                ? "bg-zinc-950/40 border-emerald-950/30 text-emerald-400/90 hover:border-emerald-500/15"
+                                : "bg-zinc-900/10 border-zinc-900/50 text-zinc-300 hover:border-zinc-800"
+                            )}
+                          >
+                            <div className="flex items-center justify-between text-[7px] text-zinc-500 mb-1.5 select-none font-bold tracking-wider">
+                              <span className={cn(msg.role === 'assistant' ? "text-emerald-500/70" : "text-zinc-400")}>
+                                {msg.role === 'assistant' ? "SYS::INTELLIGENCE_CORE" : "USER::QUERY_VECTOR"}
+                              </span>
+                              {msg.locationName && (
+                                <span className="flex items-center gap-1 text-emerald-600 font-black tracking-wide bg-emerald-950/10 border border-emerald-900/20 px-1 py-0.2 rounded-[2px]">
+                                  <MapPin className="w-2 h-2 text-emerald-500" /> {msg.locationName.toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="leading-relaxed whitespace-pre-wrap select-text selection:bg-emerald-950 selection:text-emerald-200">
+                              {msg.role === 'assistant' && i === chatHistory.length - 1 ? (
+                                <Typewriter text={msg.text} className="text-emerald-400/95 font-sans" />
+                              ) : (
+                                <div className="markdown-body font-sans text-[9px] leading-relaxed text-zinc-300">
+                                  <Markdown>{msg.text}</Markdown>
+                                </div>
+                              )}
+                            </div>
+
+                            {msg.facts && msg.facts.length > 0 && (
+                              <div className="mt-3 pt-2.5 border-t border-zinc-900/60">
+                                <div className="text-[6.5px] text-emerald-600 font-black tracking-widest uppercase mb-1.5">Grounded Entity Registry</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                  {msg.facts.map((fact, idx) => (
+                                    <div key={idx} className="flex items-center gap-1.5 text-[7px] text-emerald-400/80 font-bold bg-emerald-950/20 px-2 py-1 rounded-sm border border-emerald-900/20">
+                                      <span className="w-1 h-1 bg-emerald-400 rounded-full" />
+                                      <span className="truncate">{fact}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {msg.role === 'assistant' && (
+                              <div className="mt-2.5 pt-2 border-t border-zinc-900/40 flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex gap-1.5">
+                                  {msg.coordinates && (
+                                    <button
+                                      onClick={() => {
+                                        if (msg.coordinates) {
+                                          if (setAgentFocus) {
+                                            setAgentFocus({
+                                              lat: msg.coordinates[0],
+                                              lng: msg.coordinates[1],
+                                              zoomLevel: 6,
+                                              locationName: msg.locationName,
+                                              facts: msg.facts,
+                                              ticker: msg.ticker,
+                                              briefing: msg.text
+                                            });
+                                          }
+                                          if (msg.ticker) {
+                                            const foundComp = COMPANIES.find(c => c.symbol.toUpperCase() === msg.ticker?.toUpperCase());
+                                            if (foundComp) onSelectNode(foundComp);
+                                          }
+                                        }
+                                      }}
+                                      className="text-[6.5px] bg-emerald-950/40 hover:bg-emerald-900/30 text-emerald-400 border border-emerald-900/50 px-1.5 py-0.5 rounded-sm transition-all uppercase font-black tracking-widest flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <Compass className="w-2.5 h-2.5" /> [LAUNCH_GPS_FLYOVER]
+                                    </button>
+                                  )}
+                                  
+                                  {msg.ticker && (
+                                    <button
+                                      onClick={() => {
+                                        const foundComp = COMPANIES.find(c => c.symbol.toUpperCase() === msg.ticker?.toUpperCase());
+                                        if (foundComp) onSelectNode(foundComp);
+                                      }}
+                                      className="text-[6.5px] bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 px-1.5 py-0.5 rounded-sm transition-all uppercase font-black tracking-widest flex items-center gap-1 cursor-pointer"
+                                    >
+                                      [OPEN_NODE_DETAILS: {msg.ticker}]
+                                    </button>
+                                  )}
+                                </div>
+
+                                <button
+                                  onClick={() => handleSpeak(msg.text)}
+                                  disabled={isSpeechLoading}
+                                  className={cn(
+                                    "text-[6.5px] border px-1.5 py-0.5 rounded-sm transition-all uppercase font-black tracking-widest flex items-center gap-1 cursor-pointer",
+                                    isSpeaking 
+                                      ? "bg-rose-950/40 border-rose-900/60 text-rose-400 animate-pulse" 
+                                      : "bg-emerald-950/40 border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/30"
+                                  )}
+                                  title="Read Aloud via Neural TTS"
+                                >
+                                  {isSpeaking ? (
+                                    <>
+                                      <VolumeX className="w-2.5 h-2.5" /> [MUTE_VOCALIZER]
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Volume2 className="w-2.5 h-2.5" /> [VOCALIZE_REPORT]
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Presets segment */}
+                      <div className="border-t border-zinc-900/60 pt-2 shrink-0">
+                        <span className="text-[6px] text-zinc-650 font-black tracking-[0.25em] uppercase block mb-1.5 select-none">AI VECTOR SEEDS</span>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            { label: "Suez Canal", text: "Analyze Suez Canal Maritime Chokepoint logistics risk vectors" },
+                            { label: "ASML EUV", text: "ASML EUV Lithography Production bottlenecks and suppliers" },
+                            { label: "Taiwan Foundries", text: "Taiwan Semiconductor Foundries geopolitical bottlenecks" },
+                            { label: "Ningde Batteries", text: "CATL Lithium Battery supply-chain resilience" }
+                          ].map((preset, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setAiInput(preset.text)}
+                              className="text-[7px] bg-zinc-950/50 hover:bg-zinc-900/80 border border-zinc-900 hover:border-zinc-800 text-zinc-500 hover:text-emerald-400 px-1.5 py-0.5 rounded-sm transition-colors cursor-pointer"
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Chat Form Input */}
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const queryVal = aiInput.trim();
+                        if (!queryVal || isChatLoading || isAiProcessing) return;
+
+                        setAiInput("");
+                        setIsChatLoading(true);
+                        setChatHistory(prev => [...prev, { role: 'user', text: queryVal }]);
+
+                        try {
+                          const baseUrl = getApiBaseUrl();
+                          const response = await fetch(`${baseUrl}/api/ai/navigate`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt: queryVal }),
+                          });
+
+                          if (!response.ok) {
+                            throw new Error(`Uplink error: ${response.status}`);
+                          }
+
+                          const data = await response.json();
+                          if (data) {
+                            const rawLat = data.lat !== undefined ? data.lat : data.latitude;
+                            const rawLng = data.lng !== undefined ? data.lng : (data.longitude !== undefined ? data.longitude : data.lng);
+                            const parsedLat = typeof rawLat === "number" ? rawLat : Number(rawLat);
+                            const parsedLng = typeof rawLng === "number" ? rawLng : Number(rawLng);
+                            const hasCoords = !isNaN(parsedLat) && !isNaN(parsedLng);
+                            const latVal = hasCoords ? parsedLat : 37.3349;
+                            const lngVal = hasCoords ? parsedLng : -122.0091;
+
+                            const aiReply = {
+                              role: 'assistant' as const,
+                              text: data.briefing || data.explanation || "Cognitive report summarized.",
+                              coordinates: [latVal, lngVal] as [number, number],
+                              locationName: data.locationName || "GROUNDED TARGET",
+                              ticker: data.ticker || null,
+                              facts: data.facts || []
+                            };
+
+                            setChatHistory(prev => [...prev, aiReply]);
+
+                            if (setAgentFocus) {
+                              setAgentFocus({
+                                lat: latVal,
+                                lng: lngVal,
+                                zoomLevel: typeof data.zoomLevel === "number" ? data.zoomLevel : 6,
+                                locationName: data.locationName || "GROUNDED TARGET",
+                                facts: data.facts || [],
+                                ticker: data.ticker || null,
+                                briefing: data.briefing || data.explanation
+                              });
+                            }
+
+                            if (data.ticker) {
+                              const match = COMPANIES.find(c => c.symbol.toUpperCase() === data.ticker.toUpperCase());
+                              if (match) onSelectNode(match);
+                            }
+                          }
+                        } catch (err: any) {
+                          console.error("AI Assistant Chat Error:", err);
+                          setChatHistory(prev => [...prev, {
+                            role: 'assistant',
+                            text: `ERROR: Cognitive stream offline. ${err.message || "Timeout."}`
+                          }]);
+                        } finally {
+                          setIsChatLoading(false);
+                        }
+                      }}
+                      className="flex gap-2 shrink-0 relative"
+                    >
+                      <input
+                        type="text"
+                        value={aiInput}
+                        onChange={(e) => setAiInput(e.target.value)}
+                        placeholder={(isChatLoading || isAiProcessing) ? "SYNTHESIZING SYSTEM RESPONSES..." : "SUBMIT TACTICAL QUERY TO COGNITIVE MATRIX..."}
+                        disabled={isChatLoading || isAiProcessing}
+                        className="flex-1 bg-zinc-950/90 border border-zinc-900 rounded-sm px-2.5 py-1.5 font-sans text-[9px] text-emerald-400 placeholder-emerald-950 focus:outline-none focus:border-emerald-500/40 uppercase font-bold tracking-wide"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isChatLoading || isAiProcessing || !aiInput.trim()}
+                        className="bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-950 text-black disabled:text-zinc-700 border border-emerald-600/50 disabled:border-zinc-900 px-3 py-1.5 rounded-sm font-mono text-[8px] uppercase font-black tracking-widest cursor-pointer transition-all duration-150 active:scale-95 shadow-[0_0_10px_rgba(16,185,129,0.15)] disabled:shadow-none shrink-0"
+                      >
+                        {(isChatLoading || isAiProcessing) ? "UP-LINKING" : "TRANSMIT"}
+                      </button>
+                    </form>
                   </div>
                 )}
 

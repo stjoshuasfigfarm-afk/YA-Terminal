@@ -32,7 +32,13 @@ function isRelevant(title: string = "", description: string = ""): boolean {
     const text = (title + " " + description).toLowerCase();
 
     // 1. Noise Blacklist (Immediate Hard Block)
-    const excludeKeywords = ["movie", "cinema", "hollywood", "celebrity", "gossip", "album", "music", "tv show", "television", "netflix", "box office", "pop star", "red carpet", "sports", "championship", "hbo", "concert", "film"];
+    const excludeKeywords = [
+        "movie", "cinema", "hollywood", "celebrity", "gossip", "album", "music", "tv show", "television", "netflix", 
+        "box office", "pop star", "red carpet", "sports", "championship", "hbo", "concert", "film", "actor", "actress",
+        "trailer", "starring", "hulu", "disney+", "streaming", "premiere", "cast", "screenplay", "director", "directed",
+        "co-star", "co-stars", "oscar", "oscars", "golden globe", "golden globes", "theatre", "theater", "showtime",
+        "apple tv", "paramount+", "peacock tv"
+    ];
     if (excludeKeywords.some(ek => text.includes(ek))) {
         return false;
     }
@@ -462,6 +468,18 @@ function getFallbackNews(ticker: string = "Global Markets") {
       timestamp: dateStr
     };
   }
+  if (norm === "SPY") {
+    return {
+      ticker: "SPY",
+      headline: "S&P 500 INDEX & GLOBAL INTELLIGENCE TELEMETRY MONITORED BY CIA/MI6 LIAISON",
+      summary: "MI6 and CIA joint task forces monitor elevated state-sponsored espionage targeting critical supply networks. Simultaneously, the S&P 500 index maintains macro flow resilience.",
+      marketLocation: "LANGLEY, VIRGINIA",
+      lat: 38.9517,
+      lng: -77.1522,
+      sentiment: "NEUTRAL" as const,
+      timestamp: dateStr
+    };
+  }
 
   return {
     ticker: ticker || "Global Markets",
@@ -610,6 +628,27 @@ function getFallbackBriefing(symbol: string = "AAPL", storyContext?: any) {
       outlook: "STABLE" as const,
     };
   }
+  if (norm === "SPY") {
+    return {
+      summary: "SPY Briefing: S&P 500 maintains robust macro channel performance while Western intelligence networks (CIA, MI6) closely monitor state-sponsored industrial espionage threat vectors in microelectronic corridors.",
+      growthVectors: [
+        "Index rebalancing bolstering weight in high-yielding technology constituents",
+        "Coordinated CIA-MI6 counter-espionage securing core intellectual property",
+        "Cross-border capital inflows seeking safe-haven USD denominated indices"
+      ],
+      riskFactors: [
+        "Uncoordinated industrial cyber-espionage targeting component dependencies",
+        "Macro policy adjustments and unexpected Federal Reserve rate changes",
+        "Geopolitical flashpoints introducing volatility into index tracking margins"
+      ],
+      relatedEntities: [
+        "Central Intelligence Agency (CIA) - Industrial Security Division",
+        "Secret Intelligence Service (MI6) - Economic Defense Branch",
+        "Standard & Poor's Index Committee"
+      ],
+      outlook: "STABLE" as const,
+    };
+  }
 
   return {
     summary: `${symbol} remains in a secure operating envelope, utilizing standard capital reservation protocols. Telemetry indicators track within healthy baseline margins via localized mitigation strategies.`,
@@ -659,6 +698,11 @@ function getFallbackSentiment(symbol: string = "AAPL") {
     label = "SYS.OPTIMIZED";
     reason = "Mobile pipeline fabrication diversified to India.";
     forecast = [0.20, 0.45, 0.35, 0.60, 0.50, 0.40, 0.55, 0.70, 0.85, 0.80];
+  } else if (norm === "SPY") {
+    score = 0.65;
+    label = "INTEL_OPTIMIZED";
+    reason = "Index liquidity robust; state-sponsored espionage mitigated.";
+    forecast = [0.30, 0.45, 0.40, 0.55, 0.60, 0.50, 0.65, 0.70, 0.75, 0.72];
   }
 
   return {
@@ -673,6 +717,7 @@ function getFallbackSentiment(symbol: string = "AAPL") {
 router.post("/news", async (req, res) => {
   const { ticker } = req.body;
   const target = ticker || "Global Markets";
+  const targetQuery = target === "SPY" ? '"S&P 500" OR "CIA" OR "MI6" OR espionage OR "counter-intelligence"' : target;
 
   try {
     // 1. Fetch real news
@@ -681,7 +726,7 @@ router.post("/news", async (req, res) => {
     // GNews
     if (isKeyReady(GNEWS_KEY)) {
         try {
-            const url = `https://gnews.io/api/v4/search?q=${target}&token=${GNEWS_KEY}&lang=en`;
+            const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(targetQuery)}&token=${GNEWS_KEY}&lang=en`;
             const response = await axios.get(url, { timeout: 3000 });
             if (response.data.articles) fetchedNews.push(...response.data.articles.map((a: any) => ({ title: a.title, description: a.description, url: a.url })));
         } catch (e: any) {
@@ -692,7 +737,7 @@ router.post("/news", async (req, res) => {
     // TheNewsAPI
     if (isKeyReady(THENEWS_KEY) && fetchedNews.length < 5) {
         try {
-            const url = `https://api.thenewsapi.com/v1/news/all?search=${target}&api_token=${THENEWS_KEY}`;
+            const url = `https://api.thenewsapi.com/v1/news/all?search=${encodeURIComponent(targetQuery)}&api_token=${THENEWS_KEY}`;
             const response = await axios.get(url, { timeout: 3000 });
             if (response.data.data) fetchedNews.push(...response.data.data.map((a: any) => ({ title: a.title, description: a.description, url: a.url })));
         } catch (e: any) {
@@ -703,7 +748,7 @@ router.post("/news", async (req, res) => {
     // Currents News API
     if (isKeyReady(CURRENT_KEY) && fetchedNews.length < 5) {
         try {
-            const url = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(target)}&apiKey=${CURRENT_KEY}&language=en`;
+            const url = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(targetQuery)}&apiKey=${CURRENT_KEY}&language=en`;
             const response = await axios.get(url, { timeout: 3000 });
             if (response.data && response.data.news) {
                 fetchedNews.push(...response.data.news.map((a: any) => ({ title: a.title, description: a.description, url: a.url })));

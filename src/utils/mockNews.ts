@@ -27,6 +27,74 @@ function getHashedSelection<T>(arr: T[], seedStr: string): T {
 
 export function generateCompanySpecificNews(symbol: string, name: string, sector: string = ""): MockNewsStory[] {
   const norm = (symbol || "").toUpperCase();
+  
+  if (norm === "SPY") {
+    const dateObj = new Date();
+    const getPastTimeStr = (hoursAgo: number) => {
+      const d = new Date(dateObj.getTime() - hoursAgo * 60 * 60 * 1000);
+      return d.toISOString();
+    };
+
+    return [
+      {
+        title: "S&P 500 (SPY) Index surges to new high amid heavy institutional block trades and tech momentum",
+        description: "The S&P 500 benchmark index notched record-breaking gains today as large-scale institutional fund flows poured into high-weight technology constituents, consolidating index support levels.",
+        published_at: getPastTimeStr(2),
+        symbol: "SPY",
+        url: "https://example.com/logistics/intel/spy-0",
+        image: "",
+        source: "Yahoo Finance",
+        sentiment: "BULLISH",
+        impact: "CRITICAL",
+        intelligence: {
+          translatedTitle: "NEURAL ACCESS: S&P 500 MACRO LIQUIDITY CONSOLIDATION"
+        }
+      },
+      {
+        title: "CIA and MI6 joint intelligence task force uncovers state-sponsored cyber espionage targeting supply lanes",
+        description: "A classified intelligence briefing from CIA and MI6 specialists warns of highly coordinated espionage campaigns actively trying to map and penetrate microelectronic supply channels.",
+        published_at: getPastTimeStr(9),
+        symbol: "SPY",
+        url: "https://example.com/logistics/intel/spy-1",
+        image: "",
+        source: "Finnhub",
+        sentiment: "NEUTRAL",
+        impact: "CRITICAL",
+        intelligence: {
+          translatedTitle: "NEURAL ACCESS: CIA-MI6 JOINT SECURITY DIRECTIVE"
+        }
+      },
+      {
+        title: "S&P 500 options activity reaches extreme levels as desk traders hedge against global tariff chokepoints",
+        description: "Trading desk data reveals unusual volume spikes in SPY index puts. Institutional asset managers are rapidly positioning hedges against emerging supply chain and maritime trade disruptions.",
+        published_at: getPastTimeStr(16),
+        symbol: "SPY",
+        url: "https://example.com/logistics/intel/spy-2",
+        image: "",
+        source: "Yahoo Finance",
+        sentiment: "NEUTRAL",
+        impact: "MODERATE",
+        intelligence: {
+          translatedTitle: "NEURAL ACCESS: SPY INDEX DERIVATIVE POSITIONING"
+        }
+      },
+      {
+        title: "Counter-intelligence operation halts covert illicit lithography technology transfer in European shipping port",
+        description: "Allied counter-espionage agents intercepted an unauthorized shipment of advanced sub-micron lithography blueprints, disabling a sophisticated industrial espionage smuggling ring.",
+        published_at: getPastTimeStr(23),
+        symbol: "SPY",
+        url: "https://example.com/logistics/intel/spy-3",
+        image: "",
+        source: "Finnhub",
+        sentiment: "BEARISH",
+        impact: "MODERATE",
+        intelligence: {
+          translatedTitle: "NEURAL ACCESS: COVERT INDUSTRIAL EMBARGO INTERCEPT"
+        }
+      }
+    ];
+  }
+
   const targetCompany = COMPANIES.find(c => c.symbol === norm);
   
   // Resolve related partner companies for corporate deals

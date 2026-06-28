@@ -85,8 +85,9 @@ router.get("/:symbol?", async (req, res) => {
 
     // GNews
     if (isKeyReady(GNEWS_KEY)) {
-        await fetchGeneralNews(symbol, "GNews", GNEWS_KEY, async (q, k) => {
-            const response = await axios.get(`https://gnews.io/api/v4/search?q=${q}&token=${k}&lang=en`, { timeout: 10000 });
+        const gnewsQuery = symbol === "SPY" ? '"S&P 500" OR "CIA" OR "MI6" OR "espionage" OR "counter-intelligence"' : symbol;
+        await fetchGeneralNews(gnewsQuery, "GNews", GNEWS_KEY, async (q, k) => {
+            const response = await axios.get(`https://gnews.io/api/v4/search?q=${encodeURIComponent(q)}&token=${k}&lang=en`, { timeout: 10000 });
             const responseGeneral = await axios.get(`https://gnews.io/api/v4/search?q=geopolitical+conflict&token=${k}&lang=en`, { timeout: 10000 });
             return [...(response.data.articles || []), ...(responseGeneral.data.articles || [])].map((a: any) => ({
                 title: a.title,
@@ -103,8 +104,9 @@ router.get("/:symbol?", async (req, res) => {
 
     // TheNewsAPI
     if (isKeyReady(THENEWS_KEY)) {
-        await fetchGeneralNews(symbol, "TheNewsAPI", THENEWS_KEY, async (q, k) => {
-            const response = await axios.get(`https://api.thenewsapi.com/v1/news/all?search=${q}&api_token=${k}`, { timeout: 10000 });
+        const thenewsQuery = symbol === "SPY" ? '"S&P 500" OR "CIA" OR "MI6" OR "espionage" OR "counter-intelligence"' : symbol;
+        await fetchGeneralNews(thenewsQuery, "TheNewsAPI", THENEWS_KEY, async (q, k) => {
+            const response = await axios.get(`https://api.thenewsapi.com/v1/news/all?search=${encodeURIComponent(q)}&api_token=${k}`, { timeout: 10000 });
             const responseGeneral = await axios.get(`https://api.thenewsapi.com/v1/news/all?search=geopolitical+conflict&api_token=${k}`, { timeout: 10000 });
             return [...(response.data.data || []), ...(responseGeneral.data.data || [])].map((a: any) => ({
                 title: a.title,
@@ -122,7 +124,8 @@ router.get("/:symbol?", async (req, res) => {
     // Currents News API
     if (isKeyReady(CURRENT_KEY)) {
         try {
-            const url = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(symbol)}&apiKey=${CURRENT_KEY}&language=en`;
+            const currentsQuery = symbol === "SPY" ? '"S&P 500" OR "CIA" OR "MI6" OR "espionage" OR "counter-intelligence"' : symbol;
+            const url = `https://api.currentsapi.services/v1/search?keywords=${encodeURIComponent(currentsQuery)}&apiKey=${CURRENT_KEY}&language=en`;
             const response = await axios.get(url, { timeout: 10000 });
             if (response.data && response.data.news) {
                 altNews.push(...response.data.news.map((a: any) => ({
@@ -233,9 +236,29 @@ router.get("/:symbol?", async (req, res) => {
     const combinedArr = [...mappedNews, ...altNews, ...yahooNews];
     const finalNews: any[] = [];
 
+    const isMovieRelated = (title: string, desc: string) => {
+      const text = (title + " " + desc).toLowerCase();
+      const excludeKeywords = [
+        "movie", "cinema", "hollywood", "celebrity", "gossip", "album", "music",
+        "tv show", "television", "netflix", "box office", "pop star", "red carpet",
+        "sports", "championship", "hbo", "concert", "film", "actor", "actress",
+        "trailer", "starring", "hulu", "disney+", "streaming", "premiere", "cast",
+        "screenplay", "director", "directed", "co-star", "co-stars", "oscar", "oscars",
+        "golden globe", "golden globes", "theatre", "theater", "showtime", "apple tv",
+        "paramount+", "peacock tv"
+      ];
+      return excludeKeywords.some(kw => text.includes(kw));
+    };
+
     for (const item of combinedArr) {
       const normalizedTitle = item.title.trim().toLowerCase();
       if (!normalizedTitle) continue;
+      
+      // Strict movie and entertainment filter for high-integrity news
+      if (isMovieRelated(item.title || "", item.description || "")) {
+        continue;
+      }
+
       // Skip duplicate entries
       if (!seenTitles.has(normalizedTitle)) {
         seenTitles.add(normalizedTitle);
