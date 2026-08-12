@@ -1,8 +1,8 @@
 {
   "entities": {
-    "SiloPrice": {
-      "title": "SiloPrice",
-      "description": "Represents live market price data for a symbol",
+    "marketData": {
+      "title": "Market Data",
+      "description": "Live market quote information",
       "type": "object",
       "properties": {
         "price": { "type": "number" },
@@ -16,15 +16,48 @@
         "volume": { "type": "number" },
         "symbol": { "type": "string" },
         "source": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
-      },
-      "required": ["symbol", "price"]
+        "timestamp": { "type": "string" }
+      }
+    },
+    "vessel": {
+      "title": "Vessel",
+      "description": "Real-time vessel telemetry and metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "mmsi": { "type": "string" },
+        "name": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "sog": { "type": "number" },
+        "cog": { "type": "number" },
+        "alt": { "type": "number" },
+        "trackType": { "type": "string" },
+        "vesselType": { "type": "string" },
+        "flagCode": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "cargo": { "type": "string" },
+        "aisStatus": { "type": "string" },
+        "riskRating": { "type": "string" },
+        "lastUpdated": { "type": "number" },
+        "imo": { "type": "string" },
+        "callSign": { "type": "string" },
+        "destination_lng": { "type": "number" },
+        "destination_lat": { "type": "number" },
+        "origin_lng": { "type": "number" },
+        "origin_lat": { "type": "number" }
+      }
     }
   },
   "firestore": {
-    "silo_prices/{symbol}": {
-      "schema": "SiloPrice",
-      "description": "Stores live market prices keyed by ticker symbol"
+    "/vessels/{vesselId}": {
+      "schema": "vessel",
+      "description": "Live vessel tracking data"
+    },
+    "/silo_prices/{symbol}": {
+      "schema": "marketData",
+      "description": "Live market price data"
     }
   }
 }

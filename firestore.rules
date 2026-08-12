@@ -8,17 +8,20 @@ service cloud.firestore {
     function isAdmin() { return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
 
     // Catch-all: default deny
-    match /{document=**} {
+    match /silo_prices/{symbol} {
+      allow read, write: if true;
+    }
+
+    match /vessels/{vesselId} {
+      allow read, write: if true;
+    }
+
+    match /admins/{uid} {
       allow read, write: if false;
     }
 
-    match /silo_prices/{symbol} {
-      // Market data: accessible to signed-in users, writable by anyone for now (server side writes)
-      allow read: if isSignedIn();
-      allow write: if true; 
-    }
-    
-    match /admins/{uid} {
+    // Default deny at the bottom
+    match /{document=**} {
       allow read, write: if false;
     }
   }
